@@ -17,7 +17,8 @@ const AuthSlider = () => {
                     <div className="position-relative h-100 d-flex flex-column">
                         <div className="mb-4">
                             <Link to="/dashboard" className="d-block">
-                                <img src={logoLight} alt="" height="18" />
+                                {/*<img src={logoLight} alt="" height="18" />*/}
+                                <h3 text-green> "RETAIL LOGO" </h3>
                             </Link>
                         </div>
                         <div className="mt-auto">
@@ -28,17 +29,23 @@ const AuthSlider = () => {
                             <Carousel showThumbs={false} autoPlay={true} showArrows={false} showStatus={false} infiniteLoop={true} className="carousel slide" >
                                 <div className="carousel-inner text-center text-white-50 pb-5">
                                     <div className="item">
-                                        <p className="fs-15 fst-italic">" Great! Clean code, clean design, easy for customization. Thanks very much! "</p>
+                                        <p className="fs-15 fst-italic">
+                                            "The sales reporting and product margins analytics gave us complete visibility into what actually sells."
+                                            </p>
                                     </div>
                                 </div>
                                 <div className="carousel-inner text-center text-white-50 pb-5">
                                     <div className="item">
-                                        <p className="fs-15 fst-italic">" The theme is really great with an amazing customer support."</p>
+                                        <p className="fs-15 fst-italic">
+                                            " Managing receipts, returns, and customer loyalty rewards directly at the register has never been easier. " 
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="carousel-inner text-center text-white-50 pb-5">
                                     <div className="item">
-                                        <p className="fs-15 fst-italic">" Great! Clean code, clean design, easy for customization. Thanks very much! "</p>
+                                        <p className="fs-15 fst-italic">
+                                            " Stockouts are down and checkout is faster than ever. The automated reordering is a game-changer! "
+                                        </p>
                                     </div>
                                 </div>
                             </Carousel>

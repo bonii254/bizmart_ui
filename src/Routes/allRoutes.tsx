@@ -5,6 +5,8 @@ import WarehouseSummaryReport from "../pages/Report/WarehouseSummaryReport"
 import RequisitionsDashboard from "../pages/Requsition/RequisitionsDashboard";
 import MachineConsumptionForm from "../pages/Consumption/ConsumptionForm"
 import SupplierReceiptForm from "../pages/GRN/GoodReceivedNote";
+import CustomerManagement from "../pages/Customers/customerManagement";
+import SupplierManagement from "../pages/Suppliers/SupplierManagement"
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 
@@ -51,6 +53,8 @@ const authProtectedRoutes = [
   { path: "/index", component: <DashboardEcommerce /> },
 
   { path: "/grn", component: <SupplierReceiptForm/> },
+  { path: "/customers", component: <CustomerManagement/> },
+  { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/requisition", component: <RequisitionsDashboard /> },
   { path: "/consumption", component: <MachineConsumptionForm />},
   { path: "/CoolersSummaryReport", component: <WarehouseSummaryReport />},
