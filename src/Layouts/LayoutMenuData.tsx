@@ -67,16 +67,16 @@ const Navdata = () => {
       link: "/suppliers",
     },
     {
-      id: "requisition",
-      label: "Requisition",
-      icon: "ri-download-cloud-line",
-      link: "/requisition",
+      id: "banks",
+      label: "Banks",
+      icon: "ri-bank-line",
+      link: "/banks",
     },
     {
-      id: "consumption",
-      label: "Consumption",
-      icon: "ri-box-3-line",
-      link: "/consumption"
+      id: "cash-withdrawal",
+      label: "Cash Withdrawal",
+      icon: "ri-money-dollar-circle-line",
+      link: "/cash-withdrawal",
     },
     {
       id: "reports",

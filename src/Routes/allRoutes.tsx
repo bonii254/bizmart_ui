@@ -4,9 +4,11 @@ import { Navigate } from "react-router-dom";
 import WarehouseSummaryReport from "../pages/Report/WarehouseSummaryReport"
 import RequisitionsDashboard from "../pages/Requsition/RequisitionsDashboard";
 import MachineConsumptionForm from "../pages/Consumption/ConsumptionForm"
-import SupplierReceiptForm from "../pages/GRN/GoodReceivedNote";
+import GoodsReceipt from "../pages/GRN/GoodReceivedNote";
 import CustomerManagement from "../pages/Customers/customerManagement";
-import SupplierManagement from "../pages/Suppliers/SupplierManagement"
+import SupplierManagement from "../pages/Suppliers/SupplierManagement";
+import BankManagement from "../pages/Bank/BankManagement";
+import CashWithdrawal from "../pages/Withdraw/CashWithdrawal";
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 
@@ -52,9 +54,11 @@ const authProtectedRoutes = [
   { path: "/dashboard", component: <DashboardEcommerce /> },
   { path: "/index", component: <DashboardEcommerce /> },
 
-  { path: "/grn", component: <SupplierReceiptForm/> },
+  { path: "/grn", component: <GoodsReceipt/> },
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
+  { path: "/banks", component: <BankManagement/> },
+  { path: "/cash-withdrawal", component: <CashWithdrawal /> },
   { path: "/requisition", component: <RequisitionsDashboard /> },
   { path: "/consumption", component: <MachineConsumptionForm />},
   { path: "/CoolersSummaryReport", component: <WarehouseSummaryReport />},

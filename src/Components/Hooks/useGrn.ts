@@ -1,82 +1,39 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AxiosError } from "axios";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { GRNService } from "../../services/grnService";
+import { GRNPayload } from "../../types/grn";
 import { toast } from "react-toastify";
 
-import { GRNService } from "../../services/grnService";
-import type {
-  SupplierReceiptPayload,
-  GRNSuccessResponse,
-  GRNErrorResponse,
-} from "../../types/grn";
+export const useGRNs = (page: number = 1, perPage: number = 100) => {
+  return useQuery({
+    queryKey: ["goods-receipts", page, perPage],
+    queryFn: () => GRNService.getGRNs(page, perPage),
+  });
+};
 
-export const useGRN = (warehouseId?: string) => {
+export const useGRNDetails = (id: string | null) => {
+  return useQuery({
+    queryKey: ["goods-receipts", id],
+    queryFn: () => GRNService.getGRNById(id!),
+    enabled: !!id,
+  });
+};
+
+export const useGRNMutation = () => {
   const queryClient = useQueryClient();
 
-  const processReceiptMutation = useMutation<
-    GRNSuccessResponse,
-    AxiosError<GRNErrorResponse>,
-    SupplierReceiptPayload
-  >({
-    mutationFn: async (payload: SupplierReceiptPayload) => {
-      if (!warehouseId) {
-        throw new Error("Warehouse ID is required to process a Goods Received Note.");
-      }
-
-      return GRNService.processSupplierReceipt(warehouseId, payload);
+  const createMutation = useMutation({
+    mutationFn: (data: GRNPayload) => GRNService.createGRN(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goods-receipts"] });
+      toast.success("Goods Receipt posted successfully (FIFO Lot Updated)");
     },
-
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({
-        queryKey: ["warehouseStock"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["stockBalances"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["stockItems"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["inventoryTransactions"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["inventorySummary"],
-      });
-      toast.success(
-        response.message ??
-          "Goods Received Note processed successfully and FIFO layers committed."
-      );
-    },
-
-    onError: (error) => {
-      const apiError = error.response?.data;
-
-      switch (apiError?.error) {
-        case "Schema validation failed":
-          toast.error("Form validation failed. Please review the entered values.");
-          break;
-
-        case "GRN processing validation failed":
-          toast.error(apiError.error);
-          break;
-
-        default:
-          toast.error(
-            apiError?.error ??
-              error.message ??
-              "An unexpected error occurred while processing the Goods Received Note."
-          );
-      }
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to post Goods Receipt");
     },
   });
 
   return {
-    submitReceipt: processReceiptMutation.mutateAsync,
-
-    isProcessing: processReceiptMutation.isPending,
-    data: processReceiptMutation.data,
-    error: processReceiptMutation.error,
-    isSuccess: processReceiptMutation.isSuccess,
-    isError: processReceiptMutation.isError,
-    reset: processReceiptMutation.reset,
+    createGRN: createMutation.mutateAsync,
+    isPosting: createMutation.isPending,
   };
 };

@@ -18,7 +18,7 @@ import classnames from "classnames";
 import { Link } from "react-router-dom";
 
 import UserManagement from "./users";
-import CoolerManagement from "./cooler";
+import CategoryManagement from "./Category";
 import AssignmentManagement from "./assignment";
 import StockItemManagement from "./stockitem";
 import WarehouseStockManagement from "./warehouseStock";
@@ -118,15 +118,15 @@ const SettingsHub = () => {
                           <div className="flex-shrink-0">
                             <i
                               className={classnames(
-                                "ri-fridge-line fs-18 me-3",
+                                "ri-folder-2-line fs-18 me-3", 
                                 { "text-primary": activeTab === "2" },
                               )}
                             ></i>
                           </div>
                           <div className="flex-grow-1">
-                            <h5 className="mb-0 fs-13">Cooler Centers</h5>
+                            <h5 className="mb-0 fs-13">Categories</h5>
                             <p className="mb-0 fs-12 text-muted">
-                              Warehouse listing
+                              Master category listing
                             </p>
                           </div>
                         </div>
@@ -231,7 +231,7 @@ const SettingsHub = () => {
                     </TabPane>
 
                     <TabPane tabId="2">
-                      <CoolerManagement />
+                      <CategoryManagement />
                     </TabPane>
 
                     <TabPane tabId="3">
