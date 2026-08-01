@@ -4,7 +4,11 @@ export interface StockItem {
   id: string;
   stock_code: string;
   description: string;
+  category_id: string;
   uom: UOM;
+  unit_cost: number;
+  selling_price: number;
+  quantity_on_hand: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -13,7 +17,11 @@ export interface StockItem {
 export interface StockItemPayload {
   stock_code: string;
   description: string;
+  category_id: string;
   uom: UOM;
+  unit_cost: number;
+  selling_price: number;
+  quantity_on_hand?: number;
   is_active?: boolean;
 }
 

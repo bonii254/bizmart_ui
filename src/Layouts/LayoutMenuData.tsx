@@ -55,6 +55,12 @@ const Navdata = () => {
       link: "/grn",
     },
     {
+      id: "inventory",
+      label: "Inventory",
+      icon: "ri-store-2-line",
+      link: "/inventory",
+    },
+    {
       id: "customers",
       label: "Customers",
       icon: "ri-user-shared-2-line", 

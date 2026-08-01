@@ -9,7 +9,7 @@ import { useFormik } from "formik";
 
 import { useUserMutation } from "../../Components/Hooks/useUsers"; 
 
-import logoLight from "../../assets/images/freshalogo.png";
+import logoLight from "../../assets/images/logo-light.png";
 import ParticlesAuth from "../AuthenticationInner/ParticlesAuth";
 
 const ForgetPasswordPage = (props: any) => {

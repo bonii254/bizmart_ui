@@ -1,10 +1,9 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 
-import WarehouseSummaryReport from "../pages/Report/WarehouseSummaryReport"
-import RequisitionsDashboard from "../pages/Requsition/RequisitionsDashboard";
-import MachineConsumptionForm from "../pages/Consumption/ConsumptionForm"
+
 import GoodsReceipt from "../pages/GRN/GoodReceivedNote";
+import StockItemManagement from "../pages/Inventory";
 import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
 import BankManagement from "../pages/Bank/BankManagement";
@@ -55,13 +54,11 @@ const authProtectedRoutes = [
   { path: "/index", component: <DashboardEcommerce /> },
 
   { path: "/grn", component: <GoodsReceipt/> },
+  { path: "/inventory", component: <StockItemManagement/> },
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/banks", component: <BankManagement/> },
   { path: "/cash-withdrawal", component: <CashWithdrawal /> },
-  { path: "/requisition", component: <RequisitionsDashboard /> },
-  { path: "/consumption", component: <MachineConsumptionForm />},
-  { path: "/CoolersSummaryReport", component: <WarehouseSummaryReport />},
   { path: "/settings", component: <SettingsHub /> },
   { path: "/audit-logs", component: <AuditLogs /> },
 
