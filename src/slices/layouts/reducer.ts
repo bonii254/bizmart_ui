@@ -32,7 +32,7 @@ export interface LayoutState {
 export const initialState: LayoutState = {
   layoutType: LAYOUT_TYPES.SEMIBOX,
   layoutModeType: LAYOUT_MODE_TYPES.LIGHTMODE,
-  leftSidebarType: LAYOUT_SIDEBAR_TYPES.LIGHT,
+  leftSidebarType: LAYOUT_SIDEBAR_TYPES.DARK,
   layoutWidthType: LAYOUT_WIDTH_TYPES.FLUID,
   layoutPositionType: LAYOUT_POSITION_TYPES.FIXED,
   topbarThemeType: LAYOUT_TOPBAR_THEME_TYPES.LIGHT,

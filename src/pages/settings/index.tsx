@@ -17,6 +17,7 @@ import BreadCrumb from "../../Components/Common/BreadCrumb";
 
 import UserManagement from "./users";
 import CategoryManagement from "./Category";
+import WarehouseManagement from "./Warehouse";
 import CompanyManagement from "./Company";
 
 const SettingsHub = () => {
@@ -35,6 +36,8 @@ const SettingsHub = () => {
         return "Category Management";
       case "3":
         return "Company Management";
+      case "4":
+        return "Warehouse Management";
       default:
         return "Settings";
     }
@@ -49,7 +52,7 @@ const SettingsHub = () => {
       <div className="page-content">
         <Container fluid>
           {/* Standardized Velzon Header & Breadcrumb */}
-          <BreadCrumb title="Settings" pageTitle="System Configuration" />
+          {/* <BreadCrumb title="Settings" pageTitle="System Configuration" /> */}
 
           <Row>
             <Col lg={3}>
@@ -140,7 +143,35 @@ const SettingsHub = () => {
                           <div className="flex-grow-1">
                             <h5 className="mb-0 fs-13">Companies</h5>
                             <p className="mb-0 fs-12 text-muted">
-                              Manage registered companies
+                              Manage companies
+                            </p>
+                          </div>
+                        </div>
+                      </NavLink>
+                    </NavItem>
+
+                    {/* Tab 4: Warehouse Management */}
+                    <NavItem className="mb-2">
+                      <NavLink
+                        style={{ cursor: "pointer" }}
+                        className={classnames({
+                          "active bg-primary-subtle": activeTab === "4",
+                        })}
+                        onClick={() => toggleTab("4")}
+                      >
+                        <div className="d-flex align-items-center">
+                          <div className="flex-shrink-0">
+                            <i
+                              className={classnames(
+                                "ri-store-2-line fs-18 me-3",
+                                { "text-primary": activeTab === "4" }
+                              )}
+                            ></i>
+                          </div>
+                          <div className="flex-grow-1">
+                            <h5 className="mb-0 fs-13">Warehouses</h5>
+                            <p className="mb-0 fs-12 text-muted">
+                              Manage warehouse
                             </p>
                           </div>
                         </div>
@@ -170,6 +201,10 @@ const SettingsHub = () => {
 
                     <TabPane tabId="3">
                       <CompanyManagement />
+                    </TabPane>
+
+                    <TabPane tabId="4">
+                      <WarehouseManagement />
                     </TabPane>
                   </TabContent>
                 </CardBody>

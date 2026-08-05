@@ -8,6 +8,7 @@ import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
 import BankManagement from "../pages/Bank/BankManagement";
 import CashWithdrawal from "../pages/Withdraw/CashWithdrawal";
+import PointOfSale from "../pages/POS/PointOfSale";
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 
@@ -54,6 +55,7 @@ const authProtectedRoutes = [
   { path: "/index", component: <DashboardEcommerce /> },
 
   { path: "/grn", component: <GoodsReceipt/> },
+  { path: "/pos", component: <PointOfSale/> },
   { path: "/inventory", component: <StockItemManagement/> },
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
