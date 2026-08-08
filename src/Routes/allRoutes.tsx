@@ -3,7 +3,9 @@ import { Navigate } from "react-router-dom";
 
 
 import GoodsReceipt from "../pages/GRN/GoodReceivedNote";
-import StockItemManagement from "../pages/Inventory";
+import StockBalanceOverview from "../pages/Inventory";
+import StockTakeList from "../pages/Inventory/StockTakeOverview";
+import NewStockTake from "../pages/Inventory/NewStockTake";
 import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
 import BankManagement from "../pages/Bank/BankManagement";
@@ -56,7 +58,9 @@ const authProtectedRoutes = [
 
   { path: "/grn", component: <GoodsReceipt/> },
   { path: "/pos", component: <PointOfSale/> },
-  { path: "/inventory", component: <StockItemManagement/> },
+  { path: "/inventory/products", component: <StockBalanceOverview/> },
+  { path: "/inventory/stock-take", component: <StockTakeList /> },
+  { path: "/inventory/stock-take/new", component: <NewStockTake /> },
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/banks", component: <BankManagement/> },

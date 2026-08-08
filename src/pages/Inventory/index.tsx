@@ -1,83 +1,68 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Button, Table, Modal, ModalHeader, ModalBody, ModalFooter, 
-  Form, FormGroup, Label, Input, FormFeedback, Spinner, Alert, 
-  Row, Col, Card, CardBody, CardHeader, Container 
-} from 'reactstrap';
-import { Link } from 'react-router-dom';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import BreadCrumb from '../../Components/Common/BreadCrumb';
-import { 
-  useStockItems, 
-  useStockItemMutation 
-} from '../../Components/Hooks/useStockItems';
-import { useCategories } from '../../Components/Hooks/useCategory';
-import { 
-  StockItem,
-  StockItemPayload, 
-  UpdateStockItemRequest, UOM 
-} from '../../types/stockitem';
-import { handleBackendErrors } from '../../helpers/form_utils';
-import TablePagination from "../TablePagination"; 
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  Table,
+  Input,
+  Spinner,
+  Row,
+  Col,
+  Card,
+  CardBody,
+  CardHeader,
+  Container,
+  Badge,
+} from "reactstrap";
 
-const StockItemManagement = () => {
-  // Velzon dynamic page title document sync
+import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useWarehouses } from "../../Components/Hooks/useWarehouse";
+import { WarehouseStock } from "../../types/warehouseStock";
+import TablePagination from "../TablePagination";
+
+const StockBalanceOverview: React.FC = () => {
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
+  const [pageIndex, setPageIndex] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  // Debounced auto-search state
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
   useEffect(() => {
-    document.title = "Stock Item Management | Velzon - React Admin & Dashboard Template";
-  }, []);
+    const handler = setTimeout(() => {
+      setSearchTerm(searchInput);
+      setPageIndex(0);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
-  const [pageIndex, setPageIndex] = useState(0); 
-  const [pageSize, setPageSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
+  // React Query Custom Hooks
+  const { balances, isLoading } = useWarehouseStock(
+    selectedWarehouseId || undefined
+  );
+  const { data: warehouseData } = useWarehouses(true);
 
-  const { data, isLoading } = useStockItems(); 
-  const { data: categoriesData } = useCategories();
+  const warehouseList = useMemo(
+    () => warehouseData?.warehouses || [],
+    [warehouseData]
+  );
 
-  const { 
-    createStockItem, 
-    updateStockItem, 
-    deleteStockItem, 
-    isCreating, 
-    isUpdating, 
-    isDeleting 
-  } = useStockItemMutation();
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [currentStockItemId, setCurrentStockItemId] = useState<string | null>(null);
-  const [globalError, setGlobalError] = useState<string | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-
-  const categoriesList = useMemo(() => {
-    if (!categoriesData) return [];
-    return Array.isArray(categoriesData) 
-      ? categoriesData 
-      : (categoriesData as any).categories || (categoriesData as any).data || [];
-  }, [categoriesData]);
-
-  const categoryMap = useMemo(() => {
-    return new Map<string, string>(
-      categoriesList.map((cat: any) => [String(cat.id), String(cat.name)])
+  // Client-side Filter by Search Term (Stock code or description)
+  const filteredBalances = useMemo(() => {
+    if (!searchTerm) return balances;
+    const lower = searchTerm.toLowerCase();
+    return balances.filter(
+      (b: WarehouseStock) =>
+        b.stock_item?.stock_code?.toLowerCase().includes(lower) ||
+        b.stock_item?.description?.toLowerCase().includes(lower)
     );
-  }, [categoriesList]);
+  }, [balances, searchTerm]);
 
-  const filteredStockItems = useMemo(() => {
-    const list = data?.catalog || [];
-    if (!searchTerm) return list;
-    return list.filter(item => 
-      item.stock_code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      item.description.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [data, searchTerm]);
-
+  // Pagination Math
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
-    return filteredStockItems.slice(start, start + pageSize);
-  }, [filteredStockItems, pageIndex, pageSize]);
+    return filteredBalances.slice(start, start + pageSize);
+  }, [filteredBalances, pageIndex, pageSize]);
 
-  const totalPages = Math.ceil(filteredStockItems.length / pageSize);
+  const totalPages = Math.ceil(filteredBalances.length / pageSize);
 
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
@@ -85,386 +70,209 @@ const StockItemManagement = () => {
       setPageSize(size);
       setPageIndex(0);
     },
-    previousPage: () => setPageIndex(prev => Math.max(prev - 1, 0)),
-    nextPage: () => setPageIndex(prev => Math.min(prev + 1, totalPages - 1)),
+    previousPage: () => setPageIndex((prev) => Math.max(prev - 1, 0)),
+    nextPage: () => setPageIndex((prev) => Math.min(prev + 1, totalPages - 1)),
     getCanPreviousPage: () => pageIndex > 0,
     getCanNextPage: () => pageIndex < totalPages - 1,
     getPageCount: () => totalPages || 1,
     getRowModel: () => ({ rows: paginatedRows }),
-    getPrePaginationRowModel: () => ({ rows: filteredStockItems }),
+    getPrePaginationRowModel: () => ({ rows: filteredBalances }),
   };
 
-  const formik = useFormik<StockItemPayload>({
-    initialValues: { 
-      stock_code: '',
-      description: '',
-      category_id: '',
-      uom: 'LITERS' as UOM,
-      unit_cost: 0,
-      selling_price: 0,
-      quantity_on_hand: 0,
-      is_active: true
-    },
-    validationSchema: Yup.object({
-      stock_code: Yup.string()
-        .max(30, 'Stock Code is too long')
-        .required('Stock Code SKU identifier is required'),
-      description: Yup.string().required('Item description details are required'),
-      category_id: Yup.string().required('Category selection is required'),
-      uom: Yup.string().oneOf(['LITERS', 'KILOGRAMS'], 'Invalid Unit of Measure').required('UOM is required'),
-      unit_cost: Yup.number()
-        .typeError('Unit cost must be a number')
-        .min(0, 'Unit cost cannot be negative')
-        .required('Unit cost is required'),
-      selling_price: Yup.number()
-        .typeError('Selling price must be a number')
-        .min(0, 'Selling price cannot be negative')
-        .required('Selling price is required'),
-      quantity_on_hand: Yup.number()
-        .typeError('Quantity must be a number')
-        .min(0, 'Quantity cannot be negative')
-        .optional(),
-    }),
-    onSubmit: async (values) => {
-      try {
-        setGlobalError(null);
-        if (isEditMode && currentStockItemId) {
-          const patchedData: UpdateStockItemRequest = {};
-          (Object.keys(values) as Array<keyof StockItemPayload>).forEach(key => {
-            if (values[key] !== formik.initialValues[key]) {
-              (patchedData as any)[key] = values[key];
-            }
-          });
-          await updateStockItem({ id: currentStockItemId, data: patchedData });
-        } else {
-          await createStockItem(values);
-        }
-        setModalOpen(false);
-      } catch (error: any) {
-        handleBackendErrors(error, formik.setErrors, setGlobalError);
-      }
-    }
-  });
-
-  const handleEdit = (item: StockItem) => {
-    setIsEditMode(true);
-    setCurrentStockItemId(item.id);
-    formik.resetForm({ values: { 
-      stock_code: item.stock_code,
-      description: item.description,
-      category_id: item.category_id || '',
-      uom: item.uom,
-      unit_cost: item.unit_cost || 0,
-      selling_price: item.selling_price || 0,
-      quantity_on_hand: item.quantity_on_hand || 0,
-      is_active: item.is_active
-    }});
-    setModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!currentStockItemId || deleteConfirmation !== 'DELETE') return;
-    try {
-      await deleteStockItem(currentStockItemId);
-      setDeleteModal(false);
-      setDeleteConfirmation('');
-      setCurrentStockItemId(null);
-    } catch (error: any) {
-      handleBackendErrors(error, () => {}, setGlobalError);
-    }
-  };
+  document.title = "Stock Balance Overview | Inventory";
 
   return (
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          {/* Velzon Corporate Header / Breadcrumb */}
-          <BreadCrumb title="Stock Item Management" pageTitle="Inventory" />
+          <Row>
+            <Col lg={12}>
+              <Card id="stockBalanceList" className="shadow-sm border-0">
+                {/* Clean, Spacious Header with Aligned Controls */}
+                <CardHeader className="border-bottom py-3 px-3 bg-white">
+                  <Row className="g-3 align-items-center justify-content-between">
+                    {/* Left: Title & Warehouse Dropdown */}
+                    <Col lg={5} md={6} sm={12}>
+                      <div className="d-flex align-items-center gap-3">
+                        <h5 className="card-title mb-0 fs-15 fw-semibold text-dark text-nowrap">
+                          Stock Balances
+                        </h5>
+                        <div className="flex-grow-1" style={{ maxWidth: "240px" }}>
+                          <Input
+                            type="select"
+                            className="form-select form-select-sm fs-12"
+                            value={selectedWarehouseId}
+                            onChange={(e) => {
+                              setSelectedWarehouseId(e.target.value);
+                              setPageIndex(0);
+                            }}
+                          >
+                            <option value="">All Warehouses</option>
+                            {warehouseList.map((wh: any) => (
+                              <option key={wh.warehouseId} value={wh.warehouseId}>
+                                {wh.warehouseName} ({wh.warehouseCode})
+                              </option>
+                            ))}
+                          </Input>
+                        </div>
+                      </div>
+                    </Col>
 
-          {globalError && <Alert color="danger" className="mb-3">{globalError}</Alert>}
-          
-          <Card className="mb-4">
-            <CardHeader className="border-0 align-items-center d-flex">
-              <h5 className="card-title mb-0 flex-grow-1">Inventory Master Catalog</h5>
-              <div className="flex-shrink-0">
-                <Button 
-                  color="primary" 
-                  onClick={() => { 
-                    setIsEditMode(false); 
-                    setCurrentStockItemId(null);
-                    setGlobalError(null);
+                    {/* Right: Search Input & Badge */}
+                    <Col lg={7} md={6} sm={12}>
+                      <div className="d-flex align-items-center justify-content-md-end gap-2 flex-wrap">
+                        <div
+                          className="search-box position-relative flex-grow-1 flex-md-grow-0"
+                          style={{ minWidth: "250px" }}
+                        >
+                          <Input
+                            type="text"
+                            className="form-control form-control-sm fs-12 ps-4"
+                            placeholder="Search stock code or item..."
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                          />
+                          <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
+                        </div>
 
-                    formik.resetForm({
-                      values: {
-                        stock_code: '',
-                        description: '',
-                        category_id: '',
-                        uom: 'LITERS',
-                        unit_cost: 0,
-                        selling_price: 0,
-                        quantity_on_hand: 0,
-                        is_active: true
-                      }
-                    }); 
+                        <Badge
+                          color="primary-subtle"
+                          className="text-primary border border-primary-subtle fs-11 px-2.5 py-1.5 rounded-2 fw-medium text-nowrap"
+                        >
+                          <i className="ri-list-check me-1 align-middle"></i>
+                          {filteredBalances.length} Records
+                        </Badge>
+                      </div>
+                    </Col>
+                  </Row>
+                </CardHeader>
 
-                    setModalOpen(true); 
-                  }}
-                >
-                  <i className="ri-add-line align-bottom me-1"></i> Register New Item
-                </Button>
-              </div>
-            </CardHeader>
-            <CardBody className="pt-0">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <div className="search-box">
-                  <Input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="Search stock code or desc..." 
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setPageIndex(0); }}
-                    style={{ width: '280px' }}
-                  />
-                </div>
-              </div>
+                <CardBody className="p-0">
+                  {/* Compact High-Density Datatable */}
+                  <div className="table-responsive">
+                    <Table
+                      hover
+                      responsive
+                      size="sm"
+                      className="align-middle mb-0 custom-datatable table-sm"
+                    >
+                      <thead className="table-light text-muted text-uppercase fs-10">
+                        <tr>
+                          <th style={{ width: "16%" }} className="ps-3 py-2">
+                            Stock Code
+                          </th>
+                          <th style={{ width: "36%" }} className="py-2">
+                            Description
+                          </th>
+                          <th style={{ width: "10%" }} className="py-2">
+                            UOM
+                          </th>
+                          <th style={{ width: "12%" }} className="text-start py-2">
+                            Qty On Hand
+                          </th>
+                          <th style={{ width: "13%" }} className="text-start py-2">
+                            Unit Cost
+                          </th>
+                          <th style={{ width: "13%" }} className="text-start pe-3 py-2">
+                            Total Value
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="fs-12">
+                        {isLoading ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-4">
+                              <Spinner size="sm" color="primary" className="me-2" />
+                              <span className="text-muted fs-12">
+                                Loading records...
+                              </span>
+                            </td>
+                          </tr>
+                        ) : paginatedRows.length > 0 ? (
+                          paginatedRows.map((item: WarehouseStock) => (
+                            <tr key={item.id} className="align-middle">
+                              {/* 1. Stock Code */}
+                              <td className="py-1.5 ps-3">
+                                <span className="fw-semibold text-primary font-monospace fs-11">
+                                  {item.stock_item?.stock_code || "N/A"}
+                                </span>
+                              </td>
 
-              <Table hover responsive className="align-middle custom-datatable mb-0">
-                <thead className="table-light text-muted">
-                  <tr>
-                    <th>Stock Code / Description</th>
-                    <th>Category</th>
-                    <th className="text-end">Unit Cost</th>
-                    <th className="text-end">Selling Price</th>
-                    <th className="text-end">Qty On Hand</th>
-                    <th>UOM</th>
-                    <th>Status</th>
-                    <th className="text-end">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr><td colSpan={8} className="text-center p-5"><Spinner color="primary" /></td></tr>
-                  ) : paginatedRows.length > 0 ? (
-                    paginatedRows.map((item: StockItem) => (
-                      <tr key={item.id}>
-                        <td>
-                          <div className="d-flex align-items-center">
-                            <div className="avatar-xs flex-shrink-0">
-                              <div className="avatar-title rounded-circle bg-success-subtle text-success fw-bold">
-                                <i className="ri-barcode-box-line"></i>
-                              </div>
-                            </div>
-                            <div className="ms-2">
-                              <h5 className="fs-14 mb-0">
-                                <Link to={`/inventory/items/view/${item.id}`} className="text-body fw-bold">{item.stock_code}</Link>
-                              </h5>
-                              <p className="text-muted mb-0 fs-12">
-                                {item.description}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="text-body fw-medium">
-                            {categoryMap.get(item.category_id) || 'Uncategorized'}
-                          </span>
-                        </td>
-                        <td className="text-end fw-semibold">
-                          {(item.unit_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="text-end fw-semibold text-primary">
-                          {(item.selling_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="text-end fw-medium">
-                          {(item.quantity_on_hand || 0).toLocaleString()}
-                        </td>
-                        <td>
-                          <span className="badge bg-light text-body border">{item.uom}</span>
-                        </td>
-                        <td>
-                          <span className={`badge ${item.is_active ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}`}>
-                            {item.is_active ? 'Active' : 'Deactivated'}
-                          </span>
-                        </td>
-                        <td className="text-end">
-                          <div className="d-flex gap-2 justify-content-end">
-                            <Button size="sm" color="soft-info" onClick={() => handleEdit(item)}>
-                              <i className="ri-edit-box-line"></i>
-                            </Button>
-                            <Button size="sm" color="soft-danger" onClick={() => { 
-                              setCurrentStockItemId(item.id); setDeleteConfirmation(''); setDeleteModal(true); 
-                            }}>
-                              <i className="ri-delete-bin-line"></i>
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={8} className="text-center p-4">No master stock items found matching your search.</td></tr>
-                  )}
-                </tbody>
-              </Table>
+                              {/* 2. Description (Truncated single-line) */}
+                              <td className="py-1.5">
+                                <span
+                                  className="text-dark fw-medium text-truncate d-inline-block align-middle"
+                                  style={{ maxWidth: "340px" }}
+                                  title={item.stock_item?.description}
+                                >
+                                  {item.stock_item?.description || "N/A"}
+                                </span>
+                              </td>
 
-              <TablePagination table={tableInstance} />
-            </CardBody>
-          </Card>
+                              {/* 3. UOM */}
+                              <td className="py-1.5">
+                                <Badge
+                                  color="light"
+                                  className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
+                                >
+                                  {item.stock_item?.uom || "N/A"}
+                                </Badge>
+                              </td>
 
-          {/* Form Modal */}
-          <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)} centered size="lg">
-            <ModalHeader className="bg-light p-3 border-bottom-dashed" toggle={() => setModalOpen(false)}>
-              {isEditMode ? 'Update SKU Specification' : 'Register New Catalog Item'}
-            </ModalHeader>
-            <Form onSubmit={formik.handleSubmit}>
-              <ModalBody className="p-4">
-                <Row>
-                  <Col md={6}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Stock Code (SKU)</Label>
-                      <Input 
-                        placeholder="e.g. FUEL-DSL-001"
-                        disabled={isEditMode}
-                        {...formik.getFieldProps('stock_code')} 
-                        invalid={!!(formik.touched.stock_code && formik.errors.stock_code)} 
-                      />
-                      <FormFeedback>{formik.errors.stock_code}</FormFeedback>
-                    </FormGroup>
-                  </Col>
+                              {/* 4. Quantity On Hand */}
+                              <td className="py-1.5 text-start fw-semibold text-dark font-monospace">
+                                {Number(item.qty_on_hand).toLocaleString()}
+                              </td>
 
-                  <Col md={6}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Category</Label>
-                      <Input 
-                        type="select" 
-                        {...formik.getFieldProps('category_id')}
-                        invalid={!!(formik.touched.category_id && formik.errors.category_id)}
-                      >
-                        <option value="">Select Category...</option>
-                        {categoriesList.map((cat: any) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </Input>
-                      <FormFeedback>{formik.errors.category_id}</FormFeedback>
-                    </FormGroup>
-                  </Col>
+                              {/* 5. Unit Cost (Selling Price) */}
+                              <td className="py-1.5 text-start fw-medium text-body font-monospace">
+                                Ksh{" "}
+                                {Number(item.unit_cost || 0).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </td>
 
-                  <Col md={4}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Unit of Measure (UOM)</Label>
-                      <Input type="select" {...formik.getFieldProps('uom')}>
-                        <option value="LITERS">LITERS</option>
-                        <option value="KILOGRAMS">KILOGRAMS</option>
-                      </Input> 
-                      <FormFeedback>{formik.errors.uom}</FormFeedback>     
-                    </FormGroup>
-                  </Col>
+                              {/* 6. Total Value */}
+                              <td className="py-1.5 text-start pe-3 fw-semibold text-success font-monospace">
+                                Ksh{" "}
+                                {Number(item.total_value).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="text-center py-4 text-muted fs-12">
+                              <i className="ri-inbox-line display-6 d-block text-muted mb-1"></i>
+                              No stock balance records found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </Table>
+                  </div>
 
-                  <Col md={4}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Unit Cost</Label>
-                      <Input 
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...formik.getFieldProps('unit_cost')}
-                        invalid={!!(formik.touched.unit_cost && formik.errors.unit_cost)}
-                      />
-                      <FormFeedback>{formik.errors.unit_cost}</FormFeedback>
-                    </FormGroup>
-                  </Col>
-
-                  <Col md={4}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Selling Price</Label>
-                      <Input 
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...formik.getFieldProps('selling_price')}
-                        invalid={!!(formik.touched.selling_price && formik.errors.selling_price)}
-                      />
-                      <FormFeedback>{formik.errors.selling_price}</FormFeedback>
-                    </FormGroup>
-                  </Col>
-
-                  <Col md={6}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Initial Quantity On Hand</Label>
-                      <Input 
-                        type="number"
-                        step="1"
-                        placeholder="0"
-                        {...formik.getFieldProps('quantity_on_hand')}
-                        invalid={!!(formik.touched.quantity_on_hand && formik.errors.quantity_on_hand)}
-                      />
-                      <FormFeedback>{formik.errors.quantity_on_hand}</FormFeedback>
-                    </FormGroup>
-                  </Col>
-
-                  <Col md={12}>
-                    <FormGroup className="mb-3">
-                      <Label className="form-label">Item Description</Label>
-                      <Input 
-                        type="textarea"
-                        rows={2}
-                        placeholder="Detailed material or item definitions..."
-                        {...formik.getFieldProps('description')} 
-                        invalid={!!(formik.touched.description && formik.errors.description)} 
-                      />
-                      <FormFeedback>{formik.errors.description}</FormFeedback>
-                    </FormGroup>
-                  </Col>
-                </Row>
-
-                {isEditMode && (
-                  <FormGroup check className="mt-2">
-                    <Label check>
-                      <Input 
-                        type="checkbox" 
-                        checked={formik.values.is_active}
-                        onChange={(e) => formik.setFieldValue('is_active', e.target.checked)}
-                      />{' '}
-                      Active Catalog Record (Operational Status)
-                    </Label>
-                  </FormGroup>
-                )}
-              </ModalBody>
-              <ModalFooter className="bg-light p-3">
-                <Button color="link" onClick={() => setModalOpen(false)}>Cancel</Button>
-                <Button type="submit" color="primary" disabled={isCreating || isUpdating}>
-                  {isCreating || isUpdating ? <Spinner size="sm" /> : (isEditMode ? 'Update Master Record' : 'Save Catalog SKU')}
-                </Button>
-              </ModalFooter>
-            </Form>
-          </Modal>
-
-          {/* Delete Confirmation Modal */}
-          <Modal isOpen={deleteModal} toggle={() => setDeleteModal(false)} centered>
-            <ModalBody className="p-5 text-center">
-              <i className="ri-error-warning-line display-4 text-warning"></i>
-              <div className="mt-4">
-                <h4 className="mb-2">Remove Catalog Item?</h4>
-                <p className="text-muted fs-14">Type <strong>DELETE</strong> to confirm master record eradication.</p>
-                <Input 
-                  type="text" value={deleteConfirmation} 
-                  onChange={(e) => setDeleteConfirmation(e.target.value)} 
-                  className="text-center mb-4" placeholder="Enter DELETE"
-                />
-                <div className="hstack gap-2 justify-content-center">
-                  <Button color="light" onClick={() => setDeleteModal(false)}>Cancel</Button>
-                  <Button color="danger" onClick={confirmDelete} disabled={isDeleting || deleteConfirmation !== 'DELETE'}>
-                    {isDeleting ? <Spinner size="sm" /> : 'Confirm Removal'}
-                  </Button>
-                </div>
-              </div>
-            </ModalBody>
-          </Modal>
+                  {/* Compact Table Footer */}
+                  <div className="px-3 py-2 border-top">
+                    <TablePagination table={tableInstance} />
+                  </div>
+                </CardBody>
+              </Card>
+            </Col>
+          </Row>
         </Container>
       </div>
     </React.Fragment>
   );
 };
 
-export default StockItemManagement;
+export default StockBalanceOverview;

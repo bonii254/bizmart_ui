@@ -9,7 +9,7 @@ import {
 } from "../types/stockitem";
 
 const api = new APIClient();
-const BASE_URL = "/inventory/items";
+const BASE_URL = "/mock/inventory/items";
 
 export const StockItemService = {
   listMasterCatalog: async (search?: string, activeOnly?: boolean): Promise<StockCatalogResponse> => {

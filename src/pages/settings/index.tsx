@@ -17,8 +17,10 @@ import BreadCrumb from "../../Components/Common/BreadCrumb";
 
 import UserManagement from "./users";
 import CategoryManagement from "./Category";
+import StockItemManagement from "./StockItem";
 import WarehouseManagement from "./Warehouse";
 import CompanyManagement from "./Company";
+import WarehouseStockManagement from "./WarehouseStock";
 
 const SettingsHub = () => {
   const [activeTab, setActiveTab] = useState("1");
@@ -38,6 +40,10 @@ const SettingsHub = () => {
         return "Company Management";
       case "4":
         return "Warehouse Management";
+      case "5":
+        return "Stock Item Management";
+      case "6":
+        return "Warehouse Stock Management";
       default:
         return "Settings";
     }
@@ -177,6 +183,62 @@ const SettingsHub = () => {
                         </div>
                       </NavLink>
                     </NavItem>
+
+                    {/* Tab 5: Stock Item Management */}
+                    <NavItem className="mb-2">
+                      <NavLink
+                        style={{ cursor: "pointer" }}
+                        className={classnames({
+                          "active bg-primary-subtle": activeTab === "5",
+                        })}
+                        onClick={() => toggleTab("5")}
+                      >
+                        <div className="d-flex align-items-center">
+                          <div className="flex-shrink-0">
+                            <i
+                              className={classnames(
+                                "ri-box-3-line fs-18 me-3",
+                                { "text-primary": activeTab === "5" }
+                              )}
+                            ></i>
+                          </div>
+                          <div className="flex-grow-1">
+                            <h5 className="mb-0 fs-13">Stock Items</h5>
+                            <p className="mb-0 fs-12 text-muted">
+                              Manage stock items
+                            </p>
+                          </div>
+                        </div>
+                      </NavLink>
+                    </NavItem>
+
+                    {/* Tab 6: Warehouse Stock Management */}
+                    <NavItem className="mb-2">
+                      <NavLink
+                        style={{ cursor: "pointer" }}
+                        className={classnames({
+                          "active bg-primary-subtle": activeTab === "6",
+                        })}
+                        onClick={() => toggleTab("6")}
+                      >
+                        <div className="d-flex align-items-center">
+                          <div className="flex-shrink-0">
+                            <i
+                              className={classnames(
+                                "ri-store-2-line fs-18 me-3",
+                                { "text-primary": activeTab === "6" }
+                              )}
+                            ></i>
+                          </div>
+                          <div className="flex-grow-1">
+                            <h5 className="mb-0 fs-13">Warehouse Stock</h5>
+                            <p className="mb-0 fs-12 text-muted">
+                              Manage warehouse stock
+                            </p>
+                          </div>
+                        </div>
+                      </NavLink>
+                    </NavItem>
                   </Nav>
                 </CardBody>
               </Card>
@@ -205,6 +267,12 @@ const SettingsHub = () => {
 
                     <TabPane tabId="4">
                       <WarehouseManagement />
+                    </TabPane>
+                    <TabPane tabId="5">
+                      <StockItemManagement />
+                    </TabPane>
+                    <TabPane tabId="6">
+                      <WarehouseStockManagement />
                     </TabPane>
                   </TabContent>
                 </CardBody>

@@ -1,4 +1,8 @@
-export type UOM = 'LITERS' | 'KILOGRAMS';
+export type UOM = 'LITERS' | 'KILOGRAMS' | 'GALLONS' | 'GRAMS' | 'TONS'             
+  | 'POUNDS' | 'PIECES' | 'EACH' | 'UNITS' | 'PACKS' | 'BOXES' | 'CARTONS'
+  | 'CASES' | 'CRATES' | 'PALLETS' | 'BAGS' | 'BUNDLES' | 'DOZENS' | 'SETS'
+  | 'PAIRS' | 'METERS' | 'CENTIMETERS' | 'FEET' | 'INCHES' | 'ROLLS' | 'SQUARE_METERS'
+  | 'SQUARE_FEET' | 'CUBIC_METERS';
 
 export interface NestedWarehouse {
   name: string;
@@ -29,7 +33,7 @@ export interface InitializeStockPayload {
   warehouse_id: string;
   stock_item_id: string;
   qty_on_hand?: number | string;
-  total_value?: number | string;
+  unit_cost?: number | string;
 }
 
 export interface GetBalancesParams {

@@ -7,7 +7,7 @@ import {
 } from "../types/warehouseStock";
 
 const api = new APIClient();
-const BASE_URL = "/stock-balances";
+const BASE_URL = "/mock/stock-balances";
 
 export const WarehouseStockService = {
   initializeStock: async (payload: InitializeStockPayload): Promise<WarehouseStock> => {

@@ -8,7 +8,7 @@ import {
 } from "../types/category";
 
 const api = new APIClient();
-const BASE_URL = "/inventory/categories"; 
+const BASE_URL = "/mock/inventory/categories"; 
 
 export const CategoryService = {
   listCategories: async (search?: string, activeOnly?: boolean, parentId?: string): Promise<CategoryListResponse> => {

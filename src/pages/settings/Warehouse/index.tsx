@@ -15,7 +15,6 @@ import {
   Alert,
   Card,
   CardBody,
-  CardHeader,
   Row,
   Col,
   UncontrolledTooltip,
@@ -206,67 +205,56 @@ const WarehouseManagement: React.FC = () => {
         </Alert>
       )}
 
-      <Card className="border-0 shadow-sm rounded-3">
-        {/* Card Header & Controls */}
-        <CardHeader className="bg-white border-bottom-0 pt-4 pb-3 px-4">
-          <Row className="g-3 align-items-center">
-            <Col xs={12}>
-              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                {/* Left Side: Search Bar */}
-                <div className="search-box position-relative flex-grow-1 flex-sm-grow-0">
-                  <Input
-                    type="text"
-                    className="form-control form-control-sm ps-5 bg-light border-0"
-                    placeholder="Search name or code..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setPageIndex(0);
-                    }}
-                    style={{ minWidth: "240px", height: "38px" }}
-                  />
-                  <i
-                    className="ri-search-line search-icon position-absolute text-muted"
-                    style={{ left: "12px", top: "50%", transform: "translateY(-50%)" }}
-                  ></i>
-                </div>
-        
-                {/* Right Side: Status Filter & Action Button */}
-                <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
-                  {/* Status Filter */}
-                  <div style={{ minWidth: "130px" }}>
-                    <Input
-                      type="select"
-                      className="form-select form-select-sm bg-light border-0"
-                      style={{ height: "38px" }}
-                      value={statusFilter}
-                      onChange={(e) => {
-                        setStatusFilter(e.target.value as any);
-                        setPageIndex(0);
-                      }}
-                    >
-                      <option value="all">All Status</option>
-                      <option value="active">Active Only</option>
-                      <option value="inactive">Deactivated</option>
-                    </Input>
-                  </div>
-        
-                  {/* Add New Button */}
-                  <Button
-                    color="primary"
-                    className="btn-sm d-flex align-items-center gap-1 shadow-sm px-3"
-                    style={{ height: "38px" }}
-                    onClick={handleOpenCreateModal}
-                  >
-                    <i className="ri-add-line fs-16"></i>
-                    <span className="fw-semibold">Add Warehouse</span>
-                  </Button>
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </CardHeader>
+      {/* Ultra-Compact Single-Line Control Toolbar */}
+      <div className="row g-2 align-items-center mb-3">
+        {/* 1. Status Filter Dropdown */}
+        <div className="col-12 col-sm-6 col-md-3">
+          <Input
+            type="select"
+            className="form-select form-select-sm fs-13"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as any);
+              setPageIndex(0);
+            }}
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Deactivated</option>
+          </Input>
+        </div>
 
+        {/* 2. Compact Search Input */}
+        <div className="col-12 col-sm-6 col-md-4">
+          <div className="search-box position-relative">
+            <Input
+              type="text"
+              className="form-control form-control-sm fs-13 ps-4"
+              placeholder="Search name or code..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPageIndex(0);
+              }}
+            />
+            <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-14"></i>
+          </div>
+        </div>
+
+        {/* 3. Action Button Aligned End */}
+        <div className="col-12 col-md-5 text-md-end">
+          <Button
+            color="primary"
+            size="sm"
+            className="fs-13 fw-medium px-3"
+            onClick={handleOpenCreateModal}
+          >
+            <i className="ri-add-line align-bottom me-1"></i> Add Warehouse
+          </Button>
+        </div>
+      </div>
+
+      <Card className="border-0 shadow-sm rounded-3">
         {/* Table Content */}
         <CardBody className="p-0">
           <Table hover responsive className="align-middle custom-datatable mb-0">

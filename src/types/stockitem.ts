@@ -1,14 +1,50 @@
-export type UOM = 'LITERS' | 'KILOGRAMS';
+import { Category } from "./category";
+
+export type UOM =
+  | "LITERS"
+  | "KILOGRAMS"
+  | "GALLONS"
+  | "GRAMS"
+  | "TONS"
+  | "POUNDS"
+  | "PIECES"
+  | "EACH"
+  | "UNITS"
+  | "PACKS"
+  | "BOXES"
+  | "CARTONS"
+  | "CASES"
+  | "CRATES"
+  | "PALLETS"
+  | "BAGS"
+  | "BUNDLES"
+  | "DOZENS"
+  | "SETS"
+  | "PAIRS"
+  | "METERS"
+  | "CENTIMETERS"
+  | "FEET"
+  | "INCHES"
+  | "ROLLS"
+  | "SQUARE_METERS"
+  | "SQUARE_FEET"
+  | "CUBIC_METERS";
+
+export interface StockItemCategorySummary {
+  id: string;
+  name: string;
+}
 
 export interface StockItem {
   id: string;
   stock_code: string;
   description: string;
-  category_id: string;
   uom: UOM;
-  unit_cost: number;
-  selling_price: number;
-  quantity_on_hand: number;
+  alternate_uom?: UOM | null;
+  alternate_uom_conversion_factor?: number | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  category?: Category | StockItemCategorySummary | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -17,12 +53,11 @@ export interface StockItem {
 export interface StockItemPayload {
   stock_code: string;
   description: string;
-  category_id: string;
   uom: UOM;
-  unit_cost: number;
-  selling_price: number;
-  quantity_on_hand?: number;
+  category_id?: string | null;
   is_active?: boolean;
+  alternate_uom?: UOM | null;
+  alternate_uom_conversion_factor?: number | null;
 }
 
 export interface UpdateStockItemRequest extends Partial<StockItemPayload> {}

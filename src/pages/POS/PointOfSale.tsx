@@ -8,8 +8,8 @@ import { usePOSMutation } from '../../Components/Hooks/usePOS'; // Adjust import
 import { POSLineItem } from '../../types/pos'; // Adjust import path
 
 // Brand Theme Accent Matching Sidebar (#410875)
-const BRAND_PURPLE = '#410875';
-const BRAND_PURPLE_SUBTLE = 'rgba(65, 8, 117, 0.08)';
+const BRAND_PURPLE = '#042e6d';
+const BRAND_PURPLE_SUBTLE = 'rgba(19, 8, 31, 0.08)';
 
 // Retail Catalog Items
 const AVAILABLE_ITEMS = [
