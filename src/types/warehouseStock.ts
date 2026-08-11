@@ -34,6 +34,7 @@ export interface InitializeStockPayload {
   stock_item_id: string;
   qty_on_hand?: number | string;
   unit_cost?: number | string;
+  total_value?: number | string;
 }
 
 export interface GetBalancesParams {

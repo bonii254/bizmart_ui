@@ -348,20 +348,34 @@ export const PointOfSale: React.FC = () => {
                       {/* Category Pills Bar */}
                       <Col xs={12} className="pt-1">
                         <div
-                          className="d-flex gap-1 flex-wrap pb-1"
+                          className="d-flex gap-2 pb-1"
+                          onWheel={(e) => {
+                            // Translates vertical mouse wheel rotation into horizontal scrolling
+                            if (e.deltaY !== 0) {
+                              e.currentTarget.scrollLeft += e.deltaY;
+                            }
+                          }}
                           style={{
-                            maxHeight: "80px",
-                            overflowY: "auto",      
-                            overflowX: "hidden",   
-                            scrollbarWidth: "thin", 
+                            overflowX: "auto",
+                            overflowY: "hidden",
+                            whiteSpace: "nowrap",
+                            scrollbarWidth: "none",
+                            msOverflowStyle: "none",
+                            WebkitOverflowScrolling: "touch",
                           }}
                         >
+                          <style>
+                            {`
+                              div::-webkit-scrollbar {
+                                display: none;
+                              }
+                            `}
+                          </style>
                           {isCategoriesLoading ? (
                             <Spinner size="sm" color="primary" className="my-1" />
                           ) : (
                             [...categoriesList]
                               .sort((a, b) => {
-                                // Keep "All" fixed at the beginning
                                 if (a === "All") return -1;
                                 if (b === "All") return 1;
                                 return a.localeCompare(b);
@@ -372,21 +386,13 @@ export const PointOfSale: React.FC = () => {
                                   <div
                                     key={cat || index}
                                     onClick={() => setSelectedCategory(cat)}
-                                    className="
-                                    px-3 py-1 
-                                    rounded-pill
-                                    fs-11 
-                                    cursor-pointer 
-                                    text-nowrap 
-                                    user-select-none 
-                                    transition-all"
+                                    className="px-3 py-1 rounded-pill fs-11 cursor-pointer text-nowrap user-select-none flex-shrink-0 transition-all"
                                     style={{
-                                      backgroundColor: isSelected ? 
-                                      BRAND_PURPLE : "#f3f6f9",
+                                      backgroundColor: isSelected ? BRAND_PURPLE : "#f3f6f9",
                                       color: isSelected ? "#ffffff" : "#495057",
-                                      border: isSelected ? 
-                                      `1px solid ${BRAND_PURPLE}` : 
-                                      "1px solid #e2e5e8",
+                                      border: isSelected
+                                        ? `1px solid ${BRAND_PURPLE}`
+                                        : "1px solid #e2e5e8",
                                       fontWeight: isSelected ? "600" : "500",
                                       lineHeight: "1.2",
                                     }}
@@ -397,104 +403,130 @@ export const PointOfSale: React.FC = () => {
                               })
                           )}
                         </div>
-                    </Col>
+                      </Col>
                     </Row>
                   </CardHeader>
 
                   {/* Catalog Tiles Body (Scrollable inside card) */}
-                  <CardBody className=
-                  "p-3 overflow-y-auto flex-grow-1" 
-                  style={{ backgroundColor: "#f8f9fa", minHeight: 0 }}>
-                    {isStockLoading ? (
-                      <div className="
-                      d-flex justify-content-center align-items-center h-100">
-                        <Spinner size="sm" color="primary" className="me-2" />
-                        <span className="text-muted fs-12">Loading products...</span>
-                      </div>
-                    ) : filteredCatalogItems.length > 0 ? (
-                      <Row className="g-2">
-                        {filteredCatalogItems.map((item: any) => {
-                          const itemId = item.stockItemId || item.id;
-                          const itemName = item.stock_item?.description || "";
-                          const price = Number(item.unit_cost || 0);
+                  
+<CardBody
+  className="p-2 p-sm-3 overflow-y-auto flex-grow-1 bg-light-subtle"
+  style={{ minHeight: 0 }}
+>
+  {isStockLoading ? (
+    <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
+      <Spinner size="sm" color="primary" className="mb-2" />
+      <span className="text-muted fs-12 fw-medium">Loading products...</span>
+    </div>
+  ) : filteredCatalogItems.length > 0 ? (
+    <Row className="g-2 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 row-cols-xl-4 row-cols-xxl-5">
+      {filteredCatalogItems.map((item: any) => {
+        const itemId = item.stockItemId || item.id;
+        const itemCode = item.stock_item?.stock_code || item.stockItemCode || "CODE";
+        const itemName = item.stock_item?.description || item.stockItemName || "Unnamed Item";
+        const uom = item.stock_item?.uom || item.uom || "PCS";
+        const qtyOnHand = Number(item.qty_on_hand || 0);
+        const price = Number(item.unit_cost || item.unitPrice || 0);
 
-                          const cartItem = cartMap.get(itemId);
-                          const inCartQty = cartItem ? cartItem.quantity : 0;
-                          const isSelected = inCartQty > 0;
+        const cartItem = cartMap.get(itemId);
+        const inCartQty = cartItem ? cartItem.quantity : 0;
+        const isSelected = inCartQty > 0;
+        const isOutOfStock = qtyOnHand <= 0;
 
-                          return (
-                            <Col xl={3} lg={4} md={4} sm={6} xs={6} key={itemId}>
-                              <div
-                                onClick={() => handleTileTap(item)}
-                                className="
-                                card h-100 border cursor-pointer 
-                                user-select-none position-relative 
-                                transition-all mb-0 bg-white"
-                                style={{
-                                  minHeight: "110px",
-                                  backgroundColor: isSelected ? 
-                                  BRAND_PURPLE_SUBTLE : "#ffffff",
-                                  borderRadius: "6px",
-                                  borderColor: isSelected ? 
-                                  BRAND_PURPLE : "#e9ebec",
-                                }}
-                              >
-                                {isSelected && (
-                                  <Badge
-                                    color="primary"
-                                    pill
-                                    className="
-                                    position-absolute top-0 start-100 
-                                    translate-middle border border-white"
-                                    style={{ 
-                                      backgroundColor: BRAND_PURPLE, 
-                                      fontSize: "10px" 
-                                    }}
-                                  >
-                                    {inCartQty}
-                                  </Badge>
-                                )}
-                                <div className="
-                                card-body d-flex flex-column align-items-center 
-                                justify-content-center text-center p-2">
-                                  <h6
-                                    className="
-                                    fs-12 fw-semibold text-dark mb-1 lh-sm"
-                                    style={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                    }}
-                                  >
-                                    {itemName}
-                                  </h6>
-                                  <span className="
-                                  fs-12 fw-bold 
-                                  text-primary 
-                                  font-monospace 
-                                  mt-auto">
-                                    Ksh {price.toLocaleString(
-                                      undefined, { minimumFractionDigits: 2 }
-                                      )}
-                                  </span>
-                                </div>
-                              </div>
-                            </Col>
-                          );
-                        })}
-                      </Row>
-                    ) : (
-                      <div className="text-center text-muted py-5">
-                        <i className="
-                        ri-inbox-line 
-                        display-6 d-block text-muted mb-1"></i>
-                        <span className="fs-12">
-                          No items available in this category.
-                        </span>
-                      </div>
-                    )}
-                  </CardBody>
+        return (
+          <Col key={itemId}>
+            <div
+              onClick={() => handleTileTap(item)}
+              className={`card h-100 border cursor-pointer user-select-none transition-all mb-0 rounded-2 position-relative ${
+                isSelected
+                  ? "border-primary shadow-sm"
+                  : "border-light-subtle shadow-none hover-shadow-sm"
+              } ${isOutOfStock ? "opacity-75" : ""}`}
+              style={{
+                minHeight: "128px",
+                backgroundColor: isSelected ? "rgba(4, 46, 109, 0.05)" : "#ffffff",
+                borderColor: isSelected ? BRAND_PURPLE : undefined,
+                transition: "all 0.15s ease-in-out",
+              }}
+            >
+              <div className="card-body p-2 p-sm-2.5 d-flex flex-column justify-content-between">
+                {/* 1. Header: Stock Code & Cart Badge */}
+                <div className="d-flex align-items-center justify-content-between gap-1 mb-1">
+                  <span
+                    className="badge bg-light text-muted border border-light-subtle font-monospace fs-10 px-1.5 py-0.5 fw-normal text-truncate"
+                    style={{ maxWidth: "60%" }}
+                    title={itemCode}
+                  >
+                    {itemCode}
+                  </span>
+
+                  {isSelected && (
+                    <Badge
+                      className="fs-10 px-2 py-0.5 rounded-pill d-flex align-items-center gap-1 fw-semibold shadow-xs ms-auto flex-shrink-0"
+                      style={{ backgroundColor: BRAND_PURPLE, color: "#ffffff" }}
+                    >
+                      <i className="ri-shopping-cart-2-fill fs-10"></i>
+                      <span>{inCartQty}</span>
+                    </Badge>
+                  )}
+                </div>
+
+                {/* 2. Content: Product Name */}
+                <div className="my-auto py-1">
+                  <h6
+                    className="fs-12 fw-semibold text-dark mb-0 lh-sm"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      wordBreak: "break-word",
+                    }}
+                    title={itemName}
+                  >
+                    {itemName}
+                  </h6>
+                </div>
+
+                {/* 3. Footer: Stacked Stock Meta & Price */}
+                <div className="pt-1.5 border-top border-light-subtle mt-auto">
+                  <div className="d-flex align-items-end justify-content-between gap-1">
+                    {/* UOM + Stock Left Stack */}
+                    <div className="d-flex flex-column lh-1" style={{ minWidth: 0 }}>
+                      <span className="text-muted fs-10 fw-normal text-truncate mb-1">
+                        {uom}
+                      </span>
+                      <span
+                        className={`fs-10 fw-medium text-truncate ${
+                          qtyOnHand > 0 ? "text-success" : "text-danger"
+                        }`}
+                      >
+                        {qtyOnHand > 0 ? `${qtyOnHand} left` : "Out of stock"}
+                      </span>
+                    </div>
+
+                    {/* Price */}
+                    <div className="text-end flex-shrink-0">
+                      <span className="fs-12 fw-bold text-primary font-monospace d-block lh-1">
+                        Ksh {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Col>
+        );
+      })}
+    </Row>
+  ) : (
+    <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-center text-muted">
+      <i className="ri-inbox-line display-5 text-muted mb-2 opacity-50"></i>
+      <h6 className="fs-13 fw-semibold text-dark mb-1">No products found</h6>
+      <p className="fs-12 text-muted mb-0">Try selecting another category or clearing your search.</p>
+    </div>
+  )}
+</CardBody>
                 </Card>
               </Col>
 
