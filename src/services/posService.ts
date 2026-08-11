@@ -4,7 +4,7 @@ import {
   POSPayload, 
   POSListResponse, 
   SinglePOSResponse 
-} from "../types/pos";
+} from "../types/POS";
 
 const api = new APIClient();
 

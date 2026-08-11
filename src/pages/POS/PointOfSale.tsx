@@ -1,128 +1,202 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Button, Form, Label, Input, Spinner, Alert, 
-  Row, Col, Card, CardHeader, CardBody, Container, Badge, InputGroup, Table,
-  Dropdown, DropdownToggle, DropdownMenu 
-} from 'reactstrap';
-import { usePOSMutation } from '../../Components/Hooks/usePOS'; // Adjust import path
-import { POSLineItem } from '../../types/pos'; // Adjust import path
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  Button,
+  Form,
+  Input,
+  Spinner,
+  Row,
+  Col,
+  Card,
+  CardBody,
+  CardHeader,
+  Container,
+  Badge,
+  Dropdown,
+  DropdownToggle,
+  DropdownMenu,
+} from "reactstrap";
+import { toast } from "react-toastify";
 
-// Brand Theme Accent Matching Sidebar (#410875)
-const BRAND_PURPLE = '#042e6d';
-const BRAND_PURPLE_SUBTLE = 'rgba(19, 8, 31, 0.08)';
+import { usePOSMutation } from "../../Components/Hooks/usePOS";
+import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useCategories } from "../../Components/Hooks/useCategory";
+import { useCustomers } from "../../Components/Hooks/useCustomers";
+import { useWarehouses } from "../../Components/Hooks/useWarehouse";
 
-// Retail Catalog Items
-const AVAILABLE_ITEMS = [
-  { id: 'STK-001', code: 'SUGAR-2KG', name: 'Sugar 2kg Packet', category: 'Groceries', uom: 'PKT', price: 210.00, icon: 'ri-shopping-bag-2-line' },
-  { id: 'STK-002', code: 'RICE-5KG', name: 'Pishori Rice 5kg', category: 'Groceries', uom: 'BAG', price: 650.00, icon: 'ri-store-2-line' },
-  { id: 'STK-003', code: 'SODA-500', name: 'Soda 500ml Bottle', category: 'Beverages', uom: 'BTL', price: 60.00, icon: 'ri-cup-line' },
-  { id: 'STK-004', code: 'MILK-1L', name: 'Fresh Milk 1 Litre', category: 'Dairy', uom: 'LTR', price: 110.00, icon: 'ri-drop-line' },
-  { id: 'STK-005', code: 'SOAP-BAR', name: 'Bathing Soap 200g', category: 'Toiletries', uom: 'PCS', price: 50.00, icon: 'ri-sparkles-line' },
-  { id: 'STK-006', code: 'BREAD-400', name: 'White Bread 400g', category: 'Bakery', uom: 'LOAF', price: 65.00, icon: 'ri-cake-3-line' },
-  { id: 'STK-007', code: 'OMO-1KG', name: 'Washing Powder 1kg', category: 'Detergents', uom: 'PKT', price: 280.00, icon: 'ri-bubbles-line' },
-  { id: 'STK-008', code: 'TEA-250', name: 'Tea Leaves 250g', category: 'Beverages', uom: 'PKT', price: 130.00, icon: 'ri-goblet-line' },
-];
+import { POSLineItem } from "../../types/POS";
 
-const MOCK_CATEGORIES = ['All', 'Groceries', 'Beverages', 'Dairy', 'Toiletries', 'Bakery', 'Detergents'];
-
-const MOCK_CUSTOMERS = [
-  { id: 'CUST-WALK-IN', name: 'Walk-in Customer', phone: 'N/A' },
-  { id: 'CUST-001', name: 'John Doe (Retailer)', phone: '+254712345678' },
-  { id: 'CUST-002', name: 'Jane Smith (Wholesale)', phone: '+254798765432' },
-  { id: 'CUST-003', name: 'Apex Traders Ltd', phone: '+254700001122' },
-];
+const BRAND_PURPLE = "#042e6d";
+const BRAND_PURPLE_SUBTLE = "rgba(4, 46, 109, 0.08)";
 
 const PAYMENT_METHODS = [
-  { id: 'CASH', label: 'Cash Payment' },
-  { id: 'MOBILE_MONEY', label: 'M-Pesa / Mobile' },
-  { id: 'CARD', label: 'Debit / Credit Card' },
+  { id: "CASH", label: "Cash" },
+  { id: "MOBILE_MONEY", label: "Mobile Money" },
+  { id: "CARD", label: "Card" },
 ];
 
-const PointOfSale = () => {
+export const PointOfSale: React.FC = () => {
   const { processSale, isProcessing: isPosting } = usePOSMutation() as any;
 
-  // Alerts
-  const [globalError, setGlobalError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { 
+    data: warehousesData, 
+    isLoading: isWarehousesLoading 
+  } = useWarehouses(true);
+  
+  const warehousesList = useMemo(() => {
+    if (!warehousesData) return [];
+    return Array.isArray(warehousesData) ? warehousesData : 
+    warehousesData.warehouses || [];
+  }, [warehousesData]);
 
-  // Form State
-  const [selectedCustomer, setSelectedCustomer] = useState(MOCK_CUSTOMERS[0]);
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [
+    selectedWarehouseId, 
+    setSelectedWarehouseId
+  ] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (warehousesList.length > 0 && !selectedWarehouseId) {
+      const firstWh = warehousesList[0];
+      setSelectedWarehouseId(firstWh.id || firstWh.warehouseId);
+    }
+  }, [warehousesList, selectedWarehouseId]);
+
+  const { 
+    balances: stockBalances = [], isLoading: isStockLoading 
+  } = useWarehouseStock(selectedWarehouseId);
+  const { 
+    data: categoriesData, isLoading: isCategoriesLoading 
+  } = useCategories();
+  const { data: customersData } = useCustomers(1, 100);
+
+  const customersList = useMemo(() => {
+    if (!customersData) return [];
+    return Array.isArray(customersData) ? customersData : 
+    customersData.users || [];
+  }, [customersData]);
+
+  const categoriesList = useMemo(() => {
+    if (!categoriesData) return ["All"];
+    const cats = Array.isArray(categoriesData) ? 
+    categoriesData : categoriesData.categories || [];
+    const validNames = cats
+      .map((c: any) => (typeof c === "string" ? c : c.category_code || ""))
+      .filter((name: string) => name && name.trim() !== "");
+    return ["All", ...Array.from(new Set(validNames))];
+  }, [categoriesData]);
+
+  
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [amountTendered, setAmountTendered] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [amountTendered, setAmountTendered] = useState<string>("");
   const [cart, setCart] = useState<POSLineItem[]>([]);
 
-  // Catalog Filters
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Customer Filter
+  const activeCustomer = selectedCustomer || customersList[0] || { id: 0, 
+    name: "Walk-in Customer", phone: "+254712345678" };
+
+  const cartMap = useMemo(() => {
+    const map = new Map<string | number, POSLineItem>();
+    cart.forEach((item) => map.set(item.stockItemId, item));
+    return map;
+  }, [cart]);
+
+  
   const filteredCustomers = useMemo(() => {
-    return MOCK_CUSTOMERS.filter((c) =>
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-      c.phone.includes(customerSearch)
-    );
-  }, [customerSearch]);
+    return customersList.filter((c: any) => {
+      const nameMatch = (c.name || c.fullName || "").toLowerCase().includes(
+        customerSearch.toLowerCase());
+      const phoneMatch = (c.phone || c.phoneNumber || "").includes(
+        customerSearch);
+      return nameMatch || phoneMatch;
+    });
+  }, [customersList, customerSearch]);
 
-  // Grand Total Calculation
   const grandTotal = useMemo(() => {
     return cart.reduce((acc, item) => acc + (item.lineTotal || 0), 0);
   }, [cart]);
 
-  // Tendered & Change Calculations
   const tenderedValue = parseFloat(amountTendered) || 0;
   const changeAmount = useMemo(() => {
-    if (paymentMethod !== 'CASH') return 0;
+    if (paymentMethod !== "CASH") return 0;
     return tenderedValue >= grandTotal ? tenderedValue - grandTotal : 0;
   }, [tenderedValue, grandTotal, paymentMethod]);
 
-  const isInsufficientCash = paymentMethod === 'CASH' && tenderedValue > 0 && tenderedValue < grandTotal;
+  const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && 
+  tenderedValue < grandTotal;
 
-  // Catalog items filter
   const filteredCatalogItems = useMemo(() => {
-    const addedIds = new Set(cart.map((i) => i.stockItemId));
-    return AVAILABLE_ITEMS.filter((item) => {
-      if (addedIds.has(item.id)) return false;
+    if (!Array.isArray(stockBalances)) return [];
+    return stockBalances.filter((stock: any) => {
+      const itemName = stock.stock_item?.description || "";
+      const itemCode = stock.stock_item?.stock_code || "";
+      const itemCategory = stock.categoryName || "";
+
       const matchesSearch =
-        item.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
-        item.code.toLowerCase().includes(catalogSearch.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+        itemName.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+        itemCode.toLowerCase().includes(catalogSearch.toLowerCase());
+
+      const matchesCategory = selectedCategory === "All" || 
+      itemCategory === selectedCategory;
+
       return matchesSearch && matchesCategory;
     });
-  }, [cart, catalogSearch, selectedCategory]);
+  }, [stockBalances, catalogSearch, selectedCategory]);
 
-  // Cart Interactions
-  const handleCardItemSelect = (item: typeof AVAILABLE_ITEMS[0]) => {
-    setCart((prev) => [
-      ...prev,
-      {
-        stockItemId: item.id,
-        stockItemCode: item.code,
-        stockItemName: item.name,
-        uom: item.uom,
-        quantity: 1,
-        unitPrice: item.price,
-        lineTotal: item.price,
-      },
-    ]);
+  // ---------------------------------------------------------------------------
+  // 4. CART & CATALOG HANDLERS
+  // ---------------------------------------------------------------------------
+  const handleTileTap = (item: any) => {
+    const itemId = item.stockItemId || item.id;
+    const existing = cartMap.get(itemId);
+
+    if (existing) {
+      handleQuantityOrPriceChange(itemId, "quantity", existing.quantity + 1);
+    } else {
+      const itemCode = item.stock_code || "STK";
+      const itemName = item.description || "Stock Item";
+      const unitPrice = Number(item.unit_cost || 0);
+      const uom = item.uom || item.unitOfMeasure || item.stock_item?.uom || "PCS";
+
+      setCart((prev) => [
+        ...prev,
+        {
+          stockItemId: itemId,
+          stockItemCode: itemCode,
+          stockItemName: itemName,
+          uom: uom,
+          quantity: 1,
+          unitPrice: unitPrice,
+          lineTotal: unitPrice,
+        } as any,
+      ]);
+    }
   };
 
-  const handleRemoveLineItem = (stockItemId: string) => {
+  const handleRemoveLineItem = (stockItemId: string | number) => {
     setCart((prev) => prev.filter((i) => i.stockItemId !== stockItemId));
   };
 
   const handleQuantityOrPriceChange = (
-    stockItemId: string,
-    field: 'quantity' | 'unitPrice',
+    stockItemId: string | number,
+    field: "quantity" | "unitPrice",
     value: number
   ) => {
+    if (field === "quantity" && value <= 0) {
+      handleRemoveLineItem(stockItemId);
+      return;
+    }
+
     setCart((prev) =>
       prev.map((item) => {
         if (item.stockItemId !== stockItemId) return item;
-        const qty = field === 'quantity' ? Math.max(1, value) : item.quantity;
-        const price = field === 'unitPrice' ? Math.max(0, value) : item.unitPrice;
+        const qty = field === "quantity" ? Math.max(1, value) : item.quantity;
+        const price = field === "unitPrice" ? 
+        Math.max(0, value) : item.unitPrice;
         return {
           ...item,
           [field]: value,
@@ -134,30 +208,31 @@ const PointOfSale = () => {
 
   const handleClearCart = () => {
     setCart([]);
-    setAmountTendered('');
+    setAmountTendered("");
   };
 
-  // Submit Sale Order
+  // ---------------------------------------------------------------------------
+  // 5. SUBMIT SALE
+  // ---------------------------------------------------------------------------
   const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGlobalError(null);
-    setSuccessMessage(null);
 
     if (cart.length === 0) {
-      setGlobalError('Please select items from the catalog to build an order.');
+      toast.error("Please select items from the catalog to build an order.");
       return;
     }
 
-    if (paymentMethod === 'CASH' && tenderedValue < grandTotal) {
-      setGlobalError('Amount tendered is less than total sale amount.');
+    if (paymentMethod === "CASH" && tenderedValue < grandTotal) {
+      toast.error("Amount tendered is less than total sale amount.");
       return;
     }
 
     try {
       const payload = {
-        customerId: selectedCustomer.id,
+        customerId: activeCustomer.id,
+        warehouseId: selectedWarehouseId,
         paymentMethod,
-        amountPaid: paymentMethod === 'CASH' ? tenderedValue : grandTotal,
+        amountPaid: paymentMethod === "CASH" ? tenderedValue : grandTotal,
         items: cart.map((item) => ({
           stockItemId: item.stockItemId,
           quantity: Number(item.quantity),
@@ -165,470 +240,459 @@ const PointOfSale = () => {
         })),
       };
 
-      await processSale(payload);
-
-      handleClearCart();
-      setSelectedCustomer(MOCK_CUSTOMERS[0]);
-      setPaymentMethod('CASH');
-      setSuccessMessage('Sale checkout posted and printed successfully!');
-      setTimeout(() => setSuccessMessage(null), 4000);
+      if (processSale) {
+        await processSale(payload);
+        handleClearCart();
+        setSelectedCustomer(null);
+        setPaymentMethod("CASH");
+        toast.success("Transaction completed!");
+      }
     } catch (err: any) {
-      setGlobalError(err.response?.data?.message || 'Failed to complete transaction.');
+      toast.error(err.response?.data?.message || err.message || "Transaction failed.");
     }
   };
 
+  document.title = "Point of Sale | Terminal";
+
   return (
-    <div className="page-content">
-      <Container fluid className="p-0">
-        {/* Top Header Ribbon */}
-        <div className="d-flex align-items-center justify-content-between mb-2 bg-white px-3 py-2 rounded shadow-sm border border-light-subtle">
-          <div className="d-flex align-items-center gap-2">
-            <div 
-              className="avatar-xs text-white rounded d-flex align-items-center justify-content-center fw-bold"
-              style={{ backgroundColor: BRAND_PURPLE }}
-            >
-              <i className="ri-shopping-cart-2-fill fs-16"></i>
-            </div>
-            <div>
-              <h6 className="mb-0 fw-semibold text-dark fs-14">POS Register Terminal</h6>
-              <span className="text-muted fs-11 font-monospace">TERMINAL #01 • STORE: MAIN WAREHOUSE</span>
-            </div>
-          </div>
+    <React.Fragment>
+      <div className="page-content">
+        <Container fluid>
+          <Form onSubmit={handleSubmitSale}>
+            <Row>
+              {/* ========================================================= */}
+              {/* LEFT: Product Catalog Card */}
+              {/* ========================================================= */}
+              <Col lg={7} xl={8}>
+                <Card className="shadow-sm border-0 mb-3" 
+                style={{ height: "calc(100vh - 165px)", 
+                display: "flex", flexDirection: "column" 
+                }}>
+                  <CardHeader className="border-bottom py-3 px-3 bg-white">
+                    <Row 
+                    className="g-3 align-items-center justify-content-between">
+                      {/* Left: Warehouse Selector */}
+                      <Col md={6} sm={12}>
+                        <div className="d-flex align-items-center gap-2">
+                          <h5 
+                          className=
+                          "card-title mb-0 fs-15 fw-semibold text-dark text-nowrap">
+                            POS Terminal
+                          </h5>
+                          <div className="flex-grow-1" 
+                          style={{ maxWidth: "240px" 
 
-          <div className="d-flex align-items-center gap-2">
-            {cart.length > 0 && (
-              <Button
-                color="soft-danger"
-                size="sm"
-                className="btn-soft-danger text-danger border-0 fw-medium fs-12 px-2"
-                onClick={handleClearCart}
-              >
-                <i className="ri-delete-bin-line me-1"></i> Reset Cart ({cart.length})
-              </Button>
-            )}
-            <Badge 
-              className="px-2 py-1 fs-11 fw-medium border"
-              style={{ backgroundColor: BRAND_PURPLE_SUBTLE, color: BRAND_PURPLE, borderColor: BRAND_PURPLE_SUBTLE }}
-            >
-              <i className="ri-checkbox-blank-circle-fill me-1 fs-9"></i> Terminal Active
-            </Badge>
-          </div>
-        </div>
-
-        {globalError && (
-          <Alert color="danger" className="mb-2 py-2 px-3 fs-12 border-0 shadow-sm" toggle={() => setGlobalError(null)}>
-            <i className="ri-error-warning-fill me-1 align-middle fs-15"></i> {globalError}
-          </Alert>
-        )}
-        {successMessage && (
-          <Alert color="success" className="mb-2 py-2 px-3 fs-12 border-0 shadow-sm" toggle={() => setSuccessMessage(null)}>
-            <i className="ri-checkbox-circle-fill me-1 align-middle fs-15"></i> {successMessage}
-          </Alert>
-        )}
-
-        <Form onSubmit={handleSubmitSale}>
-          <Row className="g-2">
-            {/* LEFT PANEL: Product Catalog */}
-            <Col lg={7} xl={7}>
-              {/* Contained height cleanly prevents layout overflow into Velzon Topbar */}
-              <Card className="border-0 shadow-sm mb-0 d-flex flex-column" style={{ height: 'calc(100vh - 180px)' }}>
-                {/* Search & Categories Stack */}
-                <CardHeader className="bg-white border-bottom border-light-subtle p-2">
-                  <div className="mb-2">
-                    <div className="position-relative">
-                      <Input
-                        type="text"
-                        className="form-control bg-light border-light-subtle ps-5 fs-13"
-                        placeholder="Search item name, code or barcode..."
-                        value={catalogSearch}
-                        onChange={(e) => setCatalogSearch(e.target.value)}
-                      />
-                      <i className="ri-search-line position-absolute top-50 start-0 translate-middle-y ms-3 text-muted fs-15"></i>
-                      {catalogSearch && (
-                        <i
-                          className="ri-close-circle-fill position-absolute top-50 end-0 translate-middle-y me-3 text-muted cursor-pointer"
-                          onClick={() => setCatalogSearch('')}
-                        ></i>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Category Pills directly under Search */}
-                  <div
-                    className="d-flex align-items-center gap-1 overflow-x-auto pb-1"
-                    style={{ whiteSpace: 'nowrap', scrollbarWidth: 'none' }}
-                  >
-                    {MOCK_CATEGORIES.map((cat) => {
-                      const isActive = selectedCategory === cat;
-                      return (
-                        <Button
-                          key={cat}
-                          size="sm"
-                          className="rounded-pill px-3 py-1 fs-11 fw-medium border-0"
-                          style={{
-                            backgroundColor: isActive ? BRAND_PURPLE : '#f3f3f9',
-                            color: isActive ? '#ffffff' : '#495057',
-                          }}
-                          onClick={() => setSelectedCategory(cat)}
-                        >
-                          {cat}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </CardHeader>
-
-                {/* Product Box Grid */}
-                <CardBody className="bg-light-subtle p-2 overflow-y-auto flex-grow-1">
-                  {filteredCatalogItems.length > 0 ? (
-                    <Row className="g-2">
-                      {filteredCatalogItems.map((item) => (
-                        <Col xl={3} lg={4} md={6} sm={6} key={item.id}>
-                          <Card
-                            className="h-100 border-0 shadow-sm bg-white cursor-pointer position-relative overflow-hidden"
-                            onClick={() => handleCardItemSelect(item)}
-                            style={{
-                              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                              cursor: 'pointer',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-3px)';
-                              e.currentTarget.style.boxShadow = '0 5px 15px rgba(0,0,0,0.08)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = '';
-                            }}
-                          >
-                            <CardBody className="p-2 d-flex flex-column justify-content-between">
-                              <div>
-                                <div className="d-flex justify-content-between align-items-center mb-2">
-                                  <div 
-                                    className="avatar-xs rounded d-flex align-items-center justify-content-center"
-                                    style={{ backgroundColor: BRAND_PURPLE_SUBTLE, color: BRAND_PURPLE }}
+                          }}>
+                            {isWarehousesLoading ? (
+                              <Spinner size="sm" color="primary" />
+                            ) : (
+                              <Input
+                                type="select"
+                                className="form-select form-select-sm fs-12"
+                                value={selectedWarehouseId || ""}
+                                onChange={(e) => 
+                                  setSelectedWarehouseId(e.target.value)}
+                              >
+                                <option value="" disabled>Select Warehouse</option>
+                                {warehousesList.map((wh: any) => (
+                                  <option 
+                                  key={wh.id || wh.warehouseId} 
+                                  value={wh.id || wh.warehouseId}
                                   >
-                                    <i className={`${item.icon} fs-15`}></i>
-                                  </div>
-                                  <Badge color="light" className="text-secondary font-monospace border border-light-subtle fs-10 fw-normal">
-                                    {item.uom}
-                                  </Badge>
-                                </div>
+                                    {wh.warehouseName}
+                                  </option>
+                                ))}
+                              </Input>
+                            )}
+                          </div>
+                        </div>
+                      </Col>
 
-                                <h6 className="fs-12 fw-semibold text-dark mb-1 text-truncate" title={item.name}>
-                                  {item.name}
-                                </h6>
-                                <span className="text-muted font-monospace fs-10 d-block mb-2">
-                                  {item.code}
-                                </span>
-                              </div>
-
-                              <div className="pt-2 border-top border-light-subtle d-flex align-items-center justify-content-between">
-                                <span className="fs-13 fw-bold font-monospace" style={{ color: BRAND_PURPLE }}>
-                                  KES {item.price.toFixed(2)}
-                                </span>
-                                <div 
-                                  className="avatar-xs text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                                  style={{ backgroundColor: BRAND_PURPLE }}
-                                >
-                                  <i className="ri-add-line fs-14"></i>
-                                </div>
-                              </div>
-                            </CardBody>
-                          </Card>
-                        </Col>
-                      ))}
-                    </Row>
-                  ) : (
-                    <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted py-5">
-                      <div className="avatar-md bg-light rounded-circle d-flex align-items-center justify-content-center mb-2">
-                        <i className="ri-inbox-archive-line display-6 text-secondary opacity-50"></i>
-                      </div>
-                      <h6 className="fs-13 fw-semibold text-dark mb-1">No items found</h6>
-                      <p className="fs-11 text-muted mb-0">Try clearing filters or search parameters.</p>
-                    </div>
-                  )}
-                </CardBody>
-              </Card>
-            </Col>
-
-            {/* RIGHT PANEL: Searchable Customer, Order Table & Checkout */}
-            <Col lg={5} xl={5}>
-              <Card className="border-0 shadow-sm mb-0 d-flex flex-column" style={{ height: 'calc(100vh - 180px)' }}>
-                {/* Searchable Customer Header */}
-                <CardHeader className="bg-white border-bottom border-light-subtle p-2">
-                  <Row className="g-2">
-                    <Col xs={7}>
-                      <Label className="form-label fs-11 fw-bold text-uppercase text-muted mb-1">
-                        Customer
-                      </Label>
-                      <Dropdown
-                        isOpen={isCustomerDropdownOpen}
-                        toggle={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
-                        className="w-100"
-                      >
-                        <DropdownToggle
-                          tag="button"
-                          className="btn btn-sm btn-light border border-light-subtle w-100 d-flex justify-content-between align-items-center text-start fs-12 fw-medium text-dark bg-white"
-                        >
-                          <span className="text-truncate me-1">{selectedCustomer.name}</span>
-                          <i className="ri-arrow-down-s-line text-muted"></i>
-                        </DropdownToggle>
-                        <DropdownMenu className="p-2 shadow-lg w-100 border-0" style={{ minWidth: '240px' }}>
+                      {/* Right: Search Input & Category Scroll */}
+                      <Col md={6} sm={12}>
+                        <div className="search-box position-relative">
                           <Input
                             type="text"
-                            placeholder="Search customer name or phone..."
-                            bsSize="sm"
-                            className="mb-2 fs-12 border-light-subtle"
-                            value={customerSearch}
-                            onChange={(e) => setCustomerSearch(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
+                            className="form-control form-control-sm fs-12 ps-4"
+                            placeholder="Search product code or name..."
+                            value={catalogSearch}
+                            onChange={(e) => setCatalogSearch(e.target.value)}
                           />
-                          <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                            {filteredCustomers.length > 0 ? (
-                              filteredCustomers.map((cust) => {
-                                const isSelected = selectedCustomer.id === cust.id;
+                          <i className="
+                          ri-search-line 
+                          search-icon 
+                          position-absolute 
+                          top-50 start-0 
+                          translate-middle-y 
+                          ms-2 
+                          text-muted 
+                          fs-13"></i>
+                          {catalogSearch && (
+                            <i
+                              className="
+                              ri-close-fill 
+                              position-absolute 
+                              top-50 
+                              end-0 
+                              translate-middle-y 
+                              me-2 
+                              text-muted 
+                              fs-14 
+                              cursor-pointer"
+                              onClick={() => setCatalogSearch("")}
+                            ></i>
+                          )}
+                        </div>
+                      </Col>
+
+                      {/* Category Pills Bar */}
+                      <Col xs={12} className="pt-1">
+                        <div
+                          className="d-flex gap-1 flex-wrap pb-1"
+                          style={{
+                            maxHeight: "80px",
+                            overflowY: "auto",      
+                            overflowX: "hidden",   
+                            scrollbarWidth: "thin", 
+                          }}
+                        >
+                          {isCategoriesLoading ? (
+                            <Spinner size="sm" color="primary" className="my-1" />
+                          ) : (
+                            [...categoriesList]
+                              .sort((a, b) => {
+                                // Keep "All" fixed at the beginning
+                                if (a === "All") return -1;
+                                if (b === "All") return 1;
+                                return a.localeCompare(b);
+                              })
+                              .map((cat: string, index: number) => {
+                                const isSelected = selectedCategory === cat;
                                 return (
                                   <div
-                                    key={cust.id}
-                                    className="p-2 rounded fs-12"
+                                    key={cat || index}
+                                    onClick={() => setSelectedCategory(cat)}
+                                    className="
+                                    px-3 py-1 
+                                    rounded-pill
+                                    fs-11 
+                                    cursor-pointer 
+                                    text-nowrap 
+                                    user-select-none 
+                                    transition-all"
                                     style={{
-                                      cursor: 'pointer',
-                                      backgroundColor: isSelected ? BRAND_PURPLE_SUBTLE : 'transparent',
-                                      color: isSelected ? BRAND_PURPLE : '#212529',
-                                      fontWeight: isSelected ? '600' : 'normal',
-                                    }}
-                                    onClick={() => {
-                                      setSelectedCustomer(cust);
-                                      setIsCustomerDropdownOpen(false);
-                                      setCustomerSearch('');
+                                      backgroundColor: isSelected ? 
+                                      BRAND_PURPLE : "#f3f6f9",
+                                      color: isSelected ? "#ffffff" : "#495057",
+                                      border: isSelected ? 
+                                      `1px solid ${BRAND_PURPLE}` : 
+                                      "1px solid #e2e5e8",
+                                      fontWeight: isSelected ? "600" : "500",
+                                      lineHeight: "1.2",
                                     }}
                                   >
-                                    <div>{cust.name}</div>
-                                    <small className="text-muted font-monospace fs-10">{cust.phone}</small>
+                                    {cat}
                                   </div>
                                 );
                               })
-                            ) : (
-                              <div className="text-muted fs-11 p-2 text-center">No customers matched</div>
-                            )}
-                          </div>
-                        </DropdownMenu>
-                      </Dropdown>
-                    </Col>
-
-                    <Col xs={5}>
-                      <Label className="form-label fs-11 fw-bold text-uppercase text-muted mb-1">
-                        Payment Mode
-                      </Label>
-                      <Input
-                        type="select"
-                        bsSize="sm"
-                        className="form-select bg-white fs-12 border border-light-subtle fw-medium"
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                      >
-                        {PAYMENT_METHODS.map((pm) => (
-                          <option key={pm.id} value={pm.id}>
-                            {pm.label}
-                          </option>
-                        ))}
-                      </Input>
-                    </Col>
-                  </Row>
-                </CardHeader>
-
-                {/* Cart Order Table */}
-                <CardBody className="p-0 overflow-y-auto flex-grow-1 bg-white">
-                  {cart.length > 0 ? (
-                    <Table responsive hover size="sm" className="align-middle mb-0 border-0">
-                      <thead className="table-light fs-11 text-uppercase text-muted border-bottom border-light-subtle">
-                        <tr>
-                          <th style={{ width: '40%' }} className="ps-3 py-2">Item</th>
-                          <th style={{ width: '25%' }} className="text-center py-2">Qty</th>
-                          <th style={{ width: '25%' }} className="text-end py-2">Total</th>
-                          <th style={{ width: '10%' }} className="text-center py-2"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cart.map((line) => (
-                          <tr key={line.stockItemId} className="border-bottom border-light-subtle">
-                            <td className="ps-3 py-2">
-                              <div className="fw-semibold text-dark fs-12 text-truncate" style={{ maxWidth: '130px' }} title={line.stockItemName}>
-                                {line.stockItemName}
-                              </div>
-                              <div className="font-monospace text-muted fs-10">
-                                @ KES {line.unitPrice.toFixed(2)}
-                              </div>
-                            </td>
-
-                            <td className="py-2">
-                              <InputGroup size="sm" className="flex-nowrap">
-                                <Button
-                                  color="light"
-                                  className="btn-xs border text-dark px-2 fs-12"
-                                  onClick={() =>
-                                    handleQuantityOrPriceChange(
-                                      line.stockItemId,
-                                      'quantity',
-                                      line.quantity - 1
-                                    )
-                                  }
-                                >
-                                  -
-                                </Button>
-                                <Input
-                                  type="number"
-                                  className="text-center bg-white border-top border-bottom px-1 fs-12 font-monospace"
-                                  style={{ minWidth: '32px' }}
-                                  value={line.quantity}
-                                  onChange={(e) =>
-                                    handleQuantityOrPriceChange(
-                                      line.stockItemId,
-                                      'quantity',
-                                      parseFloat(e.target.value) || 1
-                                    )
-                                  }
-                                />
-                                <Button
-                                  color="light"
-                                  className="btn-xs border text-dark px-2 fs-12"
-                                  onClick={() =>
-                                    handleQuantityOrPriceChange(
-                                      line.stockItemId,
-                                      'quantity',
-                                      line.quantity + 1
-                                    )
-                                  }
-                                >
-                                  +
-                                </Button>
-                              </InputGroup>
-                            </td>
-
-                            <td className="text-end font-monospace fw-bold text-dark fs-12 py-2">
-                              {line.lineTotal.toFixed(2)}
-                            </td>
-
-                            <td className="text-center py-2">
-                              <Button
-                                color="link"
-                                className="text-danger p-0 border-0 shadow-none fs-15"
-                                onClick={() => handleRemoveLineItem(line.stockItemId)}
-                              >
-                                <i className="ri-delete-bin-fill"></i>
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  ) : (
-                    <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-4">
-                      <div className="avatar-md bg-light rounded-circle d-flex align-items-center justify-content-center mb-2">
-                        <i className="ri-shopping-cart-2-line display-6 text-secondary opacity-40"></i>
-                      </div>
-                      <p className="fs-12 mb-0 text-center text-muted fw-medium">
-                        Your cart is empty.
-                        <br />
-                        Click items on the left catalog to start building the order.
-                      </p>
-                    </div>
-                  )}
-                </CardBody>
-
-                {/* Checkout & Cash Calculation Footer */}
-                <div className="border-top border-light-subtle bg-light p-3 mt-auto shadow-sm">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <span className="fs-12 fw-bold text-uppercase text-muted">Grand Total</span>
-                    <h3 className="mb-0 fw-bold font-monospace" style={{ color: BRAND_PURPLE }}>
-                      KES{' '}
-                      {grandTotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </h3>
-                  </div>
-
-                  {/* Cash Change Section */}
-                  {paymentMethod === 'CASH' && (
-                    <div className="bg-white p-2 rounded border border-light-subtle mb-2">
-                      <Row className="g-2 align-items-center mb-1">
-                        <Col xs={6}>
-                          <span className="fs-11 text-muted d-block">Tendered Cash</span>
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            bsSize="sm"
-                            className="form-control font-monospace fs-13 fw-bold border-light-subtle bg-light"
-                            value={amountTendered}
-                            onChange={(e) => setAmountTendered(e.target.value)}
-                          />
-                        </Col>
-                        <Col xs={6} className="text-end">
-                          <span className="fs-11 text-muted d-block">Calculated Change</span>
-                          {isInsufficientCash ? (
-                            <Badge color="danger" className="bg-danger-subtle text-danger font-monospace fs-11">
-                              Insufficient Cash
-                            </Badge>
-                          ) : (
-                            <span className="fs-14 fw-bold font-monospace text-success">
-                              KES {changeAmount.toFixed(2)}
-                            </span>
                           )}
-                        </Col>
-                      </Row>
+                        </div>
+                    </Col>
+                    </Row>
+                  </CardHeader>
 
-                      {/* Quick Cash Presets */}
-                      <div className="d-flex gap-1 overflow-x-auto pt-1">
-                        <Button
-                          size="sm"
-                          color="light"
-                          className="py-0 px-2 fs-10 border border-light-subtle text-dark font-monospace"
-                          onClick={() => setAmountTendered(grandTotal.toString())}
-                        >
-                          Exact
-                        </Button>
-                        {[100, 200, 500, 1000, 2000].map((amt) => (
-                          <Button
-                            key={amt}
-                            size="sm"
-                            color="light"
-                            className="py-0 px-2 fs-10 border border-light-subtle text-dark font-monospace"
-                            onClick={() => setAmountTendered(amt.toString())}
-                          >
-                            +{amt}
-                          </Button>
-                        ))}
+                  {/* Catalog Tiles Body (Scrollable inside card) */}
+                  <CardBody className=
+                  "p-3 overflow-y-auto flex-grow-1" 
+                  style={{ backgroundColor: "#f8f9fa", minHeight: 0 }}>
+                    {isStockLoading ? (
+                      <div className="
+                      d-flex justify-content-center align-items-center h-100">
+                        <Spinner size="sm" color="primary" className="me-2" />
+                        <span className="text-muted fs-12">Loading products...</span>
                       </div>
-                    </div>
-                  )}
+                    ) : filteredCatalogItems.length > 0 ? (
+                      <Row className="g-2">
+                        {filteredCatalogItems.map((item: any) => {
+                          const itemId = item.stockItemId || item.id;
+                          const itemName = item.stock_item?.description || "";
+                          const price = Number(item.unit_cost || 0);
 
-                  {/* Primary Action Button */}
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-100 fw-bold fs-14 py-2 shadow-sm border-0"
-                    style={{ backgroundColor: BRAND_PURPLE }}
-                    disabled={isPosting || cart.length === 0 || isInsufficientCash}
-                  >
-                    {isPosting ? (
-                      <>
-                        <Spinner size="sm" className="me-2" />
-                        Posting Transaction...
-                      </>
+                          const cartItem = cartMap.get(itemId);
+                          const inCartQty = cartItem ? cartItem.quantity : 0;
+                          const isSelected = inCartQty > 0;
+
+                          return (
+                            <Col xl={3} lg={4} md={4} sm={6} xs={6} key={itemId}>
+                              <div
+                                onClick={() => handleTileTap(item)}
+                                className="
+                                card h-100 border cursor-pointer 
+                                user-select-none position-relative 
+                                transition-all mb-0 bg-white"
+                                style={{
+                                  minHeight: "110px",
+                                  backgroundColor: isSelected ? 
+                                  BRAND_PURPLE_SUBTLE : "#ffffff",
+                                  borderRadius: "6px",
+                                  borderColor: isSelected ? 
+                                  BRAND_PURPLE : "#e9ebec",
+                                }}
+                              >
+                                {isSelected && (
+                                  <Badge
+                                    color="primary"
+                                    pill
+                                    className="
+                                    position-absolute top-0 start-100 
+                                    translate-middle border border-white"
+                                    style={{ 
+                                      backgroundColor: BRAND_PURPLE, 
+                                      fontSize: "10px" 
+                                    }}
+                                  >
+                                    {inCartQty}
+                                  </Badge>
+                                )}
+                                <div className="
+                                card-body d-flex flex-column align-items-center 
+                                justify-content-center text-center p-2">
+                                  <h6
+                                    className="
+                                    fs-12 fw-semibold text-dark mb-1 lh-sm"
+                                    style={{
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                    }}
+                                  >
+                                    {itemName}
+                                  </h6>
+                                  <span className="
+                                  fs-12 fw-bold 
+                                  text-primary 
+                                  font-monospace 
+                                  mt-auto">
+                                    Ksh {price.toLocaleString(
+                                      undefined, { minimumFractionDigits: 2 }
+                                      )}
+                                  </span>
+                                </div>
+                              </div>
+                            </Col>
+                          );
+                        })}
+                      </Row>
                     ) : (
-                      <>
-                        <i className="ri-printer-line me-1"></i> Post Sale & Print Receipt
-                      </>
+                      <div className="text-center text-muted py-5">
+                        <i className="
+                        ri-inbox-line 
+                        display-6 d-block text-muted mb-1"></i>
+                        <span className="fs-12">
+                          No items available in this category.
+                        </span>
+                      </div>
                     )}
-                  </Button>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-        </Form>
-      </Container>
-    </div>
+                  </CardBody>
+                </Card>
+              </Col>
+
+              {/* ========================================================= */}
+              {/* RIGHT: Cart & Checkout Summary Card */}
+              {/* ========================================================= */}
+              <Col lg={5} xl={4}>
+                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 165px)", display: "flex", flexDirection: "column" }}>
+                  <CardHeader className="border-bottom py-3 px-3 bg-white">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
+                        Current Order
+                      </h5>
+                      {cart.length > 0 && (
+                        <span
+                          className="text-danger fs-12 fw-medium cursor-pointer"
+                          onClick={handleClearCart}
+                        >
+                          Clear All
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Customer Dropdown */}
+                    <Dropdown
+                      isOpen={isCustomerDropdownOpen}
+                      toggle={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
+                      className="w-100"
+                    >
+                      <DropdownToggle
+                        tag="div"
+                        className="d-flex justify-content-between align-items-center p-2 bg-light rounded cursor-pointer border border-light-subtle"
+                      >
+                        <div className="d-flex align-items-center gap-2">
+                          <i className="ri-user-3-line text-muted fs-14"></i>
+                          <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "200px" }}>
+                            {activeCustomer.name || activeCustomer.fullName || "Select Customer"}
+                          </span>
+                        </div>
+                        <i className="ri-arrow-down-s-line text-muted"></i>
+                      </DropdownToggle>
+                      <DropdownMenu className="p-2 shadow-lg w-100 border-0 rounded-3">
+                        <Input
+                          type="text"
+                          placeholder="Search customer..."
+                          bsSize="sm"
+                          className="mb-2 fs-12 shadow-none border-light-subtle bg-light"
+                          value={customerSearch}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                          {filteredCustomers.map((cust: any) => (
+                            <div
+                              key={cust.id}
+                              className="p-2 rounded fs-12 cursor-pointer hover-bg-light"
+                              onClick={() => {
+                                setSelectedCustomer(cust);
+                                setIsCustomerDropdownOpen(false);
+                              }}
+                            >
+                              <span className="fw-medium text-dark d-block">{cust.name || cust.fullName}</span>
+                              <span className="text-muted fs-11">{cust.phone || cust.phoneNumber}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </DropdownMenu>
+                    </Dropdown>
+                  </CardHeader>
+
+                  {/* Scrollable Cart Items */}
+                  <CardBody className="p-2 overflow-y-auto flex-grow-1" style={{ minHeight: 0 }}>
+                    {cart.length === 0 ? (
+                      <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                        <i className="ri-shopping-cart-2-line display-6 text-muted mb-1"></i>
+                        <span className="fs-12">Cart is empty</span>
+                      </div>
+                    ) : (
+                      cart.map((line) => (
+                        <div key={line.stockItemId} className="d-flex align-items-center justify-content-between p-2 mb-2 bg-light rounded border border-light-subtle">
+                          <div className="flex-grow-1 pe-2" style={{ minWidth: 0 }}>
+                            <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">
+                              {line.stockItemName}
+                            </h6>
+                            <span className="fs-11 text-muted">Ksh {line.unitPrice.toFixed(2)}</span>
+                          </div>
+
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="d-flex align-items-center bg-white rounded border border-light-subtle p-1 shadow-none">
+                              <span
+                                className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5"
+                                onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity - 1)}
+                              >
+                                <i className="ri-subtract-line fs-11"></i>
+                              </span>
+                              <span className="fs-12 fw-semibold px-2 text-dark">{line.quantity}</span>
+                              <span
+                                className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5"
+                                onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity + 1)}
+                              >
+                                <i className="ri-add-line fs-11"></i>
+                              </span>
+                            </div>
+
+                            <span className="fs-12 fw-semibold text-dark font-monospace text-end" style={{ width: "65px" }}>
+                              {line.lineTotal.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardBody>
+
+                  {/* Payment & Charge Actions Footer */}
+                  <div className="p-3 bg-white border-top border-light-subtle flex-shrink-0">
+                    <div className="d-flex gap-2 mb-2">
+                      {PAYMENT_METHODS.map((pm) => (
+                        <div
+                          key={pm.id}
+                          className="flex-grow-1 text-center py-1 rounded cursor-pointer border fw-medium fs-11 transition-all"
+                          onClick={() => setPaymentMethod(pm.id)}
+                          style={{
+                            backgroundColor: paymentMethod === pm.id ? BRAND_PURPLE_SUBTLE : "#fff",
+                            color: paymentMethod === pm.id ? BRAND_PURPLE : "#6c757d",
+                            borderColor: paymentMethod === pm.id ? BRAND_PURPLE : "#dee2e6",
+                          }}
+                        >
+                          {pm.label}
+                        </div>
+                      ))}
+                    </div>
+
+                    {paymentMethod === "CASH" && (
+                      <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="fs-11 fw-medium text-muted">Amount Tendered</span>
+                          {isInsufficientCash && (
+                            <span className="fs-11 text-danger fw-medium">Insufficient</span>
+                          )}
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          bsSize="sm"
+                          className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold text-end shadow-none mb-1.5"
+                          value={amountTendered}
+                          onChange={(e) => setAmountTendered(e.target.value)}
+                        />
+                        <div className="d-flex gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                          <Button size="sm" color="light" className="border shadow-none flex-shrink-0 fw-medium fs-10 py-0.5 px-2" onClick={() => setAmountTendered(grandTotal.toString())}>Exact</Button>
+                          {[500, 1000, 2000].map((amt) => (
+                            <Button key={amt} size="sm" color="light" className="border shadow-none flex-shrink-0 fw-medium fs-10 py-0.5 px-2" onClick={() => setAmountTendered(amt.toString())}>
+                              +{amt}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="d-flex justify-content-between align-items-end mb-2 px-1">
+                      <div>
+                        {paymentMethod === "CASH" && tenderedValue > 0 && (
+                          <div className="mb-0">
+                            <span className="fs-11 text-muted me-1">Change:</span>
+                            <span className="fs-12 fw-bold text-success font-monospace">{changeAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <span className="fs-12 fw-semibold text-muted">Total</span>
+                      </div>
+                      <h4 className="mb-0 fw-bold text-dark fs-18 font-monospace">
+                        Ksh {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </h4>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-100 border-0 rounded py-2 shadow-sm d-flex justify-content-between align-items-center px-3"
+                      style={{
+                        backgroundColor: (isPosting || cart.length === 0 || isInsufficientCash) ? "#a3b4cc" : BRAND_PURPLE,
+                        transition: "background-color 0.2s",
+                      }}
+                      disabled={isPosting || cart.length === 0 || isInsufficientCash}
+                    >
+                      <span className="fs-13 fw-semibold text-white">
+                        {isPosting ? "Processing..." : "Charge"}
+                      </span>
+                      {!isPosting && (
+                        <i className="ri-arrow-right-line fs-16 text-white opacity-75"></i>
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+          </Form>
+        </Container>
+      </div>
+    </React.Fragment>
   );
 };
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { POSService } from "../../services/posService";
-import { POSPayload } from "../../types/pos";
+import { POSPayload } from "../../types/POS";
 import { toast } from "react-toastify";
 
 export const useSales = (page: number = 1, perPage: number = 100) => {
