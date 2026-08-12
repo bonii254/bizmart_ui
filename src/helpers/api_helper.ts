@@ -6,6 +6,8 @@ const { api } = config;
 axios.defaults.baseURL = api.API_URL;
 axios.defaults.headers.post["Content-Type"] = "application/json";
 axios.defaults.withCredentials = true;
+axios.defaults.xsrfCookieName = "csrf_access_token";
+axios.defaults.xsrfHeaderName = "X-CSRF-TOKEN";
 
 let isRefreshing = false;
 let failedQueue: any[] = [];

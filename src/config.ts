@@ -28,7 +28,7 @@ const config: Config = {
     APP_ID: "",
   },
   api: {
-    API_URL: "http://192.168.98.234:5000/api",
+    API_URL: "https://192.168.98.234:5000/api",
   },
 };
 
