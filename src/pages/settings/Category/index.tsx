@@ -79,8 +79,8 @@ const CategoryManagement: React.FC = () => {
     const lower = searchTerm.toLowerCase();
     return categoryList.filter(
       (item: Category) =>
-        item.category_code.toLowerCase().includes(lower) ||
-        item.category_name.toLowerCase().includes(lower) ||
+        item.categoryCode.toLowerCase().includes(lower) ||
+        item.categoryName.toLowerCase().includes(lower) ||
         (item.description && item.description.toLowerCase().includes(lower))
     );
   }, [categoryList, searchTerm]);
@@ -89,7 +89,7 @@ const CategoryManagement: React.FC = () => {
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
     categoryList.forEach((cat) => {
-      if (cat.id) map.set(cat.id, cat.category_name);
+      if (cat.id) map.set(cat.id, cat.categoryName);
     });
     return map;
   }, [categoryList]);
@@ -119,19 +119,19 @@ const CategoryManagement: React.FC = () => {
 
   const formik = useFormik<CategoryPayload>({
     initialValues: {
-      category_code: "",
-      category_name: "",
+      categoryCode: "",
+      categoryName: "",
       description: "",
-      parent_id: "",
+      parentCategoryId: "",
       is_active: true,
     },
     validationSchema: Yup.object({
-      category_code: Yup.string()
+      categoryCode: Yup.string()
         .max(30, "Category Code is too long")
         .required("Category Code identifier is required"),
-      category_name: Yup.string().required("Category Name is required"),
+      categoryName: Yup.string().required("Category Name is required"),
       description: Yup.string().optional(),
-      parent_id: Yup.string().nullable().optional(),
+      parentCategoryId: Yup.string().nullable().optional(),
     }),
     onSubmit: async (values) => {
       try {
@@ -139,7 +139,7 @@ const CategoryManagement: React.FC = () => {
 
         const payload: CategoryPayload = {
           ...values,
-          parent_id: values.parent_id ? values.parent_id : null,
+          parentCategoryId: values.parentCategoryId ? values.parentCategoryId : null,
         };
 
         if (isEditMode && currentCategoryId) {
@@ -165,10 +165,10 @@ const CategoryManagement: React.FC = () => {
     setCurrentCategoryId(item.id);
     formik.resetForm({
       values: {
-        category_code: item.category_code,
-        category_name: item.category_name,
+        categoryCode: item.categoryCode,
+        categoryName: item.categoryName,
         description: item.description || "",
-        parent_id: item.parent_id || "",
+        parentCategoryId: item.parentCategoryId || "",
         is_active: item.is_active,
       },
     });
@@ -224,10 +224,10 @@ const CategoryManagement: React.FC = () => {
 
               formik.resetForm({
                 values: {
-                  category_code: "",
-                  category_name: "",
+                  categoryCode: "",
+                  categoryName: "",
                   description: "",
-                  parent_id: "",
+                  parentCategoryId: "",
                   is_active: true,
                 },
               });
@@ -261,14 +261,14 @@ const CategoryManagement: React.FC = () => {
             </tr>
           ) : paginatedRows.length > 0 ? (
             paginatedRows.map((item: Category) => {
-              const parentName = item.parent_id ? categoryMap.get(item.parent_id) : null;
+              const parentName = item.parentCategoryId ? categoryMap.get(item.parentCategoryId) : null;
 
               return (
                 <tr key={item.id} className="align-middle">
                   {/* 1. Category Code */}
                   <td className="py-2">
                     <span className="fw-semibold text-primary font-monospace fs-12">
-                      {item.category_code}
+                      {item.categoryCode}
                     </span>
                   </td>
 
@@ -279,9 +279,9 @@ const CategoryManagement: React.FC = () => {
                         to={`/inventory/categories/view/${item.id}`}
                         className="text-dark fw-medium text-truncate d-inline-block font-poppins"
                         style={{ maxWidth: "220px" }}
-                        title={item.category_name}
+                        title={item.categoryName}
                       >
-                        {item.category_name}
+                        {item.categoryName}
                       </Link>
                     </div>
                   </td>
@@ -382,10 +382,10 @@ const CategoryManagement: React.FC = () => {
                   <Input
                     placeholder="e.g. BEV-SOFT"
                     disabled={isEditMode}
-                    {...formik.getFieldProps("category_code")}
-                    invalid={!!(formik.touched.category_code && formik.errors.category_code)}
+                    {...formik.getFieldProps("categoryCode")}
+                    invalid={!!(formik.touched.categoryCode && formik.errors.categoryCode)}
                   />
-                  <FormFeedback>{formik.errors.category_code}</FormFeedback>
+                  <FormFeedback>{formik.errors.categoryCode}</FormFeedback>
                 </FormGroup>
               </Col>
 
@@ -396,10 +396,10 @@ const CategoryManagement: React.FC = () => {
                   </Label>
                   <Input
                     placeholder="e.g. Soft Drinks & Carbonated"
-                    {...formik.getFieldProps("category_name")}
-                    invalid={!!(formik.touched.category_name && formik.errors.category_name)}
+                    {...formik.getFieldProps("categoryName")}
+                    invalid={!!(formik.touched.categoryName && formik.errors.categoryName)}
                   />
-                  <FormFeedback>{formik.errors.category_name}</FormFeedback>
+                  <FormFeedback>{formik.errors.categoryName}</FormFeedback>
                 </FormGroup>
               </Col>
 
@@ -408,19 +408,19 @@ const CategoryManagement: React.FC = () => {
                   <Label className="form-label">Parent Category (Optional)</Label>
                   <Input
                     type="select"
-                    {...formik.getFieldProps("parent_id")}
-                    invalid={!!(formik.touched.parent_id && formik.errors.parent_id)}
+                    {...formik.getFieldProps("parentCategoryId")}
+                    invalid={!!(formik.touched.parentCategoryId && formik.errors.parentCategoryId)}
                   >
                     <option value="">-- No Parent (Root Category) --</option>
                     {categoryList
                       .filter((c: Category) => c.id !== currentCategoryId)
                       .map((cat: Category) => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.category_name} ({cat.category_code})
+                          {cat.categoryName} ({cat.categoryCode})
                         </option>
                       ))}
                   </Input>
-                  <FormFeedback>{formik.errors.parent_id}</FormFeedback>
+                  <FormFeedback>{formik.errors.parentCategoryId}</FormFeedback>
                 </FormGroup>
               </Col>
 

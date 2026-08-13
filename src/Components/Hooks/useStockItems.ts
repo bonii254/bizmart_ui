@@ -18,14 +18,6 @@ export const useStockItemDetails = (id: string) => {
   });
 };
 
-export const useStockItemBalances = (id: string) => {
-  return useQuery({
-    queryKey: ["stockItemBalances", id],
-    queryFn: () => StockItemService.getStockItemGlobalBalances(id),
-    enabled: !!id,
-  });
-};
-
 export const useStockItemMutation = () => {
   const queryClient = useQueryClient();
 

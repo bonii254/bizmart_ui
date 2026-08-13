@@ -15,6 +15,11 @@ import {
   Alert,
   Row,
   Col,
+  Badge,
+  Card,
+  CardBody,
+  CardHeader,
+  Container,
 } from "reactstrap";
 import { Link } from "react-router-dom";
 import { useFormik } from "formik";
@@ -29,53 +34,31 @@ import {
   StockItem,
   StockItemPayload,
   UpdateStockItemRequest,
-  UOM,
+  UOM_VALUES,
 } from "../../../types/stockitem";
 import { Category } from "../../../types/category";
 import { handleBackendErrors } from "../../../helpers/form_utils";
 import TablePagination from "../../TablePagination";
 
-// Alphabetically sorted UOM list for optimal user experience
-const UOM_OPTIONS: UOM[] = [
-  "BAGS",
-  "BOXES",
-  "BUNDLES",
-  "CARTONS",
-  "CASES",
-  "CENTIMETERS",
-  "CRATES",
-  "CUBIC_METERS",
-  "DOZENS",
-  "EACH",
-  "FEET",
-  "GALLONS",
-  "GRAMS",
-  "INCHES",
-  "KILOGRAMS",
-  "LITERS",
-  "METERS",
-  "PACKS",
-  "PAIRS",
-  "PALLETS",
-  "PIECES",
-  "POUNDS",
-  "ROLLS",
-  "SETS",
-  "SQUARE_FEET",
-  "SQUARE_METERS",
-  "TONS",
-  "UNITS",
-].sort() as UOM[];
-
 const StockItemManagement: React.FC = () => {
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Auto-search / Debounce states
+  // Debounced auto-search state
   const [searchInput, setSearchInput] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  // Debounce input typing for auto-search (300ms delay)
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!globalError) return;
+    const timer = setTimeout(() => {
+      setGlobalError(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [globalError]);
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchTerm(searchInput);
@@ -85,9 +68,8 @@ const StockItemManagement: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // React Query Hooks
   const { data, isLoading } = useStockItems(searchTerm);
-  const { data: categoryData, isLoading: isLoadingCategories } = useCategories("", true);
+  const { data: categoryData } = useCategories("", true);
 
   const {
     createStockItem,
@@ -102,36 +84,41 @@ const StockItemManagement: React.FC = () => {
   const [deleteModal, setDeleteModal] = useState<boolean>(false);
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [currentStockItemId, setCurrentStockItemId] = useState<string | null>(null);
-  const [globalError, setGlobalError] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string>("");
 
-  // Normalize category list from hook response
   const categoriesList: Category[] = useMemo(() => {
     if (!categoryData) return [];
     if (Array.isArray(categoryData)) return categoryData;
-    return (categoryData as { categories?: Category[]; data?: Category[] }).categories || (categoryData as { categories?: Category[]; data?: Category[] }).data || [];
+    return (
+      (categoryData as { categories?: Category[]; data?: Category[] }).categories ||
+      (categoryData as { categories?: Category[]; data?: Category[] }).data ||
+      []
+    );
   }, [categoryData]);
 
-  // Map category IDs to names for instant lookup in table rows
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, string>();
-    categoriesList.forEach((cat) => {
-      if (cat.id) map.set(cat.id, cat.category_name || "");
-    });
-    return map;
-  }, [categoriesList]);
-
   const filteredStockItems = useMemo(() => {
-    const list = data?.catalog || [];
-    if (!searchTerm) return list;
-    const lowerSearch = searchTerm.toLowerCase();
-    return list.filter(
-      (item) =>
-        item.stock_code.toLowerCase().includes(lowerSearch) ||
-        item.description.toLowerCase().includes(lowerSearch)
-    );
-  }, [data, searchTerm]);
+    let list = data?.catalog || [];
+    
+    // Category Filter
+    if (selectedCategoryId) {
+      list = list.filter((item) => item.categoryId === selectedCategoryId);
+    }
 
+    // Search Query Filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      list = list.filter(
+        (item) =>
+          item.itemCode?.toLowerCase().includes(lowerSearch) ||
+          item.description?.toLowerCase().includes(lowerSearch) ||
+          (item.categoryName && item.categoryName.toLowerCase().includes(lowerSearch))
+      );
+    }
+    
+    return list;
+  }, [data, selectedCategoryId, searchTerm]);
+
+  // Pagination Calculations
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredStockItems.slice(start, start + pageSize);
@@ -156,19 +143,17 @@ const StockItemManagement: React.FC = () => {
 
   const formik = useFormik<StockItemPayload>({
     initialValues: {
-      stock_code: "",
+      itemCode: "",
       description: "",
-      uom: "KILOGRAMS",
-      category_id: "",
+      uom: "UNITS",
+      categoryId: "",
       is_active: true,
     },
     validationSchema: Yup.object({
-      stock_code: Yup.string().required("Stock code is required"),
+      itemCode: Yup.string().required("Stock code is required"),
       description: Yup.string().required("Description is required"),
-      uom: Yup.mixed<UOM>()
-        .oneOf(UOM_OPTIONS, "Invalid Unit of Measure")
-        .required("Unit of measure is required"),
-      category_id: Yup.string().nullable().optional(),
+      uom: Yup.string().oneOf([...UOM_VALUES], "Invalid UOM selected").required("UOM is required"),
+      categoryId: Yup.string().nullable().optional(),
     }),
     onSubmit: async (values) => {
       try {
@@ -196,10 +181,10 @@ const StockItemManagement: React.FC = () => {
     setCurrentStockItemId(item.id);
     formik.resetForm({
       values: {
-        stock_code: item.stock_code,
+        itemCode: item.itemCode,
         description: item.description,
-        uom: item.uom,
-        category_id: item.category_id || item.category?.id || "",
+        uom: item.uom || "UNITS",
+        categoryId: item.categoryId || "",
         is_active: item.is_active ?? true,
       },
     });
@@ -218,226 +203,229 @@ const StockItemManagement: React.FC = () => {
     }
   };
 
+  document.title = "Master Stock Items | Inventory";
+
   return (
     <React.Fragment>
-      {globalError && (
-        <Alert color="danger" className="mb-3">
-          {globalError}
-        </Alert>
-      )}
+      <Container fluid className="px-2 px-md-3">
+        <Row>
+          <Col lg={12}>
+            {globalError && (
+              <Alert color="danger" className="mb-3 border-0 shadow-sm alert-dismissible fade show" toggle={() => setGlobalError(null)}>
+                <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
+                {globalError}
+              </Alert>
+            )}
 
-      {/* Ultra-Compact Single-Line Header Control Toolbar */}
-      <div className="row g-2 align-items-center mb-3">
-        {/* Compact Auto-Search Input */}
-        <div className="col-12 col-sm-6 col-md-4">
-          <div className="search-box position-relative">
-            <Input
-              type="text"
-              className="form-control form-control-sm fs-13 ps-4"
-              placeholder="Auto-search code or description..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-14"></i>
-          </div>
-        </div>
-
-        {/* Action Button Aligned End */}
-        <div className="col-12 col-md-8 text-md-end">
-          <Button
-            color="primary"
-            size="sm"
-            className="fs-13 fw-medium px-3"
-            onClick={() => {
-              setIsEditMode(false);
-              setCurrentStockItemId(null);
-              setGlobalError(null);
-              formik.resetForm({
-                values: {
-                  stock_code: "",
-                  description: "",
-                  uom: "KILOGRAMS",
-                  category_id: "",
-                  is_active: true,
-                },
-              });
-              setModalOpen(true);
-            }}
-          >
-            <i className="ri-add-line align-bottom me-1"></i> Add Stock Item
-          </Button>
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <Table hover responsive className="align-middle table-nowrap mb-0 custom-datatable">
-        <thead className="table-light text-muted text-uppercase fs-11">
-          <tr>
-            <th style={{ width: "15%" }}>Stock Code</th>
-            <th style={{ width: "35%" }}>Description</th>
-            <th style={{ width: "15%" }}>Category</th>
-            <th style={{ width: "12%" }}>UOM</th>
-            <th style={{ width: "13%" }}>Status</th>
-            <th style={{ width: "10%" }} className="text-end">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="fs-13">
-          {isLoading ? (
-            <tr>
-              <td colSpan={6} className="text-center py-4">
-                <Spinner size="sm" color="primary" />
-              </td>
-            </tr>
-          ) : paginatedRows.length > 0 ? (
-            paginatedRows.map((item: StockItem) => {
-              // Resolve category name gracefully across API response formats
-              const resolvedCategoryName =
-                item.category_name ||                (item.category_id ? categoryMap.get(item.category_id) : undefined) ||
-                "-";
-
-              return (
-                <tr key={item.id} className="align-middle">
-                  {/* 1. Stock Code */}
-                  <td className="py-2">
-                    <span className="fw-semibold text-dark font-poppins fs-12">
-                      {item.stock_code}
-                    </span>
-                  </td>
-
-                  {/* 2. Description */}
-                  <td className="py-2">
-                    <Link
-                      to={`/stock-items/view/${item.id}`}
-                      className="text-dark fw-medium text-truncate d-inline-block font-poppins style-description-link"
-                      style={{ maxWidth: "320px" }}
-                      title={item.description}
+            <Card className="shadow-sm border-0">
+              <CardHeader className="border-bottom py-3 px-3 bg-white">
+                <Row className="g-2 align-items-center justify-content-between">
+                  <Col xl={3} lg={4} md={5} sm={12}>
+                    <Input
+                      type="select"
+                      className="form-select form-select-sm fs-12"
+                      value={selectedCategoryId}
+                      onChange={(e) => {
+                        setSelectedCategoryId(e.target.value);
+                        setPageIndex(0);
+                      }}
                     >
-                      {item.description}
-                    </Link>
-                  </td>
+                      <option value="">All Categories</option>
+                      {categoriesList.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.categoryName}
+                        </option>
+                      ))}
+                    </Input>
+                  </Col>
 
-                  {/* 3. Category */}
-                  <td className="py-2">
-                    {resolvedCategoryName !== "-" ? (
-                      <span className="badge bg-info-subtle text-info border fs-11 fw-medium px-2 py-1">
-                        {resolvedCategoryName}
-                      </span>
-                    ) : (
-                      <span className="text-muted fs-12">-</span>
-                    )}
-                  </td>
-
-                  {/* 4. UOM */}
-                  <td className="py-2">
-                    <span className="badge bg-light text-secondary border fs-11 fw-normal px-2 py-1">
-                      {item.uom}
-                    </span>
-                  </td>
-
-                  {/* 5. Status */}
-                  <td className="py-2">
-                    <span
-                      className={`badge ${
-                        item.is_active ?? true
-                          ? "bg-success-subtle text-success"
-                          : "bg-danger-subtle text-danger"
-                      } fs-11`}
-                    >
-                      {item.is_active ?? true ? "Active" : "Deactivated"}
-                    </span>
-                  </td>
-
-                  {/* 6. Actions */}
-                  <td className="text-end py-2">
-                    <div className="d-flex gap-1 justify-content-end">
-                      <Button
-                        size="sm"
-                        color="soft-info"
-                        className="btn-icon waves-effect waves-light"
-                        style={{ width: "28px", height: "28px", padding: 0 }}
-                        onClick={() => handleEdit(item)}
-                        title="Edit Item"
-                      >
-                        <i className="ri-edit-box-line fs-14"></i>
-                      </Button>
-                      <Button
-                        size="sm"
-                        color="soft-danger"
-                        className="btn-icon waves-effect waves-light"
-                        style={{ width: "28px", height: "28px", padding: 0 }}
-                        onClick={() => {
-                          setCurrentStockItemId(item.id);
-                          setDeleteConfirmation("");
-                          setDeleteModal(true);
-                        }}
-                        title="Delete Item"
-                      >
-                        <i className="ri-delete-bin-line fs-14"></i>
-                      </Button>
+                  <Col xl={4} lg={4} md={4} sm={12}>
+                    <div className="search-box position-relative">
+                      <Input
+                        type="text"
+                        className="form-control form-control-sm fs-12 ps-4"
+                        placeholder="Filter code, item, or category..."
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                      />
+                      <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                     </div>
-                  </td>
-                </tr>
-              );
-            })
-          ) : (
-            <tr>
-              <td colSpan={6} className="text-center py-4 text-muted fs-13">
-                No stock items found matching your search.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </Table>
+                  </Col>
 
-      <TablePagination table={tableInstance} />
+                  <Col xl={5} lg={4} md={3} sm={12} className="text-md-end">
+                    <Button
+                      color="primary"
+                      size="sm"
+                      className="fs-12 fw-medium px-3 text-nowrap w-100 w-md-auto"
+                      onClick={() => {
+                        setIsEditMode(false);
+                        setCurrentStockItemId(null);
+                        setGlobalError(null);
+                        formik.resetForm({
+                          values: {
+                            itemCode: "",
+                            description: "",
+                            uom: "UNITS",
+                            categoryId: selectedCategoryId || "",
+                            is_active: true,
+                          },
+                        });
+                        setModalOpen(true);
+                      }}
+                    >
+                      <i className="ri-add-line align-bottom me-1"></i> Add Stock Item
+                    </Button>
+                  </Col>
+                </Row>
+              </CardHeader>
 
-      {/* Form Modal */}
-      <Modal
-        isOpen={modalOpen}
-        toggle={() => setModalOpen(false)}
-        centered
-        size="lg"
-      >
-        <ModalHeader
-          className="bg-light p-3 border-bottom-dashed"
-          toggle={() => setModalOpen(false)}
-        >
+              <CardBody className="p-0">
+                <div className="table-responsive">
+                  <Table hover size="sm" className="align-middle mb-0 custom-datatable table-sm">
+                    <thead className="table-light text-muted text-uppercase fs-10">
+                      <tr>
+                        <th className="ps-3 py-2 text-nowrap">Stock Code</th>
+                        <th className="py-2">Description</th>
+                        <th className="py-2 text-nowrap">UOM</th>
+                        <th className="py-2 text-nowrap">Category</th>
+                        <th className="py-2 text-nowrap">Status</th>
+                        <th className="text-end pe-3 py-2 text-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="fs-12">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4">
+                            <Spinner size="sm" color="primary" />
+                          </td>
+                        </tr>
+                      ) : paginatedRows.length > 0 ? (
+                        paginatedRows.map((item: StockItem) => (
+                          <tr key={item.id} className="align-middle">
+                            <td className="py-2 ps-3 text-nowrap">
+                              <span className="fw-semibold text-primary font-monospace fs-11">
+                                {item.itemCode || "N/A"}
+                              </span>
+                            </td>
+                            <td className="py-2">
+                              <Link
+                                to={`/stock-items/view/${item.id}`}
+                                className="text-dark fw-medium text-truncate d-inline-block mw-100 style-description-link"
+                                style={{ maxWidth: "320px" }}
+                                title={item.description}
+                              >
+                                {item.description || "N/A"}
+                              </Link>
+                            </td>
+                            <td className="py-2 text-nowrap">
+                              <Badge color="light" className="text-secondary border fs-10 fw-normal px-1.5 py-0.5 me-1">
+                                Base: {item.uom || "UNITS"}
+                              </Badge>
+                            </td>
+                            <td className="py-2 text-nowrap">
+                              {item.categoryName ? (
+                                <span className="badge bg-info-subtle text-info border fs-10 fw-medium px-1.5 py-0.5">
+                                  {item.categoryName}
+                                </span>
+                              ) : (
+                                <span className="text-muted fs-11">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 text-nowrap">
+                              <Badge
+                                color={item.is_active ?? true ? "success-subtle" : "danger-subtle"}
+                                className={`text-${item.is_active ?? true ? "success" : "danger"} fs-10 fw-normal px-1.5 py-0.5`}
+                              >
+                                {item.is_active ?? true ? "Active" : "Deactivated"}
+                              </Badge>
+                            </td>
+                            <td className="text-end pe-3 py-2 text-nowrap">
+                              <div className="hstack gap-1 justify-content-end flex-nowrap">
+                                <Button
+                                  size="sm"
+                                  color="soft-info"
+                                  className="btn-icon waves-effect waves-light"
+                                  style={{ width: "26px", height: "26px", padding: 0 }}
+                                  onClick={() => handleEdit(item)}
+                                  title="Edit Item"
+                                >
+                                  <i className="ri-edit-box-line fs-13"></i>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  color="soft-danger"
+                                  className="btn-icon waves-effect waves-light"
+                                  style={{ width: "26px", height: "26px", padding: 0 }}
+                                  onClick={() => {
+                                    setCurrentStockItemId(item.id);
+                                    setDeleteConfirmation("");
+                                    setDeleteModal(true);
+                                  }}
+                                  title="Delete Item"
+                                >
+                                  <i className="ri-delete-bin-line fs-13"></i>
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4 text-muted fs-12">
+                            No master stock items found matching your filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+                </div>
+
+                <div className="px-3 py-2 border-top">
+                  <TablePagination table={tableInstance} />
+                </div>
+              </CardBody>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+
+      {/* Modal: Register / Update Stock Item */}
+      <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)} centered size="lg">
+        <ModalHeader className="bg-light p-3 border-bottom-dashed" toggle={() => setModalOpen(false)}>
           {isEditMode ? "Update Stock Item" : "Register New Stock Item"}
         </ModalHeader>
         <Form onSubmit={formik.handleSubmit}>
-          <ModalBody className="p-4">
-            <Row>
-              <Col md={6}>
+          <ModalBody className="p-3 p-md-4">
+            <Row className="g-3">
+              <Col md={6} sm={12}>
                 <FormGroup>
-                  <Label className="form-label">
+                  <Label className="form-label fs-12 fw-medium">
                     Stock Code <span className="text-danger">*</span>
                   </Label>
                   <Input
+                    bsSize="sm"
                     placeholder="e.g. STK-001"
-                    {...formik.getFieldProps("stock_code")}
-                    invalid={
-                      !!(
-                        formik.touched.stock_code && formik.errors.stock_code
-                      )
-                    }
+                    {...formik.getFieldProps("itemCode")}
+                    invalid={!!(formik.touched.itemCode && formik.errors.itemCode)}
                   />
-                  <FormFeedback>{formik.errors.stock_code}</FormFeedback>
+                  <FormFeedback>{formik.errors.itemCode}</FormFeedback>
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} sm={12}>
                 <FormGroup>
-                  <Label className="form-label">
-                    Unit of Measure (UOM) <span className="text-danger">*</span>
+                  <Label className="form-label fs-12 fw-medium">
+                    Base Unit of Measure (UOM) <span className="text-danger">*</span>
                   </Label>
                   <Input
                     type="select"
+                    bsSize="sm"
                     {...formik.getFieldProps("uom")}
                     invalid={!!(formik.touched.uom && formik.errors.uom)}
                   >
-                    {UOM_OPTIONS.map((unit) => (
-                      <option key={unit} value={unit}>
-                        {unit}
+                    {UOM_VALUES.map((uomVal) => (
+                      <option key={uomVal} value={uomVal}>
+                        {uomVal}
                       </option>
                     ))}
                   </Input>
@@ -447,39 +435,36 @@ const StockItemManagement: React.FC = () => {
 
               <Col md={12}>
                 <FormGroup>
-                  <Label className="form-label">Category</Label>
+                  <Label className="form-label fs-12 fw-medium">Category</Label>
                   <Input
                     type="select"
-                    {...formik.getFieldProps("category_id")}
-                    invalid={!!(formik.touched.category_id && formik.errors.category_id)}
-                    disabled={isLoadingCategories}
+                    bsSize="sm"
+                    {...formik.getFieldProps("categoryId")}
+                    invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                   >
                     <option value="">-- Select Category (Optional) --</option>
                     {categoriesList.map((cat) => (
                       <option key={cat.id} value={cat.id}>
-                        {cat.category_name}
+                        {cat.categoryName}
                       </option>
                     ))}
                   </Input>
-                  <FormFeedback>{formik.errors.category_id}</FormFeedback>
+                  <FormFeedback>{formik.errors.categoryId}</FormFeedback>
                 </FormGroup>
               </Col>
 
               <Col md={12}>
                 <FormGroup>
-                  <Label className="form-label">
+                  <Label className="form-label fs-12 fw-medium">
                     Description <span className="text-danger">*</span>
                   </Label>
                   <Input
                     type="textarea"
                     rows={3}
+                    bsSize="sm"
                     placeholder="e.g. Industrial Grade Lubricant"
                     {...formik.getFieldProps("description")}
-                    invalid={
-                      !!(
-                        formik.touched.description && formik.errors.description
-                      )
-                    }
+                    invalid={!!(formik.touched.description && formik.errors.description)}
                   />
                   <FormFeedback>{formik.errors.description}</FormFeedback>
                 </FormGroup>
@@ -487,29 +472,24 @@ const StockItemManagement: React.FC = () => {
             </Row>
 
             {isEditMode && (
-              <FormGroup check className="mt-3">
-                <Label check>
+              <FormGroup check className="mt-2">
+                <Label check className="form-check-label text-muted fs-12">
                   <Input
                     type="checkbox"
+                    className="form-check-input me-1"
                     checked={formik.values.is_active}
-                    onChange={(e) =>
-                      formik.setFieldValue("is_active", e.target.checked)
-                    }
-                  />{" "}
+                    onChange={(e) => formik.setFieldValue("is_active", e.target.checked)}
+                  />
                   Set Stock Item as Active
                 </Label>
               </FormGroup>
             )}
           </ModalBody>
           <ModalFooter className="bg-light p-3">
-            <Button color="link" onClick={() => setModalOpen(false)}>
+            <Button color="link" size="sm" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              color="primary"
-              disabled={isCreating || isUpdating}
-            >
+            <Button type="submit" color="primary" size="sm" disabled={isCreating || isUpdating}>
               {isCreating || isUpdating ? (
                 <Spinner size="sm" />
               ) : isEditMode ? (
@@ -524,26 +504,28 @@ const StockItemManagement: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       <Modal isOpen={deleteModal} toggle={() => setDeleteModal(false)} centered>
-        <ModalBody className="p-5 text-center">
+        <ModalBody className="p-4 text-center">
           <i className="ri-error-warning-line display-4 text-warning"></i>
-          <div className="mt-4">
-            <h4 className="mb-2">Remove Stock Item?</h4>
-            <p className="text-muted fs-14">
+          <div className="mt-3">
+            <h5 className="mb-2 fs-15">Remove Stock Item?</h5>
+            <p className="text-muted fs-12">
               Type <strong>DELETE</strong> to confirm removal.
             </p>
             <Input
               type="text"
+              bsSize="sm"
               value={deleteConfirmation}
               onChange={(e) => setDeleteConfirmation(e.target.value)}
-              className="text-center mb-4"
+              className="text-center mb-3 fs-12"
               placeholder="Enter DELETE"
             />
             <div className="hstack gap-2 justify-content-center">
-              <Button color="light" onClick={() => setDeleteModal(false)}>
+              <Button color="light" size="sm" onClick={() => setDeleteModal(false)}>
                 Cancel
               </Button>
               <Button
                 color="danger"
+                size="sm"
                 onClick={confirmDelete}
                 disabled={isDeleting || deleteConfirmation !== "DELETE"}
               >

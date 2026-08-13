@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Button,
   Table,
@@ -52,6 +52,15 @@ const CompanyManagement = () => {
   const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+
+  useEffect(() => {
+    if (!globalError) return;
+
+    const timer = setTimeout(() => {
+      setGlobalError(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [globalError]);
 
   const filteredCompanies = useMemo(() => {
     const list = data?.companies || [];

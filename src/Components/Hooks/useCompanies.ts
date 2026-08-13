@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CompanyService } from "../../services/companiesService";
 import { CompanyPayload, UpdateCompanyRequest } from "../../types/companies";
+import { toast } from "react-toastify";
 
 export const useCompanies = (active?: boolean) => {
   return useQuery({
@@ -17,6 +18,9 @@ export const useCompanyMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
+    onError: (error: any) => {
+          toast.error(error.response?.data?.message || "Failed to process company request ");
+        },
   });
 
   const updateMutation = useMutation({

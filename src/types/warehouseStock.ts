@@ -1,49 +1,63 @@
-export type UOM = 'LITERS' | 'KILOGRAMS' | 'GALLONS' | 'GRAMS' | 'TONS'             
-  | 'POUNDS' | 'PIECES' | 'EACH' | 'UNITS' | 'PACKS' | 'BOXES' | 'CARTONS'
-  | 'CASES' | 'CRATES' | 'PALLETS' | 'BAGS' | 'BUNDLES' | 'DOZENS' | 'SETS'
-  | 'PAIRS' | 'METERS' | 'CENTIMETERS' | 'FEET' | 'INCHES' | 'ROLLS' | 'SQUARE_METERS'
-  | 'SQUARE_FEET' | 'CUBIC_METERS';
+import { UOM } from "./stockitem";
 
 export interface NestedWarehouse {
-  name: string;
-  route: string;
-  warehouse_code: string;
+  id: string;
+  warehouseCode: string;
+  warehouseName: string;
 }
 
 export interface NestedStockItem {
+  id: string;
+  itemCode: string;
   description: string;
-  stock_code: string;
-  uom: UOM;
+  uom: UOM; 
 }
 
 export interface WarehouseStock {
   id: string;
-  warehouse_id: string;
-  stock_item_id: string;
-  qty_on_hand: string;
-  total_value: string;
-  unit_cost: string;
+  warehouseId: string;
+  stockItemId: string;
+  
+  qtyOnHand: number;
+  unitCost: number;
+  totalValue: number;
+  sellingPrice?: number | null;
+  
+  uom: UOM;
+  alternateUom?: UOM | null;
+  alternateUomConversionFactor?: number | null;
+  
   warehouse: NestedWarehouse;
-  stock_item: NestedStockItem; 
-  created_at?: string; 
-  updated_at?: string;
+  stockItem: NestedStockItem;
+  
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface InitializeStockPayload {
-  warehouse_id: string;
-  stock_item_id: string;
-  qty_on_hand?: number | string;
-  unit_cost?: number | string;
-  total_value?: number | string;
-}
-
-export interface GetBalancesParams {
-  warehouse_id?: string;
+  warehouseId: string;
+  stockItemId: string;
+  qtyOnHand?: number | string;
+  unitCost?: number | string;
+  sellingPrice?: number | string | null;
+  totalValue?: number | string;
+  alternateUom?: UOM | null;
+  alternateUomConversionFactor?: number | string | null;
 }
 
 export interface UpdateStockQtyPayload {
-  qty_on_hand: number | string;
-  total_value: number | string;
+  qtyOnHand?: number | string;
+  unitCost?: number | string;
+  totalValue?: number | string;
+  sellingPrice?: number | string | null;
+  alternateUom?: UOM | null;
+  alternateUomConversionFactor?: number | string | null;
+}
+
+export interface GetBalancesParams {
+  warehouseId?: string;
+  stockItemId?: string;
+  search?: string;
 }
 
 export interface DeleteStockLinkResponse {
@@ -52,5 +66,6 @@ export interface DeleteStockLinkResponse {
 
 export interface ApiErrorResponse {
   error?: string;
-  [field: string]: string[] | any;
+  message?: string;
+  [field: string]: any;
 }

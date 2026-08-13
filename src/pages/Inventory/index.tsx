@@ -51,8 +51,8 @@ const StockBalanceOverview: React.FC = () => {
     const lower = searchTerm.toLowerCase();
     return balances.filter(
       (b: WarehouseStock) =>
-        b.stock_item?.stock_code?.toLowerCase().includes(lower) ||
-        b.stock_item?.description?.toLowerCase().includes(lower)
+        b.stockItem?.itemCode?.toLowerCase().includes(lower) ||
+        b.stockItem?.description?.toLowerCase().includes(lower)
     );
   }, [balances, searchTerm]);
 
@@ -158,22 +158,28 @@ const StockBalanceOverview: React.FC = () => {
                     >
                       <thead className="table-light text-muted text-uppercase fs-10">
                         <tr>
-                          <th style={{ width: "16%" }} className="ps-3 py-2">
+                          <th style={{ width: "10%" }} className="ps-3 py-2">
                             Stock Code
                           </th>
-                          <th style={{ width: "36%" }} className="py-2">
+                          <th style={{ width: "20%" }} className="py-2">
                             Description
+                          </th>
+                          <th style={{ width: "10%" }} className="py-2">
+                            Alternative UOM
                           </th>
                           <th style={{ width: "10%" }} className="py-2">
                             UOM
                           </th>
-                          <th style={{ width: "12%" }} className="text-start py-2">
+                          <th style={{ width: "10%" }} className="text-start py-2">
+                            Selling Price
+                          </th>
+                          <th style={{ width: "10%" }} className="text-start py-2">
                             Qty On Hand
                           </th>
-                          <th style={{ width: "13%" }} className="text-start py-2">
+                          <th style={{ width: "15%" }} className="text-start py-2">
                             Unit Cost
                           </th>
-                          <th style={{ width: "13%" }} className="text-start pe-3 py-2">
+                          <th style={{ width: "15%" }} className="text-start pe-3 py-2">
                             Total Value
                           </th>
                         </tr>
@@ -194,7 +200,7 @@ const StockBalanceOverview: React.FC = () => {
                               {/* 1. Stock Code */}
                               <td className="py-1.5 ps-3">
                                 <span className="fw-semibold text-primary font-monospace fs-11">
-                                  {item.stock_item?.stock_code || "N/A"}
+                                  {item.stockItem?.itemCode || "N/A"}
                                 </span>
                               </td>
 
@@ -203,9 +209,9 @@ const StockBalanceOverview: React.FC = () => {
                                 <span
                                   className="text-dark fw-medium text-truncate d-inline-block align-middle"
                                   style={{ maxWidth: "340px" }}
-                                  title={item.stock_item?.description}
+                                  title={item.stockItem?.description}
                                 >
-                                  {item.stock_item?.description || "N/A"}
+                                  {item.stockItem?.description || "N/A"}
                                 </span>
                               </td>
 
@@ -215,19 +221,40 @@ const StockBalanceOverview: React.FC = () => {
                                   color="light"
                                   className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
                                 >
-                                  {item.stock_item?.uom || "N/A"}
+                                  {item.alternateUom || "N/A"}
                                 </Badge>
                               </td>
 
-                              {/* 4. Quantity On Hand */}
-                              <td className="py-1.5 text-start fw-semibold text-dark font-monospace">
-                                {Number(item.qty_on_hand).toLocaleString()}
+                              <td className="py-1.5">
+                                <Badge
+                                  color="light"
+                                  className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
+                                >
+                                  {item.stockItem?.uom || "N/A"}
+                                </Badge>
                               </td>
 
                               {/* 5. Unit Cost (Selling Price) */}
                               <td className="py-1.5 text-start fw-medium text-body font-monospace">
                                 Ksh{" "}
-                                {Number(item.unit_cost || 0).toLocaleString(
+                                {Number(item.sellingPrice || 0).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </td>
+
+                              {/* 4. Quantity On Hand */}
+                              <td className="py-1.5 text-start fw-semibold text-dark font-monospace">
+                                {Number(item.qtyOnHand).toLocaleString()}
+                              </td>
+
+                              {/* 5. Unit Cost (Selling Price) */}
+                              <td className="py-1.5 text-start fw-medium text-body font-monospace">
+                                Ksh{" "}
+                                {Number(item.unitCost || 0).toLocaleString(
                                   undefined,
                                   {
                                     minimumFractionDigits: 2,
@@ -239,7 +266,7 @@ const StockBalanceOverview: React.FC = () => {
                               {/* 6. Total Value */}
                               <td className="py-1.5 text-start pe-3 fw-semibold text-success font-monospace">
                                 Ksh{" "}
-                                {Number(item.total_value).toLocaleString(
+                                {Number(item.totalValue).toLocaleString(
                                   undefined,
                                   {
                                     minimumFractionDigits: 2,

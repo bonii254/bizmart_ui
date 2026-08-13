@@ -7,7 +7,7 @@ import {
 } from "../types/companies";
 
 const api = new APIClient();
-const BASE_URL = "/companies";
+const BASE_URL = "/mock/companies";
 
 export const CompanyService = {
   getAllCompanies: async (active?: boolean): Promise<CompanyListResponse> => {

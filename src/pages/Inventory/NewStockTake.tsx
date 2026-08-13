@@ -58,12 +58,12 @@ const NewStockTake: React.FC = () => {
   useEffect(() => {
     if (liveWarehouseStock && liveWarehouseStock.length > 0) {
       const initialLines = liveWarehouseStock.map((stock: WarehouseStock) => ({
-        item_id: stock.stock_item_id || stock.id,
-        expected_quantity: String(stock.qty_on_hand || 0),
-        counted_quantity: String(stock.qty_on_hand || 0),
-        stock_code: stock.stock_item?.stock_code || "N/A",
-        description: stock.stock_item?.description || "N/A",
-        uom: stock.stock_item?.uom || "EA",
+        item_id: stock.id,
+        expected_quantity: String(stock.qtyOnHand || 0),
+        counted_quantity: String(stock.qtyOnHand || 0),
+        stock_code: stock.stockItem?.itemCode || "N/A",
+        description: stock.stockItem?.description || "N/A",
+        uom: stock.stockItem?.uom || "EA",
       }));
       setCountFormLines(initialLines);
       setPageIndex(0);

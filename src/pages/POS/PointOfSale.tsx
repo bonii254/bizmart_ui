@@ -30,8 +30,14 @@ import {
 import { formatCurrency } from "../../utils/qzConfig";
 import { POSLineItem } from "../../types/POS";
 
+// Local extended type in case POSLineItem in types/POS lacks taxRate
+type ExtendedPOSLineItem = POSLineItem & {
+  taxRate?: number;
+};
+
 const BRAND_PURPLE = "#042e6d";
 const BRAND_PURPLE_SUBTLE = "rgba(4, 46, 109, 0.08)";
+const DEFAULT_TAX_RATE = 16; // Default 16% VAT
 
 const PAYMENT_METHODS = [
   { id: "CASH", label: "Cash" },
@@ -101,7 +107,7 @@ export const PointOfSale: React.FC = () => {
 
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [amountTendered, setAmountTendered] = useState<string>("");
-  const [cart, setCart] = useState<POSLineItem[]>([]);
+  const [cart, setCart] = useState<ExtendedPOSLineItem[]>([]);
 
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -109,7 +115,7 @@ export const PointOfSale: React.FC = () => {
   const activeCustomer = selectedCustomer ?? customersList[0] ?? { id: 0, name: "Walk-in Customer", phone: "+254712345678" };
 
   const cartMap = useMemo(() => {
-    const map = new Map<string | number, POSLineItem>();
+    const map = new Map<string | number, ExtendedPOSLineItem>();
     cart.forEach((item) => map.set(item.stockItemId, item));
     return map;
   }, [cart]);
@@ -123,22 +129,38 @@ export const PointOfSale: React.FC = () => {
     });
   }, [customersList, customerSearch]);
 
-  const grandTotal = useMemo(() => cart.reduce((acc, item) => acc + (item.lineTotal ?? 0), 0), [cart]);
+  // Order Summaries
+  const cartTotals = useMemo(() => {
+    return cart.reduce(
+      (acc, item) => {
+        const lineSub = item.quantity * item.unitPrice;
+        const lineDisc = item.discount ?? 0;
+        const lineTax = item.taxAmount ?? 0;
+        
+        acc.subtotal += lineSub;
+        acc.discountTotal += lineDisc;
+        acc.taxTotal += lineTax;
+        acc.grandTotal += (item.lineTotal ?? (lineSub - lineDisc + lineTax));
+        return acc;
+      },
+      { subtotal: 0, discountTotal: 0, taxTotal: 0, grandTotal: 0 }
+    );
+  }, [cart]);
 
   const tenderedValue = parseFloat(amountTendered) || 0;
   const changeAmount = useMemo(() => {
     if (paymentMethod !== "CASH") return 0;
-    return tenderedValue >= grandTotal ? tenderedValue - grandTotal : 0;
-  }, [tenderedValue, grandTotal, paymentMethod]);
+    return tenderedValue >= cartTotals.grandTotal ? tenderedValue - cartTotals.grandTotal : 0;
+  }, [tenderedValue, cartTotals.grandTotal, paymentMethod]);
 
-  const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < grandTotal;
+  const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
 
   const filteredCatalogItems = useMemo(() => {
     if (!Array.isArray(stockBalances)) return [];
     const query = catalogSearch.toLowerCase();
     return stockBalances.filter((stock: any) => {
-      const itemName = stock.stock_item?.description ?? "";
-      const itemCode = stock.stock_item?.stock_code ?? "";
+      const itemName = stock.stockItem?.description ?? stock.stock_item?.description ?? "";
+      const itemCode = stock.stockItem?.itemCode ?? stock.stock_item?.stock_code ?? "";
       const itemCategory = stock.categoryName ?? "";
 
       const matchesSearch = itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
@@ -149,16 +171,22 @@ export const PointOfSale: React.FC = () => {
   }, [stockBalances, catalogSearch, selectedCategory]);
 
   const handleTileTap = (item: any) => {
-    const itemId = item.stockItemId ?? item.id;
+    const itemId = item.stockItemId ?? item.stockItem?.id ?? item.id;
     const existing = cartMap.get(itemId);
 
     if (existing) {
       handleQuantityOrPriceChange(itemId, "quantity", existing.quantity + 1);
     } else {
-      const itemCode = item.stock_code ?? "STK";
-      const itemName = item.description ?? "Stock Item";
-      const unitPrice = Number(item.unit_cost ?? 0);
-      const uom = item.uom ?? item.unitOfMeasure ?? item.stock_item?.uom ?? "PCS";
+      const itemCode = item.stockItem?.itemCode ?? item.stock_code ?? "STK";
+      const itemName = item.stockItem?.description ?? item.description ?? "Stock Item";
+      const unitPrice = Number(item.sellingPrice ?? item.unitCost ?? item.unit_cost ?? 0);
+      const uom = item.uom ?? item.unitOfMeasure ?? item.stockItem?.uom ?? "PCS";
+      const taxRate = item.taxRate ?? DEFAULT_TAX_RATE;
+      const discount = 0;
+
+      const subtotal = 1 * unitPrice - discount;
+      const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
+      const lineTotal = Number((subtotal + taxAmount).toFixed(2));
 
       setCart((prev) => [
         ...prev,
@@ -169,35 +197,46 @@ export const PointOfSale: React.FC = () => {
           uom,
           quantity: 1,
           unitPrice,
-          lineTotal: unitPrice,
-        } as POSLineItem,
+          discount,
+          taxRate,
+          taxAmount,
+          lineTotal,
+        },
       ]);
     }
   };
 
+  // Used now in the cart UI list
   const handleRemoveLineItem = (stockItemId: string | number) => {
     setCart((prev) => prev.filter((i) => i.stockItemId !== stockItemId));
   };
 
   const handleQuantityOrPriceChange = (
     stockItemId: string | number,
-    field: "quantity" | "unitPrice",
+    field: "quantity" | "unitPrice" | "discount" | "taxRate",
     value: number
   ) => {
-    if (field === "quantity" && value <= 0) {
-      handleRemoveLineItem(stockItemId);
-      return;
-    }
-
     setCart((prev) =>
       prev.map((item) => {
         if (item.stockItemId !== stockItemId) return item;
+
         const qty = field === "quantity" ? Math.max(1, value) : item.quantity;
         const price = field === "unitPrice" ? Math.max(0, value) : item.unitPrice;
+        const discount = field === "discount" ? Math.max(0, value) : (item.discount ?? 0);
+        const taxRate = field === "taxRate" ? Math.max(0, value) : (item.taxRate ?? DEFAULT_TAX_RATE);
+
+        const subtotal = (qty * price) - discount;
+        const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
+        const lineTotal = Number((subtotal + taxAmount).toFixed(2));
+
         return {
           ...item,
-          [field]: value,
-          lineTotal: Number((qty * price).toFixed(2)),
+          quantity: qty,
+          unitPrice: price,
+          discount,
+          taxRate,
+          taxAmount,
+          lineTotal,
         };
       })
     );
@@ -208,7 +247,6 @@ export const PointOfSale: React.FC = () => {
     setAmountTendered("");
   };
 
-  // Submit Sale & Print Action
   const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -217,8 +255,8 @@ export const PointOfSale: React.FC = () => {
       return;
     }
 
-    if (paymentMethod === "CASH" && tenderedValue < grandTotal) {
-      toast.error("Amount tendered is less than total sale amount.");
+    if (paymentMethod === "CASH" && tenderedValue < cartTotals.grandTotal) {
+      toast.error("Amount is less than total sale amount.");
       return;
     }
 
@@ -227,11 +265,14 @@ export const PointOfSale: React.FC = () => {
         customerId: activeCustomer.id,
         warehouseId: selectedWarehouseId,
         paymentMethod,
-        amountPaid: paymentMethod === "CASH" ? tenderedValue : grandTotal,
+        amountPaid: paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
         items: cart.map((item) => ({
           stockItemId: item.stockItemId,
           quantity: Number(item.quantity),
           unitPrice: Number(item.unitPrice),
+          discount: Number(item.discount ?? 0),
+          taxAmount: Number(item.taxAmount ?? 0),
+          taxRate: Number(item.taxRate ?? DEFAULT_TAX_RATE)
         })),
       };
 
@@ -241,10 +282,11 @@ export const PointOfSale: React.FC = () => {
       }
 
       const currentWhObj = warehousesList.find((w) => (w.id ?? w.warehouseId) === selectedWarehouseId);
+      
       const receiptPayload = {
         companyName: "FRESHA ENTERPRISES",
         storeName: currentWhObj?.warehouseName ?? "POS STORE",
-        receiptNo: saleResponse?.receiptNo ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
+        receiptNo: saleResponse?.sale_receipt_201?.receiptNumber ?? saleResponse?.receiptNo ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         cashier: "CASHIER",
         customerName: activeCustomer.name ?? activeCustomer.fullName ?? "Walk-in Customer",
@@ -252,12 +294,17 @@ export const PointOfSale: React.FC = () => {
           name: i.stockItemName,
           qty: i.quantity,
           unitPrice: i.unitPrice,
+          discount: i.discount ?? 0,
+          taxRate: i.taxRate ?? DEFAULT_TAX_RATE,
+          taxAmount: i.taxAmount ?? 0,
           total: i.lineTotal,
         })),
-        subtotal: grandTotal,
-        grandTotal,
+        subtotal: cartTotals.subtotal,
+        discountTotal: cartTotals.discountTotal,
+        taxTotal: cartTotals.taxTotal,
+        grandTotal: cartTotals.grandTotal,
         paymentMethod,
-        amountTendered: paymentMethod === "CASH" ? tenderedValue : grandTotal,
+        amountTendered: paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
         changeAmount,
       };
 
@@ -302,7 +349,6 @@ export const PointOfSale: React.FC = () => {
                             POS Terminal
                           </h5>
                           
-                          {/* Warehouse Select */}
                           <div className="flex-grow-1" style={{ maxWidth: "170px" }}>
                             {isWarehousesLoading ? (
                               <Spinner size="sm" color="primary" />
@@ -323,7 +369,6 @@ export const PointOfSale: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Thermal Printer Select */}
                           <div className="flex-grow-1" style={{ maxWidth: "180px" }}>
                             {isPrintersLoading ? (
                               <Spinner size="sm" color="secondary" />
@@ -368,7 +413,6 @@ export const PointOfSale: React.FC = () => {
                         </div>
                       </Col>
 
-                      {/* Categories Bar */}
                       <Col xs={12} className="pt-1">
                         <div
                           className="d-flex gap-2 pb-1"
@@ -416,12 +460,12 @@ export const PointOfSale: React.FC = () => {
                     ) : filteredCatalogItems.length > 0 ? (
                       <Row className="g-2 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 row-cols-xl-4 row-cols-xxl-5">
                         {filteredCatalogItems.map((item: any) => {
-                          const itemId = item.stockItemId ?? item.id;
-                          const itemCode = item.stock_item?.stock_code ?? item.stockItemCode ?? "CODE";
-                          const itemName = item.stock_item?.description ?? item.stockItemName ?? "Unnamed Item";
-                          const uom = item.stock_item?.uom ?? item.uom ?? "PCS";
-                          const qtyOnHand = Number(item.qty_on_hand ?? 0);
-                          const price = Number(item.unit_cost ?? item.unitPrice ?? 0);
+                          const itemId = item.stockItemId ?? item.stockItem?.id ?? item.id;
+                          const itemCode = item.stockItem?.itemCode ?? item.stock_code ?? "CODE";
+                          const itemName = item.stockItem?.description ?? item.description ?? "Unnamed Item";
+                          const uom = item.stockItem?.uom ?? "PCS";
+                          const qtyOnHand = Number(item.qtyOnHand ?? 0);
+                          const price = Number(item.sellingPrice ?? item.unitCost ?? 0);
 
                           const cartItem = cartMap.get(itemId);
                           const inCartQty = cartItem ? cartItem.quantity : 0;
@@ -541,24 +585,39 @@ export const PointOfSale: React.FC = () => {
                       </div>
                     ) : (
                       cart.map((line) => (
-                        <div key={line.stockItemId} className="d-flex align-items-center justify-content-between p-2 mb-2 bg-light rounded border border-light-subtle">
-                          <div className="flex-grow-1 pe-2" style={{ minWidth: 0 }}>
-                            <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">{line.stockItemName}</h6>
-                            <span className="fs-11 text-muted">{formatCurrency(line.unitPrice)}</span>
-                          </div>
-                          <div className="d-flex align-items-center gap-2">
-                            <div className="d-flex align-items-center bg-white rounded border border-light-subtle p-1 shadow-none">
-                              <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity - 1)}>
-                                <i className="ri-subtract-line fs-11"></i>
-                              </span>
-                              <span className="fs-12 fw-semibold px-2 text-dark">{line.quantity}</span>
-                              <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity + 1)}>
-                                <i className="ri-add-line fs-11"></i>
-                              </span>
+                        <div key={line.stockItemId} className="p-2 mb-2 bg-light rounded border border-light-subtle position-relative">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <div className="flex-grow-1 pe-2" style={{ minWidth: 0 }}>
+                              <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">{line.stockItemName}</h6>
+                              <span className="fs-11 text-muted">{formatCurrency(line.unitPrice)} / {line.uom}</span>
                             </div>
-                            <span className="fs-12 fw-semibold text-dark font-monospace text-end" style={{ width: "75px" }}>
-                              {formatCurrency(line.lineTotal)}
-                            </span>
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="d-flex align-items-center bg-white rounded border border-light-subtle p-1 shadow-none">
+                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity - 1)}>
+                                  <i className="ri-subtract-line fs-11"></i>
+                                </span>
+                                <span className="fs-12 fw-semibold px-2 text-dark">{line.quantity}</span>
+                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity + 1)}>
+                                  <i className="ri-add-line fs-11"></i>
+                                </span>
+                              </div>
+                              <span className="fs-12 fw-semibold text-dark font-monospace text-end" style={{ width: "70px" }}>
+                                {formatCurrency(line.lineTotal)}
+                              </span>
+                              {/* Attached handleRemoveLineItem to solve the unread warning */}
+                              <i
+                                className="ri-delete-bin-line text-danger cursor-pointer ms-1 fs-14"
+                                title="Remove item"
+                                onClick={() => handleRemoveLineItem(line.stockItemId)}
+                              ></i>
+                            </div>
+                          </div>
+                          
+                          <div className="d-flex justify-content-between align-items-center pt-1 border-top border-light-subtle fs-10 text-muted">
+                            <span>VAT ({line.taxRate ?? DEFAULT_TAX_RATE}%): {formatCurrency(line.taxAmount ?? 0)}</span>
+                            {line.discount ? (
+                              <span className="text-success">Disc: -{formatCurrency(line.discount)}</span>
+                            ) : null}
                           </div>
                         </div>
                       ))
@@ -600,6 +659,23 @@ export const PointOfSale: React.FC = () => {
                       </div>
                     )}
 
+                    <div className="mb-2 px-1 fs-11 text-muted">
+                      <div className="d-flex justify-content-between">
+                        <span>Subtotal:</span>
+                        <span>{formatCurrency(cartTotals.subtotal)}</span>
+                      </div>
+                      {cartTotals.discountTotal > 0 && (
+                        <div className="d-flex justify-content-between text-success">
+                          <span>Discount Total:</span>
+                          <span>-{formatCurrency(cartTotals.discountTotal)}</span>
+                        </div>
+                      )}
+                      <div className="d-flex justify-content-between">
+                        <span>Tax Total:</span>
+                        <span>{formatCurrency(cartTotals.taxTotal)}</span>
+                      </div>
+                    </div>
+
                     <div className="d-flex justify-content-between align-items-end mb-2 px-1">
                       <div>
                         {paymentMethod === "CASH" && tenderedValue > 0 && (
@@ -611,7 +687,7 @@ export const PointOfSale: React.FC = () => {
                         <span className="fs-12 fw-semibold text-muted">Total</span>
                       </div>
                       <h4 className="mb-0 fw-bold text-dark fs-18 font-monospace">
-                        {formatCurrency(grandTotal)}
+                        {formatCurrency(cartTotals.grandTotal)}
                       </h4>
                     </div>
 

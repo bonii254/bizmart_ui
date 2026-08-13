@@ -5,6 +5,8 @@ export interface POSLineItem {
   quantity: number;
   unitPrice: number;
   discount?: number;
+  uom?: string
+  taxRate?: number;
   taxAmount?: number;
   lineTotal: number;
 }

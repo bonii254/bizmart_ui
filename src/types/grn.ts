@@ -1,8 +1,18 @@
+export interface ReceiptItem {
+  name: string;
+  qty: number;
+  unitPrice: number;
+  total: number;
+}
+
+
 export interface GRNLineItem {
   stockItemId: string;
   stockItemCode: string;
   stockItemName: string;
   uom: string;
+  taxRate?: number;
+  taxAmount?: number;
   quantity: number;
   unitPrice: number;
   lineTotal: number;

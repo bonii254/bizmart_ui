@@ -2,10 +2,8 @@ import { APIClient } from "../helpers/api_helper";
 import { 
   StockItem, 
   StockItemPayload, 
-  UpdateStockItemRequest, 
+  UpdateStockItemRequest,
   StockCatalogResponse,
-  SingleStockItemResponse,
-  StockItemBalancesResponse
 } from "../types/stockitem";
 
 const api = new APIClient();
@@ -22,17 +20,17 @@ export const StockItemService = {
 
   
   createMasterStockItem: async (payload: StockItemPayload): Promise<StockItem> => {
-    const response: SingleStockItemResponse = await api.create(`${BASE_URL}`, payload);
+    const response = await api.create(`${BASE_URL}`, payload);
     return response.data;
   },
 
   getMasterItemDetails: async (id: string): Promise<StockItem> => {
-    const response: SingleStockItemResponse = await api.get(`${BASE_URL}/${id}`);
+    const response = await api.get(`${BASE_URL}/${id}`);
     return response.data;
   },
 
   updateMasterStockItem: async (id: string, payload: UpdateStockItemRequest): Promise<StockItem> => {
-    const response: SingleStockItemResponse = await api.update(`${BASE_URL}/${id}`, payload);
+    const response = await api.update(`${BASE_URL}/${id}`, payload);
     return response.data;
   },
   deleteMasterStockItem: async (id: string): Promise<{ message: string }> => {
@@ -40,7 +38,4 @@ export const StockItemService = {
     return response;
   },
   
-  getStockItemGlobalBalances: async (id: string): Promise<StockItemBalancesResponse> => {
-    return await api.get(`${BASE_URL}/${id}/balances`);
-  }
 };

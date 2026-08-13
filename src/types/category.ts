@@ -1,19 +1,19 @@
 export interface Category {
   id: string;
-  category_code: string;
-  category_name: string;
+  categoryCode: string;
+  categoryName: string;
   description?: string;
-  parent_id: string | null;
+  parentCategoryId: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface CategoryPayload {
-  category_code: string;
-  category_name: string;
+  categoryCode: string;
+  categoryName: string;
   description?: string;
-  parent_id?: string | null; 
+  parentCategoryId?: string | null; 
   is_active?: boolean;
 }
 

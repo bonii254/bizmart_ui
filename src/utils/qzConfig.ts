@@ -127,13 +127,19 @@ export const formatCurrency = (amount: number): string =>
     style: "currency",
     currency: "KES",
     minimumFractionDigits: 2,
-  }).format(amount).replace("KES", "Ksh");
-
+  })
+    .format(amount)
+    .replace("KES", "Ksh")
+    .replace(/\u00A0/g, " ")
+    .trim();
 
 export interface ReceiptItem {
   name: string;
   qty: number;
   unitPrice: number;
+  discount?: number;
+  taxRate?: number;
+  taxAmount?: number;
   total: number;
 }
 
@@ -146,6 +152,8 @@ export interface ReceiptData {
   customerName: string;
   items: ReceiptItem[];
   subtotal: number;
+  discountTotal?: number;
+  taxTotal: number;
   grandTotal: number;
   paymentMethod: string;
   amountTendered?: number;
@@ -199,15 +207,26 @@ export const generateESCPOSText = (data: ReceiptData): string => {
   for (const item of data.items) {
     const nameStr = item.name.length > 32 ? item.name.slice(0, 32) : item.name;
     receipt += `${nameStr}\n`;
+    
     const qtyPriceStr = `  ${item.qty} x ${item.unitPrice.toFixed(2)}`;
     receipt += justify(qtyPriceStr, item.total.toFixed(2));
   }
 
-  // Totals Section
+  // Totals Breakdown
   receipt += `${"-".repeat(LINE_WIDTH)}\n`;
+  receipt += justify("Subtotal:", formatCurrency(data.subtotal));
+
+  if (data.discountTotal && data.discountTotal > 0) {
+    receipt += justify("Discount:", `-${formatCurrency(data.discountTotal)}`);
+  }
+
+  // Highlighted Total Tax & Grand Total at Bottom
   receipt += `${BOLD_ON}`;
-  receipt += justify("TOTAL:", formatCurrency(data.grandTotal));
+  receipt += justify("TOTAL TAX (VAT):", formatCurrency(data.taxTotal));
+  receipt += justify("GRAND TOTAL:", formatCurrency(data.grandTotal));
   receipt += BOLD_OFF;
+
+  receipt += `${"-".repeat(LINE_WIDTH)}\n`;
   receipt += justify("Payment Mode:", data.paymentMethod);
 
   if (data.paymentMethod === "CASH" && data.amountTendered !== undefined) {
