@@ -1,10 +1,3 @@
-export interface ReceiptItem {
-  name: string;
-  qty: number;
-  unitPrice: number;
-  total: number;
-}
-
 
 export interface GRNLineItem {
   stockItemId: string;
