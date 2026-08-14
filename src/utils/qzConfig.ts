@@ -212,7 +212,6 @@ export const generateESCPOSText = (data: ReceiptData): string => {
     receipt += justify(qtyPriceStr, item.total.toFixed(2));
   }
 
-  // Totals Breakdown
   receipt += `${"-".repeat(LINE_WIDTH)}\n`;
   receipt += justify("Subtotal:", formatCurrency(data.subtotal));
 
@@ -220,7 +219,6 @@ export const generateESCPOSText = (data: ReceiptData): string => {
     receipt += justify("Discount:", `-${formatCurrency(data.discountTotal)}`);
   }
 
-  // Highlighted Total Tax & Grand Total at Bottom
   receipt += `${BOLD_ON}`;
   receipt += justify("TOTAL TAX (VAT):", formatCurrency(data.taxTotal));
   receipt += justify("GRAND TOTAL:", formatCurrency(data.grandTotal));

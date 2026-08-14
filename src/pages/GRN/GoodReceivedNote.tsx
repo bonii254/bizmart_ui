@@ -304,7 +304,7 @@ export const GoodsReceivedNote: React.FC = () => {
                       </div>
 
                       {/* Supplier Picker Dropdown */}
-                      <div style={{ minWidth: "240px" }}>
+                      <div style={{ minWidth: "240px", position: "relative", zIndex: 1050}}>
                         <Dropdown
                           isOpen={isSupplierDropdownOpen}
                           toggle={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}

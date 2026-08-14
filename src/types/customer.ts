@@ -8,7 +8,9 @@ export interface Customer {
   address: string;
   taxNumber: string;
   creditLimit: number;
-  is_active: boolean;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CustomerPayload {
@@ -27,7 +29,7 @@ export interface UpdateUserRequest extends Partial<CustomerPayload> {
 }
 
 export interface CustomerListResponse {
-  users: Customer[];
+  customers: Customer[];
   total: number;
   pages: number;
   current_page: number;

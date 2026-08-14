@@ -69,7 +69,6 @@ const Navdata = () => {
       },
       subItems: [
         { id: "sales-history", label: "Sales History", link: "/sales-history" },
-        { id: "quotations", label: "Quotations / Estimates", link: "/quotations" },
         { id: "refunds", label: "Returns & Refunds", link: "/refunds" },
       ],
     },

@@ -88,7 +88,7 @@ export const PointOfSale: React.FC = () => {
 
   const customersList = useMemo(() => {
     if (!customersData) return [];
-    return Array.isArray(customersData) ? customersData : customersData.users ?? [];
+    return Array.isArray(customersData) ? customersData : customersData.customers ?? [];
   }, [customersData]);
 
   const categoriesList = useMemo(() => {
@@ -289,7 +289,7 @@ export const PointOfSale: React.FC = () => {
         receiptNo: saleResponse?.sale_receipt_201?.receiptNumber ?? saleResponse?.receiptNo ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         cashier: "CASHIER",
-        customerName: activeCustomer.name ?? activeCustomer.fullName ?? "Walk-in Customer",
+        customerName: activeCustomer.customerName ?? "Walk-in Customer",
         items: cart.map((i) => ({
           name: i.stockItemName,
           qty: i.quantity,
@@ -551,7 +551,7 @@ export const PointOfSale: React.FC = () => {
                         <div className="d-flex align-items-center gap-2">
                           <i className="ri-user-3-line text-muted fs-14"></i>
                           <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "200px" }}>
-                            {activeCustomer.name ?? activeCustomer.fullName ?? "Select Customer"}
+                            {activeCustomer.customerName ?? "Select Customer"}
                           </span>
                         </div>
                         <i className="ri-arrow-down-s-line text-muted"></i>
@@ -568,7 +568,7 @@ export const PointOfSale: React.FC = () => {
                         <div style={{ maxHeight: "180px", overflowY: "auto" }}>
                           {filteredCustomers.map((cust: any) => (
                             <div key={cust.id} className="p-2 rounded fs-12 cursor-pointer hover-bg-light" onClick={() => { setSelectedCustomer(cust); setIsCustomerDropdownOpen(false); }}>
-                              <span className="fw-medium text-dark d-block">{cust.name ?? cust.fullName}</span>
+                              <span className="fw-medium text-dark d-block">{cust.customerName }</span>
                               <span className="text-muted fs-11">{cust.phone ?? cust.phoneNumber}</span>
                             </div>
                           ))}

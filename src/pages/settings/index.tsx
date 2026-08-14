@@ -13,7 +13,6 @@ import {
   TabPane,
 } from "reactstrap";
 import classnames from "classnames";
-import BreadCrumb from "../../Components/Common/BreadCrumb";
 
 import UserManagement from "./users";
 import CategoryManagement from "./Category";
