@@ -5,13 +5,13 @@ const ecomWidgets = [
     label: "Total Sales Revenue",
     badge: "ri-arrow-up-line",
     badgeClass: "success",
-    percentage: "+12.5 %", // Or "Today" / "MTD"
+    percentage: "+12.5 %",
     counter: 0,
     link: "View sales report",
     bgcolor: "success",
-    icon: "bx bx-dollar-circle", // Represents revenue / cash register
+    icon: "bx bx-dollar-circle",
     decimals: 2,
-    prefix: "$", // Replace with your currency code (e.g. "KES ", "€", "£")
+    prefix: "Ksh ", 
     separator: ",",
     suffix: ""
   },
@@ -25,7 +25,7 @@ const ecomWidgets = [
     counter: 0,
     link: "View all orders",
     bgcolor: "primary",
-    icon: "bx bx-shopping-bag", // Represents retail transactions
+    icon: "bx bx-shopping-bag",
     decimals: 0,
     prefix: "",
     separator: ",",
