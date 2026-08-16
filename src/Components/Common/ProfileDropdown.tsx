@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Dropdown, DropdownItem, DropdownMenu, DropdownToggle } from 'reactstrap';
-import { useUser } from "../../Components/Hooks/useAuth";
+import { getLoggedinUser } from "../../helpers/api_helper";
 
 import avatar1 from "../../assets/images/users/avatar-1.jpg";
 
 const ProfileDropdown = () => {
-    const { data: user } = useUser();
+    const { data: user } = getLoggedinUser();
 
     const [isProfileDropdown, setIsProfileDropdown] = useState(false);
     const toggleProfileDropdown = () => {

@@ -17,7 +17,7 @@ export const CompanyService = {
 
   createCompany: async (payload: CompanyPayload): Promise<Company> => {
     const response = await api.create(`${BASE_URL}`, payload);
-    return response.company;
+    return response.data;
   },
 
   updateCompany: async (

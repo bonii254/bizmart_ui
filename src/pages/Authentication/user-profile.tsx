@@ -19,14 +19,14 @@ import { useFormik } from "formik";
 import { useSelector, useDispatch } from "react-redux";
 import { createSelector } from "reselect";
 import { editProfile, resetProfileFlag } from "../../slices/thunks";
-import { useUser } from "../../Components/Hooks/useAuth";
+import { getLoggedinUser } from "../../helpers/api_helper";
 
 import avatar from "../../assets/images/users/avatar-1.jpg";
 
 const UserProfile = () => {
   const dispatch: any = useDispatch();
   
-  const { data: userData } = useUser();
+  const { data: userData } =getLoggedinUser();
 
   const profileSelector = createSelector(
     (state: any) => state.Profile,

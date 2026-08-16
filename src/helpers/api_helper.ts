@@ -1,64 +1,54 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import config from "../config";
 
 const { api } = config;
 
 axios.defaults.baseURL = api.API_URL;
 axios.defaults.headers.post["Content-Type"] = "application/json";
-axios.defaults.withCredentials = true;
-axios.defaults.xsrfCookieName = "csrf_access_token";
-axios.defaults.xsrfHeaderName = "X-CSRF-TOKEN";
+axios.defaults.withCredentials = false;
 
-let isRefreshing = false;
-let failedQueue: any[] = [];
+// -------------------------------------------------------------
+// 1. REQUEST INTERCEPTOR: Attach Session Headers
+// -------------------------------------------------------------
+axios.interceptors.request.use(
+  (reqConfig: InternalAxiosRequestConfig) => {
+    const authUser = sessionStorage.getItem("authUser");
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+        const session = parsed?.data || parsed;
 
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve(token);
-  });
-  failedQueue = [];
-};
+        if (session?.sessionId) {
+          reqConfig.headers["X-Session-ID"] = session.sessionId;
+        }
+        if (session?.operatorId) {
+          reqConfig.headers["X-Operator-ID"] = session.operatorId;
+        }
+      } catch (error) {
+        console.error("Failed to parse authUser session from sessionStorage", error);
+      }
+    }
+    return reqConfig;
+  },
+  (error) => Promise.reject(error)
+);
 
+// -------------------------------------------------------------
+// 2. RESPONSE INTERCEPTOR: Direct 401 Session Handling
+// -------------------------------------------------------------
 axios.interceptors.response.use(
   (response: AxiosResponse) => (response.data ? response.data : response),
   async (error: any) => {
-    const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (originalRequest.url.includes("/login")) {
-        return Promise.reject(error); 
-      }
-
-      if (originalRequest.url.includes("/refresh")) {
-        sessionStorage.removeItem("authUser");
-        window.location.href = "/login";
+    if (error.response?.status === 401) {
+      if (error.config?.url?.includes("/login")) {
         return Promise.reject(error);
       }
 
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(() => axios(originalRequest))
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        await axios.post("/refresh");
-        processQueue(null);
-        return axios(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        sessionStorage.removeItem("authUser");
+      sessionStorage.removeItem("authUser");
+      if (window.location.pathname !== "/login") {
         window.location.href = "/login";
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
+      return Promise.reject(error);
     }
 
     if (error.response) {
@@ -85,7 +75,7 @@ class APIClient {
       ...config,
       headers: {
         ...config?.headers,
-        "Content-Type": "multipart/form-data", 
+        "Content-Type": "multipart/form-data",
       },
     });
   };
@@ -115,7 +105,16 @@ class APIClient {
 
 const getLoggedinUser = () => {
   const user = sessionStorage.getItem("authUser");
-  return user ? JSON.parse(user) : null;
+  if (!user) return { data: null };
+
+  try {
+    const parsed = JSON.parse(user);
+    // Handles both envelope shape { data: { ... } } and flat user object { ... }
+    return parsed?.data ? parsed : { data: parsed };
+  } catch (error) {
+    console.error("Failed to parse authUser from sessionStorage:", error);
+    return { data: null };
+  }
 };
 
 export { APIClient, getLoggedinUser };

@@ -1,37 +1,44 @@
-export enum UserRole {
-  ATTENDANT = "ATTENDANT",
-  QAE = "QAE",
-  ADMIN = "ADMIN"
+export interface Operator {
+  operatorId: string;
+  operatorCode: string;
+  userName: string;
+  displayName: string;
+  roleCode: string;
+  canDiscount: boolean;
+  canVoid: boolean;
+  canWithdraw: boolean;
+  isActive: boolean;
 }
 
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  payroll_number: string;
-  role_name: UserRole;
-  is_active: boolean;
-  last_login?: string;
-  has_employee_profile: boolean;
+export interface OperatorPayload {
+  operatorCode: string;
+  userName: string;
+  displayName: string;
+  roleCode: string;
+  canDiscount: boolean;
+  canVoid: boolean;
+  canWithdraw: boolean;
+  isActive: boolean;
 }
 
-export interface UserPayload {
-  username: string;
-  email: string;
-  payroll_number: string;
-  password?: string;
-  confirm_password?: string;
-  role: UserRole;
+export interface CreateOperatorPasswordPayload {
+  password: string;
 }
 
-export interface UpdateUserRequest extends Partial<UserPayload> {
-  is_active?: number; 
+export interface CreateOperatorPasswordResponse {
+  success: boolean;
+  message: string;
+  data: string;
 }
 
-export interface UserListResponse {
-  users: User[];
-  total: number;
-  pages: number;
-  current_page: number;
-  per_page: number;
+export type UpdateOperatorPayload = Partial<OperatorPayload>;
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
 }
+
+export type OperatorListResponse = ApiResponse<Operator[]>;
+export type SingleOperatorResponse = ApiResponse<Operator>;
+export type OperatorMutationResponse = ApiResponse<string>;

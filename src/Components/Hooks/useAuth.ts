@@ -1,33 +1,55 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { APIClient } from "../../helpers/api_helper";
-import { toast } from "react-toastify";
+// src/hooks/useAuth.ts
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { loginApi, logoutApi } from "../../services/authService";
+import { getLoggedinUser } from "../../helpers/api_helper";
+import { LoginPayload, LoginResponse, LogoutResponse } from "../../types/auth";
 
+export const useAuthMutation = () => {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-const api = new APIClient();
+  // LOGIN MUTATION
+  const loginMutation = useMutation<LoginResponse, Error, LoginPayload>({
+    mutationFn: (payload: LoginPayload) => loginApi(payload),
+    onSuccess: (response) => {
+      if (response?.success && response?.data) {
+        sessionStorage.setItem("authUser", JSON.stringify(response));
+        
+        queryClient.clear();
+        navigate("/", { replace: true });
+      }
+    },
+  });
 
-export const useLogin = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (credentials: any ) =>  api.create('/login', credentials),
-        onSuccess: (data) => {
-            sessionStorage.setItem("authUser", JSON.stringify(data));
-            queryClient.setQueryData(['authUser'], data.user);
-        },
-        onError: (error: any) => {
-            toast.error(error.toString());
-        }
-    });
-};
+  const logoutMutation = useMutation<LogoutResponse, Error, void>({
+    mutationFn: () => {
+      const { data: session } = getLoggedinUser();
+      const sessionId = session?.sessionId;
+      if (!sessionId) {
+        return Promise.reject(new Error("No active session found."));
+      }
+      return logoutApi(sessionId);
+    },
+    onSuccess: () => {
+      sessionStorage.removeItem("authUser");
+      queryClient.clear();
+      navigate("/login", { replace: true });
+    },
+    onError: () => {
+      // Fallback eviction if logout call fails on backend
+      sessionStorage.removeItem("authUser");
+      queryClient.clear();
+      navigate("/login", { replace: true });
+    },
+  });
 
-
-export const useUser = () => {
-    return useQuery({
-        queryKey: ['authUser'],
-        queryFn: async () => {
-            const response = await api.get("auth/me");
-            return response.user;
-        },
-        retry: false,
-        refetchOnWindowFocus: false,
-    });
+  return {
+    login: loginMutation.mutateAsync,
+    logout: logoutMutation.mutateAsync,
+    isLoggingIn: loginMutation.isPending,
+    isLoggingOut: logoutMutation.isPending,
+    loginError: loginMutation.error,
+    logoutError: logoutMutation.error,
+  };
 };

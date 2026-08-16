@@ -4,7 +4,7 @@ import Widget from "./Widgets";
 import RecentActivity from "./RecentActivity";
 
 const DashboardEcommerce = () => {
-  document.title = "QAE Fuel and Briquette Management System - Dashboard";
+  document.title = "Retail managment - Dashboard";
 
   const [rightColumn, setRightColumn] = useState<boolean>(false);
   const toggleRightColumn = () => {

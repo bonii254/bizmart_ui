@@ -27,9 +27,9 @@ export const StockTakeService = {
     if (warehouseId) {
       url += `&warehouse_id=${warehouseId}`;
     }
-    return await    api.get(url);
+    return await api.get(url);
   },
- 
+
   getStockTake: async (
     stockTakeId: string
   ): Promise<GetSingleStockTakeResponse> => {

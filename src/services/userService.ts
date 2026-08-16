@@ -1,33 +1,49 @@
 import { APIClient } from "../helpers/api_helper";
 import { 
-    User, 
-    UserPayload, 
-    UpdateUserRequest, 
-    UserListResponse 
+  OperatorPayload, 
+  UpdateOperatorPayload, 
+  OperatorListResponse,
+  SingleOperatorResponse,
+  OperatorMutationResponse,
+  CreateOperatorPasswordPayload,
+  CreateOperatorPasswordResponse
 } from "../types/user";
 
 const api = new APIClient();
+const BASE_URL = "/api/operators";
 
-export const UserService = {
-  getAllUsers: async (page = 1, perPage = 10): Promise<UserListResponse> => {
-    return await api.get(`/users`, { params: { page, per_page: perPage } });
+export const OperatorService = {
+  getAllOperators: async (): Promise<OperatorListResponse> => {
+    return await api.get(BASE_URL);
   },
 
-  createUser: async (payload: UserPayload): Promise<User> => {
-    const response = await api.create(`/auth/register`, payload);
-    return response.user;
+  createOperator: async (payload: OperatorPayload): Promise<OperatorMutationResponse> => {
+    return await api.create(BASE_URL, payload);
   },
 
-  updateUser: async (id: number, payload: UpdateUserRequest): Promise<User> => {
-    const response = await api.update(`/auth/user/${id}`, payload);
-    return response.user;
+  getOperatorById: async (id: string): Promise<SingleOperatorResponse> => {
+    return await api.get(`${BASE_URL}/${id}`);
   },
 
-  deleteUser: async (id: number): Promise<{ message: string }> => {
-    return await api.delete(`/users/${id}`);
+  getOperatorByCode: async (operatorCode: string): Promise<SingleOperatorResponse> => {
+    return await api.get(`${BASE_URL}/${operatorCode}`);
   },
 
-  forgetUserPassword: async (payload: UpdateUserRequest): Promise<{ message: string }> => {
-    return await api.update(`/auth/forgot-password`, payload)
-  }
-}
+  // POST /api/operators/{id}/update
+  updateOperator: async (id: string, payload: UpdateOperatorPayload): Promise<OperatorMutationResponse> => {
+    return await api.create(`${BASE_URL}/${id}/update`, payload);
+  },
+
+  // POST /api/operators/{id}/delete
+  deleteOperator: async (id: string): Promise<OperatorMutationResponse> => {
+    return await api.create(`${BASE_URL}/${id}/delete`, {});
+  },
+
+  // POST /api/security/operators/{operatorId}/password
+  createOperatorPassword: async (
+    operatorId: string, 
+    payload: CreateOperatorPasswordPayload
+  ): Promise<CreateOperatorPasswordResponse> => {
+    return await api.create(`/api/security/operators/${operatorId}/password`, payload);
+  },
+};

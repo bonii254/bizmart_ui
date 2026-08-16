@@ -1,18 +1,19 @@
 // src/AuthProtected.tsx
 import React from "react";
-import { Navigate } from "react-router-dom";
-import { useUser } from "../Components/Hooks/useAuth"; 
-import { Spinner } from "reactstrap";
+import { Navigate, useLocation } from "react-router-dom";
+import { getLoggedinUser } from "../helpers/api_helper";
 
-const AuthProtected = ( { children }: { children: React.ReactNode }) => {
-  const { data: user, isLoading, isError } = useUser();
+interface AuthProtectedProps {
+  children: React.ReactNode;
+}
 
-  if (isLoading) {
-    return <Spinner color="primary" />; // Simple loading
-  }
+const AuthProtected: React.FC<AuthProtectedProps> = ({ children }) => {
+  const location = useLocation();
+  const { data: user } = getLoggedinUser();
 
-  if (isError || !user) {
-    return <Navigate to={{ pathname: "/login" }} />;
+  // If no active user session exists in sessionStorage, redirect to /login
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

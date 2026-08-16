@@ -7,13 +7,13 @@ import withRouter from "../../Components/Common/withRouter";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 
-import { useUserMutation } from "../../Components/Hooks/useUsers"; 
+//import { useUserMutation } from "../../Components/Hooks/useUsers"; 
 
 import logoLight from "../../assets/images/logo-light.png";
 import ParticlesAuth from "../AuthenticationInner/ParticlesAuth";
 
 const ForgetPasswordPage = (props: any) => {
-  const { forgotPassword, isUpdating } = useUserMutation();
+ // const { forgotPassword, isUpdating } = useUserMutation();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const validation = useFormik({
@@ -26,8 +26,8 @@ const ForgetPasswordPage = (props: any) => {
     }),
     onSubmit: async (values) => {
       try {
-        const response = await forgotPassword({ email: values.email });
-        setSuccessMsg(response.message || "Instructions sent to your email!");
+        //const response = await forgotPassword({ email: values.email });
+        //setSuccessMsg(response.message || "Instructions sent to your email!");
       } catch (error) {
         setSuccessMsg(null);
       }
@@ -104,9 +104,8 @@ const ForgetPasswordPage = (props: any) => {
                         <button 
                           className="btn btn-success w-100" 
                           type="submit" 
-                          disabled={isUpdating}
+                         // disabled={isUpdating}
                         >
-                          {isUpdating ? <Spinner size="sm" className="me-2" /> : null}
                           Send Reset Link
                         </button>
                       </div>

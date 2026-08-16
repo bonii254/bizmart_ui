@@ -9,35 +9,35 @@ import AuthSlider from '../AuthenticationInner/authCarousel';
 import withRouter from "../../Components/Common/withRouter";
 import * as Yup from "yup";
 import { useFormik } from "formik";
-import { useLogin } from "../../Components/Hooks/useAuth";
+import { useAuthMutation } from "../../Components/Hooks/useAuth";
 
 const Login = (props: any) => {
-
-    const loginMutation = useLogin();
-
+    const { login, isLoggingIn, loginError } = useAuthMutation();
     const [passwordShow, setPasswordShow] = useState<boolean>(false);
 
     const validation: any = useFormik({
         enableReinitialize: true,
         initialValues: {
-            email: "",
+            userName: "",
             password: "",
+            workstation: "",
         },
         validationSchema: Yup.object({
-            email: Yup.string().required("Please Enter Your Email"),
+            userName: Yup.string().required("Please Enter Your Username"),
             password: Yup.string().required("Please Enter Your Password"),
+            workstation: Yup.string().required("Please Enter Your Workstation"),
         }),
-        onSubmit: (values) => {
-
-            loginMutation.mutate(values, {
-                onSuccess: () => {
-                    props.router.navigate('/dashboard');
-                }
-            });
+        onSubmit: async (values) => {
+            try {
+                await login(values);
+                props.router.navigate('/dashboard');
+            } catch (err) {
+                // Handled gracefully via loginError state
+            }
         }
-    });;
+    });
 
-    document.title = "Login | Retail Managment System";
+    document.title = "Login | Retail Management System";
 
     return (
         <React.Fragment>
@@ -55,13 +55,13 @@ const Login = (props: any) => {
                                             <div className="p-lg-5 p-4">
                                                 <div>
                                                     <h5 className="text-primary">Welcome Back !</h5>
-                                                    <h5 className="text-plain">Retail Managment System.</h5>
+                                                    <h5 className="text-plain">Retail Management System.</h5>
                                                 </div>
 
-                                                {/* React Query Errror */}
-                                                {loginMutation.isError && (
-                                                    <Alert color="danger">
-                                                        {String(loginMutation.error)}
+                                                {/* Mutation API Error */}
+                                                {loginError && (
+                                                    <Alert color="danger" className="mt-3">
+                                                        {loginError.message || String(loginError)}
                                                     </Alert>
                                                 )}
 
@@ -72,33 +72,57 @@ const Login = (props: any) => {
                                                             validation.handleSubmit();
                                                             return false;
                                                         }}
-                                                        action="#">
-
+                                                        action="#"
+                                                    >
+                                                        {/* Username Field */}
                                                         <div className="mb-3">
-                                                          <Label htmlFor="email" className="form-label">Email</Label>
-                                                          <Input
-                                                              name="email"
-                                                              className="form-control"
-                                                              placeholder="Enter email"
-                                                              type="email"
-                                                              onChange={validation.handleChange}
-                                                              onBlur={validation.handleBlur}
-                                                              value={validation.values.email || ""}
-                                                              invalid={
-                                                                  validation.touched.email && validation.errors.email ? true : false
-                                                              }
-                                                          />
-                                                          {validation.touched.email && validation.errors.email && (
-                                                              <FormFeedback type="invalid">
-                                                                  {validation.errors.email}
-                                                              </FormFeedback>
-                                                          )}
+                                                            <Label htmlFor="userName" className="form-label">Username</Label>
+                                                            <Input
+                                                                name="userName"
+                                                                className="form-control"
+                                                                placeholder="Enter username"
+                                                                type="text"
+                                                                onChange={validation.handleChange}
+                                                                onBlur={validation.handleBlur}
+                                                                value={validation.values.userName || ""}
+                                                                invalid={
+                                                                    validation.touched.userName && validation.errors.userName ? true : false
+                                                                }
+                                                            />
+                                                            {validation.touched.userName && validation.errors.userName && (
+                                                                <FormFeedback type="invalid">
+                                                                    {validation.errors.userName}
+                                                                </FormFeedback>
+                                                            )}
                                                         </div>
 
+                                                        {/* Workstation Field */}
+                                                        <div className="mb-3">
+                                                            <Label htmlFor="workstation" className="form-label">Workstation</Label>
+                                                            <Input
+                                                                name="workstation"
+                                                                className="form-control"
+                                                                placeholder="Enter workstation (e.g. WS-01)"
+                                                                type="text"
+                                                                onChange={validation.handleChange}
+                                                                onBlur={validation.handleBlur}
+                                                                value={validation.values.workstation || ""}
+                                                                invalid={
+                                                                    validation.touched.workstation && validation.errors.workstation ? true : false
+                                                                }
+                                                            />
+                                                            {validation.touched.workstation && validation.errors.workstation && (
+                                                                <FormFeedback type="invalid">
+                                                                    {validation.errors.workstation}
+                                                                </FormFeedback>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Password Field */}
                                                         <div className="mb-3">
                                                             <div className="float-end">
                                                                 <Link to="/auth-pass-reset-cover" className="text-muted">
-                                                                  Forgot password?
+                                                                    Forgot password?
                                                                 </Link>
                                                             </div>
                                                             <Label className="form-label" htmlFor="password-input">
@@ -106,28 +130,28 @@ const Login = (props: any) => {
                                                             </Label>
                                                             <div className="position-relative auth-pass-inputgroup mb-3">
                                                                 <Input
-                                                                  name="password"
-                                                                  value={validation.values.password || ""}
-                                                                  type={passwordShow ? "text" : "password"}
-                                                                  className="form-control pe-5"
-                                                                  placeholder="Enter Password"
-                                                                  onChange={validation.handleChange}
-                                                                  onBlur={validation.handleBlur}
-                                                                  invalid={
-                                                                      validation.touched.password && validation.errors.password ? true : false
-                                                                  }
+                                                                    name="password"
+                                                                    value={validation.values.password || ""}
+                                                                    type={passwordShow ? "text" : "password"}
+                                                                    className="form-control pe-5"
+                                                                    placeholder="Enter Password"
+                                                                    onChange={validation.handleChange}
+                                                                    onBlur={validation.handleBlur}
+                                                                    invalid={
+                                                                        validation.touched.password && validation.errors.password ? true : false
+                                                                    }
                                                                 />
                                                                 {validation.touched.password && validation.errors.password ? (
                                                                     <FormFeedback type="invalid">{validation.errors.password}</FormFeedback>
                                                                 ) : null}
 
                                                                 <button 
-                                                                  className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon" 
-                                                                  type="button" 
-                                                                  id="password-addon" 
-                                                                  onClick={() => setPasswordShow(!passwordShow)}
+                                                                    className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted password-addon" 
+                                                                    type="button" 
+                                                                    id="password-addon" 
+                                                                    onClick={() => setPasswordShow(!passwordShow)}
                                                                 >
-                                                                  <i className="ri-eye-fill align-middle"></i>
+                                                                    <i className="ri-eye-fill align-middle"></i>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -138,19 +162,19 @@ const Login = (props: any) => {
                                                         </div>
 
                                                         <div className="mt-4">
-                                                          <Button
-                                                              color="success"
-                                                              disabled={loginMutation.isPending}
-                                                              className="btn btn-success w-100"
-                                                              type="submit"
-                                                          >
-                                                              {loginMutation.isPending && (
-                                                                  <Spinner size="sm" className="me-2">
-                                                                      Loading...
-                                                                  </Spinner>
-                                                              )}
-                                                              Sign In
-                                                          </Button>
+                                                            <Button
+                                                                color="success"
+                                                                disabled={isLoggingIn}
+                                                                className="btn btn-success w-100"
+                                                                type="submit"
+                                                            >
+                                                                {isLoggingIn && (
+                                                                    <Spinner size="sm" className="me-2">
+                                                                        Loading...
+                                                                    </Spinner>
+                                                                )}
+                                                                Sign In
+                                                            </Button>
                                                         </div>
 
                                                     </Form>
@@ -170,7 +194,7 @@ const Login = (props: any) => {
                         <Row>
                             <Col lg={12}>
                                 <div className="text-center">
-                                    <p className="mb-0">&copy; {new Date().getFullYear()} Retail Managment System</p>
+                                    <p className="mb-0">&copy; {new Date().getFullYear()} Retail Management System</p>
                                 </div>
                             </Col>
                         </Row>

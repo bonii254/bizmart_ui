@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { useUser } from "../Components/Hooks/useAuth";
+import { getLoggedinUser } from "../helpers/api_helper";
 
 const Navdata = () => {
-  const { data: user } = useUser();
-  const role = user?.role_name;
+  const { data: user } = getLoggedinUser();
+  const role = user?.roleCode;
 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -23,7 +23,7 @@ const Navdata = () => {
       "reports",
       "administration"
     ],
-    ADMIN: [
+    ADM: [
       "pos", "dashboard", "sales", "inventory", "purchasing", 
       "finance", "crm", "reports", "administration"
     ],
