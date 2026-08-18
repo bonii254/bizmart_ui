@@ -34,7 +34,6 @@ import {
   StockItem,
   StockItemPayload,
   UpdateStockItemRequest,
-  UOM_VALUES,
 } from "../../../types/stockitem";
 import { Category } from "../../../types/category";
 import { handleBackendErrors } from "../../../helpers/form_utils";
@@ -45,7 +44,7 @@ const StockItemManagement: React.FC = () => {
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Debounced auto-search state
+  // Search filter state
   const [searchInput, setSearchInput] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
@@ -68,7 +67,8 @@ const StockItemManagement: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  const { data, isLoading } = useStockItems(searchTerm);
+  // Fetch stock items via TanStack Query hook
+  const { data: stockItems, isLoading } = useStockItems();
   const { data: categoryData } = useCategories("", true);
 
   const {
@@ -86,6 +86,7 @@ const StockItemManagement: React.FC = () => {
   const [currentStockItemId, setCurrentStockItemId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string>("");
 
+  // Extract categories safely using updated Category type { id, name }
   const categoriesList: Category[] = useMemo(() => {
     if (!categoryData) return [];
     if (Array.isArray(categoryData)) return categoryData;
@@ -96,35 +97,34 @@ const StockItemManagement: React.FC = () => {
     );
   }, [categoryData]);
 
+  // Filter items based on Category selection & client-side search term
   const filteredStockItems = useMemo(() => {
-    let list = data?.catalog || [];
-    
-    // Category Filter
+    let list: StockItem[] = stockItems || [];
+
     if (selectedCategoryId) {
       list = list.filter((item) => item.categoryId === selectedCategoryId);
     }
 
-    // Search Query Filter
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       list = list.filter(
         (item) =>
           item.itemCode?.toLowerCase().includes(lowerSearch) ||
           item.description?.toLowerCase().includes(lowerSearch) ||
-          (item.categoryName && item.categoryName.toLowerCase().includes(lowerSearch))
+          item.categoryName?.toLowerCase().includes(lowerSearch) ||
+          item.category?.name?.toLowerCase().includes(lowerSearch)
       );
     }
-    
-    return list;
-  }, [data, selectedCategoryId, searchTerm]);
 
-  // Pagination Calculations
+    return list;
+  }, [stockItems, selectedCategoryId, searchTerm]);
+
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredStockItems.slice(start, start + pageSize);
   }, [filteredStockItems, pageIndex, pageSize]);
 
-  const totalPages = Math.ceil(filteredStockItems.length / pageSize);
+  const totalPages = Math.ceil(filteredStockItems.length / pageSize) || 1;
 
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
@@ -136,7 +136,7 @@ const StockItemManagement: React.FC = () => {
     nextPage: () => setPageIndex((prev) => Math.min(prev + 1, totalPages - 1)),
     getCanPreviousPage: () => pageIndex > 0,
     getCanNextPage: () => pageIndex < totalPages - 1,
-    getPageCount: () => totalPages || 1,
+    getPageCount: () => totalPages,
     getRowModel: () => ({ rows: paginatedRows }),
     getPrePaginationRowModel: () => ({ rows: filteredStockItems }),
   };
@@ -145,29 +145,46 @@ const StockItemManagement: React.FC = () => {
     initialValues: {
       itemCode: "",
       description: "",
-      uom: "UNITS",
+      stockUom: "PCS",
+      sellingPrice: 0,
       categoryId: "",
-      is_active: true,
+      alternateUom: "",
+      alternateConversionFactor: null,
+      isActive: true,
     },
     validationSchema: Yup.object({
       itemCode: Yup.string().required("Stock code is required"),
       description: Yup.string().required("Description is required"),
-      uom: Yup.string().oneOf([...UOM_VALUES], "Invalid UOM selected").required("UOM is required"),
+      stockUom: Yup.string().required("Base UOM is required"),
+      sellingPrice: Yup.number()
+        .typeError("Selling price must be a number")
+        .min(0, "Selling price must be greater or equal to 0")
+        .required("Selling price is required"),
       categoryId: Yup.string().nullable().optional(),
+      alternateUom: Yup.string().nullable().optional(),
+      alternateConversionFactor: Yup.number().nullable().optional(),
     }),
     onSubmit: async (values) => {
       try {
         setGlobalError(null);
+        const payload: StockItemPayload = {
+          ...values,
+          categoryId: values.categoryId || null,
+          alternateUom: values.alternateUom || null,
+          alternateConversionFactor: values.alternateConversionFactor || null,
+        };
+
         if (isEditMode && currentStockItemId) {
           const patchedData: UpdateStockItemRequest = {};
-          (Object.keys(values) as Array<keyof StockItemPayload>).forEach((key) => {
-            if (values[key] !== formik.initialValues[key]) {
-              patchedData[key] = values[key] as any;
+          (Object.keys(payload) as Array<keyof StockItemPayload>).forEach((key) => {
+            if (payload[key] !== formik.initialValues[key]) {
+              patchedData[key] = payload[key] as any;
             }
           });
-          await updateStockItem({ id: currentStockItemId, data: patchedData });
+
+          await updateStockItem({ itemId: currentStockItemId, data: patchedData });
         } else {
-          await createStockItem(values);
+          await createStockItem(payload);
         }
         setModalOpen(false);
       } catch (error: unknown) {
@@ -177,15 +194,19 @@ const StockItemManagement: React.FC = () => {
   });
 
   const handleEdit = (item: StockItem) => {
+    const activeItemId = item.itemId || item.id || "";
     setIsEditMode(true);
-    setCurrentStockItemId(item.id);
+    setCurrentStockItemId(activeItemId);
     formik.resetForm({
       values: {
-        itemCode: item.itemCode,
-        description: item.description,
-        uom: item.uom || "UNITS",
+        itemCode: item.itemCode || "",
+        description: item.description || "",
+        stockUom: item.stockUom || "PCS",
+        sellingPrice: item.sellingPrice ?? 0,
         categoryId: item.categoryId || "",
-        is_active: item.is_active ?? true,
+        alternateUom: item.alternateUom || "",
+        alternateConversionFactor: item.alternateConversionFactor || null,
+        isActive: item.isActive ?? true,
       },
     });
     setModalOpen(true);
@@ -211,7 +232,11 @@ const StockItemManagement: React.FC = () => {
         <Row>
           <Col lg={12}>
             {globalError && (
-              <Alert color="danger" className="mb-3 border-0 shadow-sm alert-dismissible fade show" toggle={() => setGlobalError(null)}>
+              <Alert
+                color="danger"
+                className="mb-3 border-0 shadow-sm alert-dismissible fade show"
+                toggle={() => setGlobalError(null)}
+              >
                 <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
                 {globalError}
               </Alert>
@@ -265,9 +290,12 @@ const StockItemManagement: React.FC = () => {
                           values: {
                             itemCode: "",
                             description: "",
-                            uom: "UNITS",
+                            stockUom: "PCS",
+                            sellingPrice: 0,
                             categoryId: selectedCategoryId || "",
-                            is_active: true,
+                            alternateUom: "",
+                            alternateConversionFactor: null,
+                            isActive: true,
                           },
                         });
                         setModalOpen(true);
@@ -286,7 +314,9 @@ const StockItemManagement: React.FC = () => {
                       <tr>
                         <th className="ps-3 py-2 text-nowrap">Stock Code</th>
                         <th className="py-2">Description</th>
+                        <th className="py-2 text-nowrap">Selling Price</th>
                         <th className="py-2 text-nowrap">UOM</th>
+                        <th className="py-2 text-nowrap">alternateUom</th>
                         <th className="py-2 text-nowrap">Category</th>
                         <th className="py-2 text-nowrap">Status</th>
                         <th className="text-end pe-3 py-2 text-nowrap">Actions</th>
@@ -295,83 +325,100 @@ const StockItemManagement: React.FC = () => {
                     <tbody className="fs-12">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4">
+                          <td colSpan={7} className="text-center py-4">
                             <Spinner size="sm" color="primary" />
                           </td>
                         </tr>
                       ) : paginatedRows.length > 0 ? (
-                        paginatedRows.map((item: StockItem) => (
-                          <tr key={item.id} className="align-middle">
-                            <td className="py-2 ps-3 text-nowrap">
-                              <span className="fw-semibold text-primary font-monospace fs-11">
-                                {item.itemCode || "N/A"}
-                              </span>
-                            </td>
-                            <td className="py-2">
-                              <Link
-                                to={`/stock-items/view/${item.id}`}
-                                className="text-dark fw-medium text-truncate d-inline-block mw-100 style-description-link"
-                                style={{ maxWidth: "320px" }}
-                                title={item.description}
-                              >
-                                {item.description || "N/A"}
-                              </Link>
-                            </td>
-                            <td className="py-2 text-nowrap">
-                              <Badge color="light" className="text-secondary border fs-10 fw-normal px-1.5 py-0.5 me-1">
-                                Base: {item.uom || "UNITS"}
-                              </Badge>
-                            </td>
-                            <td className="py-2 text-nowrap">
-                              {item.categoryName ? (
-                                <span className="badge bg-info-subtle text-info border fs-10 fw-medium px-1.5 py-0.5">
-                                  {item.categoryName}
+                        paginatedRows.map((item: StockItem) => {
+                          const activeId = item.itemId || item.id || "";
+                          const categoryDisplayName =
+                            item.categoryName || item.category?.name || "-";
+
+                          return (
+                            <tr key={activeId} className="align-middle">
+                              <td className="py-2 ps-3 text-nowrap">
+                                <span className="fw-semibold text-primary font-monospace fs-11">
+                                  {item.itemCode || "N/A"}
                                 </span>
-                              ) : (
-                                <span className="text-muted fs-11">-</span>
-                              )}
-                            </td>
-                            <td className="py-2 text-nowrap">
-                              <Badge
-                                color={item.is_active ?? true ? "success-subtle" : "danger-subtle"}
-                                className={`text-${item.is_active ?? true ? "success" : "danger"} fs-10 fw-normal px-1.5 py-0.5`}
-                              >
-                                {item.is_active ?? true ? "Active" : "Deactivated"}
-                              </Badge>
-                            </td>
-                            <td className="text-end pe-3 py-2 text-nowrap">
-                              <div className="hstack gap-1 justify-content-end flex-nowrap">
-                                <Button
-                                  size="sm"
-                                  color="soft-info"
-                                  className="btn-icon waves-effect waves-light"
-                                  style={{ width: "26px", height: "26px", padding: 0 }}
-                                  onClick={() => handleEdit(item)}
-                                  title="Edit Item"
+                              </td>
+                              <td className="py-2">
+                                <Link
+                                  to={`/stock-items/view/${activeId}`}
+                                  className="text-dark fw-medium text-truncate d-inline-block mw-100 style-description-link"
+                                  style={{ maxWidth: "280px" }}
+                                  title={item.description}
                                 >
-                                  <i className="ri-edit-box-line fs-13"></i>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  color="soft-danger"
-                                  className="btn-icon waves-effect waves-light"
-                                  style={{ width: "26px", height: "26px", padding: 0 }}
-                                  onClick={() => {
-                                    setCurrentStockItemId(item.id);
-                                    setDeleteConfirmation("");
-                                    setDeleteModal(true);
-                                  }}
-                                  title="Delete Item"
+                                  {item.description || "N/A"}
+                                </Link>
+                              </td>
+                              <td className="py-2 text-nowrap font-monospace">
+                                {Number(item.sellingPrice || 0).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </td>
+                              <td className="py-2 text-nowrap">
+                                <Badge color="light" className="text-secondary border fs-10 fw-normal px-1.5 py-0.5 me-1">
+                                  Base: {item.stockUom || "PCS"}
+                                </Badge>
+                              </td>
+                              <td className="py-2 text-nowrap">
+                                <Badge color="light" className="text-muted border fs-10 fw-normal px-1.5 py-0.5">
+                                    Alt: {item.alternateUom}
+                                  </Badge>    
+                                </td>
+                              <td className="py-2 text-nowrap">
+                                {categoryDisplayName !== "-" ? (
+                                  <span className="badge bg-info-subtle text-info border fs-10 fw-medium px-1.5 py-0.5">
+                                    {categoryDisplayName}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted fs-11">-</span>
+                                )}
+                              </td>
+                              <td className="py-2 text-nowrap">
+                                <Badge
+                                  color={item.isActive ? "success-subtle" : "danger-subtle"}
+                                  className={`text-${item.isActive ? "success" : "danger"} fs-10 fw-normal px-1.5 py-0.5`}
                                 >
-                                  <i className="ri-delete-bin-line fs-13"></i>
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                                  {item.isActive ? "Active" : "Deactivated"}
+                                </Badge>
+                              </td>
+                              <td className="text-end pe-3 py-2 text-nowrap">
+                                <div className="hstack gap-1 justify-content-end flex-nowrap">
+                                  <Button
+                                    size="sm"
+                                    color="soft-info"
+                                    className="btn-icon waves-effect waves-light"
+                                    style={{ width: "26px", height: "26px", padding: 0 }}
+                                    onClick={() => handleEdit(item)}
+                                    title="Edit Item"
+                                  >
+                                    <i className="ri-edit-box-line fs-13"></i>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    color="soft-danger"
+                                    className="btn-icon waves-effect waves-light"
+                                    style={{ width: "26px", height: "26px", padding: 0 }}
+                                    onClick={() => {
+                                      setCurrentStockItemId(activeId);
+                                      setDeleteConfirmation("");
+                                      setDeleteModal(true);
+                                    }}
+                                    title="Delete Item"
+                                  >
+                                    <i className="ri-delete-bin-line fs-13"></i>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
-                          <td colSpan={6} className="text-center py-4 text-muted fs-12">
+                          <td colSpan={7} className="text-center py-4 text-muted fs-12">
                             No master stock items found matching your filters.
                           </td>
                         </tr>
@@ -389,7 +436,6 @@ const StockItemManagement: React.FC = () => {
         </Row>
       </Container>
 
-      {/* Modal: Register / Update Stock Item */}
       <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)} centered size="lg">
         <ModalHeader className="bg-light p-3 border-bottom-dashed" toggle={() => setModalOpen(false)}>
           {isEditMode ? "Update Stock Item" : "Register New Stock Item"}
@@ -415,41 +461,82 @@ const StockItemManagement: React.FC = () => {
               <Col md={6} sm={12}>
                 <FormGroup>
                   <Label className="form-label fs-12 fw-medium">
-                    Base Unit of Measure (UOM) <span className="text-danger">*</span>
+                    Base Unit of Measure (Stock UOM) <span className="text-danger">*</span>
                   </Label>
                   <Input
-                    type="select"
+                    type="text"
                     bsSize="sm"
-                    {...formik.getFieldProps("uom")}
-                    invalid={!!(formik.touched.uom && formik.errors.uom)}
-                  >
-                    {UOM_VALUES.map((uomVal) => (
-                      <option key={uomVal} value={uomVal}>
-                        {uomVal}
-                      </option>
-                    ))}
-                  </Input>
-                  <FormFeedback>{formik.errors.uom}</FormFeedback>
+                    placeholder="e.g. PCS, KG, LTR"
+                    {...formik.getFieldProps("stockUom")}
+                    invalid={!!(formik.touched.stockUom && formik.errors.stockUom)}
+                  />
+                  <FormFeedback>{formik.errors.stockUom}</FormFeedback>
                 </FormGroup>
               </Col>
 
-              <Col md={12}>
+              <Col md={6} sm={12}>
                 <FormGroup>
-                  <Label className="form-label fs-12 fw-medium">Category</Label>
+                  <Label className="form-label fs-12 fw-medium">
+                    Selling Price <span className="text-danger">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    bsSize="sm"
+                    placeholder="0.00"
+                    {...formik.getFieldProps("sellingPrice")}
+                    invalid={!!(formik.touched.sellingPrice && formik.errors.sellingPrice)}
+                  />
+                  <FormFeedback>{formik.errors.sellingPrice}</FormFeedback>
+                </FormGroup>
+              </Col>
+
+              <Col md={6} sm={12}>
+                <FormGroup>
+                  <Label className="form-label fs-12 fw-medium">
+                    Category <span className="text-danger">*</span>
+                  </Label>
                   <Input
                     type="select"
                     bsSize="sm"
                     {...formik.getFieldProps("categoryId")}
                     invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                   >
-                    <option value="">-- Select Category (Optional) --</option>
+                    <option value="">-- Select Category --</option>
                     {categoriesList.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
+                      <option key={cat.categoryId} value={cat.categoryId}>
                         {cat.categoryName}
                       </option>
                     ))}
                   </Input>
                   <FormFeedback>{formik.errors.categoryId}</FormFeedback>
+                </FormGroup>
+              </Col>
+
+              <Col md={6} sm={12}>
+                <FormGroup>
+                  <Label className="form-label fs-12 fw-medium">Alternate UOM (Optional)</Label>
+                  <Input
+                    type="text"
+                    bsSize="sm"
+                    placeholder="e.g. BOX, CARTON"
+                    {...formik.getFieldProps("alternateUom")}
+                  />
+                </FormGroup>
+              </Col>
+
+              <Col md={6} sm={12}>
+                <FormGroup>
+                  <Label className="form-label fs-12 fw-medium">
+                    Alternate Conversion Factor (Optional)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    bsSize="sm"
+                    placeholder="e.g. 12"
+                    {...formik.getFieldProps("alternateConversionFactor")}
+                  />
                 </FormGroup>
               </Col>
 
@@ -477,8 +564,8 @@ const StockItemManagement: React.FC = () => {
                   <Input
                     type="checkbox"
                     className="form-check-input me-1"
-                    checked={formik.values.is_active}
-                    onChange={(e) => formik.setFieldValue("is_active", e.target.checked)}
+                    checked={formik.values.isActive}
+                    onChange={(e) => formik.setFieldValue("isActive", e.target.checked)}
                   />
                   Set Stock Item as Active
                 </Label>
@@ -502,7 +589,6 @@ const StockItemManagement: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal isOpen={deleteModal} toggle={() => setDeleteModal(false)} centered>
         <ModalBody className="p-4 text-center">
           <i className="ri-error-warning-line display-4 text-warning"></i>

@@ -15,8 +15,6 @@ import {
   Alert,
   Card,
   CardBody,
-  Row,
-  Col,
   UncontrolledTooltip,
 } from "reactstrap";
 import { Link } from "react-router-dom";
@@ -33,7 +31,7 @@ import {
   WarehouseListResponse,
 } from "../../../types/warehouse";
 import TablePagination from "../../TablePagination";
-import { handleBackendErrors } from "../../../helpers/form_utils"; 
+import { handleBackendErrors } from "../../../helpers/form_utils";
 
 const WarehouseManagement: React.FC = () => {
   // Pagination & Filter States
@@ -42,15 +40,18 @@ const WarehouseManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
-  // React Query Hooks (Typed against API return)
-  const { data, isLoading } = useWarehouses(true);
-  const { createMutation, updateMutation, deleteMutation } = useWarehouseMutation();
+  // React Query Hooks (aligned with new signature)
+  const { data, isLoading } = useWarehouses();
+  const { 
+    createWarehouse, 
+    updateWarehouse, 
+    deleteWarehouse, 
+    isCreating, 
+    isUpdating, 
+    isDeleting 
+  } = useWarehouseMutation();
 
-  // Local Loading States for Mutations
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Modal States
+  // Modal & Error States
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -58,25 +59,23 @@ const WarehouseManagement: React.FC = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
-  // Extract warehouses array safely from API response structure
-  const rawWarehouses = useMemo(() => {
+  // Extract warehouses array safely
+  const rawWarehouses = useMemo<Warehouse[]>(() => {
     if (!data) return [];
     if (Array.isArray(data)) return data as Warehouse[];
-    return (data as WarehouseListResponse).warehouses || [];
+    return (data as WarehouseListResponse).data || [];
   }, [data]);
 
-  // 1. Filter Logic (Search + Status Filter)
+  // 1. Filter Logic
   const filteredWarehouses = useMemo(() => {
     let list = rawWarehouses;
 
-    // Filter by Active Status
     if (statusFilter === "active") {
       list = list.filter((w) => w.isActive ?? true);
     } else if (statusFilter === "inactive") {
       list = list.filter((w) => !(w.isActive ?? true));
     }
 
-    // Filter by Search Term
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       list = list.filter(
@@ -95,7 +94,7 @@ const WarehouseManagement: React.FC = () => {
     return filteredWarehouses.slice(start, start + pageSize);
   }, [filteredWarehouses, pageIndex, pageSize]);
 
-  const totalPages = Math.ceil(filteredWarehouses.length / pageSize);
+  const totalPages = Math.ceil(filteredWarehouses.length / pageSize) || 1;
 
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
@@ -107,7 +106,7 @@ const WarehouseManagement: React.FC = () => {
     nextPage: () => setPageIndex((prev) => Math.min(prev + 1, totalPages - 1)),
     getCanPreviousPage: () => pageIndex > 0,
     getCanNextPage: () => pageIndex < totalPages - 1,
-    getPageCount: () => totalPages || 1,
+    getPageCount: () => totalPages,
     getRowModel: () => ({ rows: paginatedRows }),
     getPrePaginationRowModel: () => ({ rows: filteredWarehouses }),
   };
@@ -126,27 +125,28 @@ const WarehouseManagement: React.FC = () => {
       warehouseName: Yup.string().required("Warehouse name is required"),
     }),
     onSubmit: async (values) => {
-      setIsSubmitting(true);
       setGlobalError(null);
       try {
         if (isEditMode && currentWarehouseId) {
-          // Construct Partial<WarehousePayload> for patch update
           const patchedData: UpdateWarehouseRequest = {};
           (Object.keys(values) as Array<keyof WarehousePayload>).forEach((key) => {
             if (values[key] !== formik.initialValues[key]) {
-              (patchedData as any)[key] = values[key];
+              patchedData[key] = values[key] as any;
             }
           });
 
-          await updateMutation({ id: currentWarehouseId, data: patchedData });
+          // Aligned with updateWarehouse({ warehouseId, data })
+          await updateWarehouse({ 
+            warehouseId: currentWarehouseId, 
+            data: patchedData 
+          });
         } else {
-          await createMutation(values);
+          // Aligned with createWarehouse(data)
+          await createWarehouse(values);
         }
         setModalOpen(false);
       } catch (error: any) {
         handleBackendErrors(error, formik.setErrors, setGlobalError);
-      } finally {
-        setIsSubmitting(false);
       }
     },
   });
@@ -182,39 +182,42 @@ const WarehouseManagement: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!currentWarehouseId || deleteConfirmation !== "DELETE") return;
-    setIsDeleting(true);
     try {
-      await deleteMutation(currentWarehouseId);
+      // Aligned with deleteWarehouse(warehouseId)
+      await deleteWarehouse(currentWarehouseId);
       setDeleteModal(false);
       setDeleteConfirmation("");
       setCurrentWarehouseId(null);
     } catch (error: any) {
       handleBackendErrors(error, () => {}, setGlobalError);
-    } finally {
-      setIsDeleting(false);
     }
   };
+
+  const isFormSubmitting = isCreating || isUpdating;
 
   return (
     <React.Fragment>
       {/* Global Error Alert */}
       {globalError && (
-        <Alert color="danger" className="alert-dismissible-custom mb-3" toggle={() => setGlobalError(null)}>
+        <Alert
+          color="danger"
+          className="alert-dismissible-custom mb-3"
+          toggle={() => setGlobalError(null)}
+        >
           <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
           {globalError}
         </Alert>
       )}
 
-      {/* Ultra-Compact Single-Line Control Toolbar */}
+      {/* Control Toolbar */}
       <div className="row g-2 align-items-center mb-3">
-        {/* 1. Status Filter Dropdown */}
         <div className="col-12 col-sm-6 col-md-3">
           <Input
             type="select"
             className="form-select form-select-sm fs-13"
             value={statusFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value as any);
+              setStatusFilter(e.target.value as "all" | "active" | "inactive");
               setPageIndex(0);
             }}
           >
@@ -224,7 +227,6 @@ const WarehouseManagement: React.FC = () => {
           </Input>
         </div>
 
-        {/* 2. Compact Search Input */}
         <div className="col-12 col-sm-6 col-md-4">
           <div className="search-box position-relative">
             <Input
@@ -241,7 +243,6 @@ const WarehouseManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Action Button Aligned End */}
         <div className="col-12 col-md-5 text-md-end">
           <Button
             color="primary"
@@ -255,15 +256,18 @@ const WarehouseManagement: React.FC = () => {
       </div>
 
       <Card className="border-0 shadow-sm rounded-3">
-        {/* Table Content */}
         <CardBody className="p-0">
           <Table hover responsive className="align-middle custom-datatable mb-0">
             <thead className="table-light text-muted text-uppercase fs-11">
               <tr>
-                <th className="ps-4" style={{ width: "45%" }}>Warehouse Name</th>
+                <th className="ps-4" style={{ width: "45%" }}>
+                  Warehouse Name
+                </th>
                 <th style={{ width: "25%" }}>Warehouse Code</th>
                 <th style={{ width: "15%" }}>Status</th>
-                <th className="text-end pe-4" style={{ width: "15%" }}>Actions</th>
+                <th className="text-end pe-4" style={{ width: "15%" }}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -271,7 +275,9 @@ const WarehouseManagement: React.FC = () => {
                 <tr>
                   <td colSpan={4} className="text-center py-5">
                     <Spinner color="primary" size="md" className="me-2" />
-                    <span className="text-muted fw-medium">Loading warehouses...</span>
+                    <span className="text-muted fw-medium">
+                      Loading warehouses...
+                    </span>
                   </td>
                 </tr>
               ) : paginatedRows.length > 0 ? (
@@ -280,7 +286,6 @@ const WarehouseManagement: React.FC = () => {
 
                   return (
                     <tr key={warehouse.warehouseId}>
-                      {/* Name Column with Avatar Icon */}
                       <td className="ps-4">
                         <div className="d-flex align-items-center">
                           <div
@@ -307,14 +312,12 @@ const WarehouseManagement: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Code Column */}
                       <td>
                         <span className="badge bg-light text-dark border px-2 py-1 font-monospace fs-12">
                           {warehouse.warehouseCode}
                         </span>
                       </td>
 
-                      {/* Status Column */}
                       <td>
                         <span
                           className={`badge rounded-pill px-2.5 py-1 fs-11 ${
@@ -332,7 +335,6 @@ const WarehouseManagement: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Actions Column */}
                       <td className="text-end pe-4">
                         <div className="d-flex gap-2 justify-content-end">
                           <Button
@@ -344,7 +346,9 @@ const WarehouseManagement: React.FC = () => {
                           >
                             <i className="ri-edit-box-line text-info fs-15"></i>
                           </Button>
-                          <UncontrolledTooltip target={`edit-tooltip-${warehouse.warehouseId}`}>
+                          <UncontrolledTooltip
+                            target={`edit-tooltip-${warehouse.warehouseId}`}
+                          >
                             Edit Warehouse
                           </UncontrolledTooltip>
 
@@ -361,7 +365,9 @@ const WarehouseManagement: React.FC = () => {
                           >
                             <i className="ri-delete-bin-line text-danger fs-15"></i>
                           </Button>
-                          <UncontrolledTooltip target={`delete-tooltip-${warehouse.warehouseId}`}>
+                          <UncontrolledTooltip
+                            target={`delete-tooltip-${warehouse.warehouseId}`}
+                          >
                             Delete Warehouse
                           </UncontrolledTooltip>
                         </div>
@@ -374,7 +380,9 @@ const WarehouseManagement: React.FC = () => {
                   <td colSpan={4} className="text-center py-5">
                     <div className="text-muted">
                       <i className="ri-inbox-archive-line display-5 opacity-50 mb-2"></i>
-                      <p className="fs-14 mb-0 fw-medium">No warehouses found matching your filters.</p>
+                      <p className="fs-14 mb-0 fw-medium">
+                        No warehouses found matching your filters.
+                      </p>
                       <small>Try adjusting your search terms or status filter.</small>
                     </div>
                   </td>
@@ -383,7 +391,6 @@ const WarehouseManagement: React.FC = () => {
             </tbody>
           </Table>
 
-          {/* Pagination Footer */}
           <div className="px-4 py-3 border-top">
             <TablePagination table={tableInstance} />
           </div>
@@ -405,7 +412,9 @@ const WarehouseManagement: React.FC = () => {
           <div className="d-flex align-items-center gap-2">
             <i
               className={`fs-20 ${
-                isEditMode ? "ri-edit-2-line text-info" : "ri-add-circle-line text-primary"
+                isEditMode
+                  ? "ri-edit-2-line text-info"
+                  : "ri-add-circle-line text-primary"
               }`}
             ></i>
             <span className="fw-bold">
@@ -415,8 +424,8 @@ const WarehouseManagement: React.FC = () => {
         </ModalHeader>
         <Form onSubmit={formik.handleSubmit}>
           <ModalBody className="p-4">
-            <Row className="g-3">
-              <Col md={6}>
+            <div className="row g-3">
+              <div className="col-md-6">
                 <FormGroup>
                   <Label className="form-label fw-semibold fs-13">
                     Warehouse Code <span className="text-danger">*</span>
@@ -430,9 +439,9 @@ const WarehouseManagement: React.FC = () => {
                   />
                   <FormFeedback>{formik.errors.warehouseCode}</FormFeedback>
                 </FormGroup>
-              </Col>
+              </div>
 
-              <Col md={6}>
+              <div className="col-md-6">
                 <FormGroup>
                   <Label className="form-label fw-semibold fs-13">
                     Warehouse Name <span className="text-danger">*</span>
@@ -446,8 +455,8 @@ const WarehouseManagement: React.FC = () => {
                   />
                   <FormFeedback>{formik.errors.warehouseName}</FormFeedback>
                 </FormGroup>
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             {isEditMode && (
               <FormGroup check className="mt-3 bg-light p-3 rounded border">
@@ -455,7 +464,7 @@ const WarehouseManagement: React.FC = () => {
                   <Input
                     type="checkbox"
                     className="me-2"
-                    checked={formik.values.isActive}
+                    checked={formik.values.isActive ?? true}
                     onChange={(e) =>
                       formik.setFieldValue("isActive", e.target.checked)
                     }
@@ -480,9 +489,9 @@ const WarehouseManagement: React.FC = () => {
               type="submit"
               color="primary"
               className="px-4 shadow-sm"
-              disabled={isSubmitting}
+              disabled={isFormSubmitting}
             >
-              {isSubmitting ? (
+              {isFormSubmitting ? (
                 <>
                   <Spinner size="sm" className="me-2" />
                   Saving...

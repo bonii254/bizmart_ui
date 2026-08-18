@@ -8,7 +8,7 @@ import {
 } from "../types/category";
 
 const api = new APIClient();
-const BASE_URL = "/mock/inventory/categories"; 
+const BASE_URL = "/api/inventory/categories"; 
 
 export const CategoryService = {
   listCategories: async (search?: string, activeOnly?: boolean, parentId?: string): Promise<CategoryListResponse> => {
@@ -17,7 +17,8 @@ export const CategoryService = {
     if (activeOnly !== undefined) params.active_only = String(activeOnly);
     if (parentId !== undefined) params.parent_id = parentId; 
 
-    return await api.get(`${BASE_URL}`, { params });
+    const response =  await api.get(BASE_URL);
+    return response.data
   },
   
   createCategory: async (payload: CategoryPayload): Promise<Category> => {

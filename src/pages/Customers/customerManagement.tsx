@@ -32,11 +32,11 @@ import {
 import {
   useCustomers,
   useCustomerMutation,
-} from "../../Components/Hooks/useCustomers"; 
+} from "../../Components/Hooks/useCustomers";
 import {
   Customer,
   CustomerPayload,
-  UpdateUserRequest,
+  UpdateCustomerRequest,
 } from "../../types/customer";
 
 const CORPORATE_NAVY = "#042e6d";
@@ -51,6 +51,8 @@ const INITIAL_FORM_STATE: CustomerPayload = {
   address: "",
   taxNumber: "",
   creditLimit: 0,
+  priceCode: "",
+  isActive: true,
 };
 
 export const CustomerManagement: React.FC = () => {
@@ -59,7 +61,8 @@ export const CustomerManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
 
-  const { data: customerListResponse, isLoading, refetch } = useCustomers(page, perPage);
+  // TanStack Query & Mutations (Aligned with updated hooks returning Customer[])
+  const { data: customers = [], isLoading, refetch } = useCustomers();
   const {
     createCustomer,
     updateCustomer,
@@ -78,13 +81,6 @@ export const CustomerManagement: React.FC = () => {
   const [formData, setFormData] = useState<CustomerPayload>(INITIAL_FORM_STATE);
   const [isActiveForm, setIsActiveForm] = useState<boolean>(true);
 
-  // Extract customer array from backend response model
-  const customers = useMemo<Customer[]>(
-    () => customerListResponse?.customers ?? [],
-    [customerListResponse?.customers]
-  );
-  const totalCount: number = customerListResponse?.total ?? 0;
-
   // --- Filtered Data Computation ---
   const filteredCustomers = useMemo(() => {
     return customers.filter((item) => {
@@ -95,7 +91,8 @@ export const CustomerManagement: React.FC = () => {
         item.customerCode.toLowerCase().includes(q) ||
         item.contactName.toLowerCase().includes(q) ||
         item.taxNumber.toLowerCase().includes(q) ||
-        item.email.toLowerCase().includes(q);
+        item.email.toLowerCase().includes(q) ||
+        item.priceCode.toLowerCase().includes(q);
 
       const matchesStatus =
         statusFilter === "ALL"
@@ -107,6 +104,14 @@ export const CustomerManagement: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
   }, [customers, searchTerm, statusFilter]);
+
+  // Client-side pagination slicing
+  const paginatedCustomers = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filteredCustomers.slice(start, start + perPage);
+  }, [filteredCustomers, page, perPage]);
+
+  const totalCount = filteredCustomers.length;
 
   // --- Executive KPI Metrics ---
   const metrics = useMemo(() => {
@@ -137,6 +142,8 @@ export const CustomerManagement: React.FC = () => {
       address: customer.address,
       taxNumber: customer.taxNumber,
       creditLimit: customer.creditLimit,
+      priceCode: customer.priceCode,
+      isActive: customer.isActive,
     });
     setIsActiveForm(customer.isActive);
     setIsFormModalOpen(true);
@@ -155,14 +162,16 @@ export const CustomerManagement: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload: CustomerPayload = {
+        ...formData,
+        isActive: isActiveForm,
+      };
+
       if (selectedCustomer) {
-        const updatePayload: UpdateUserRequest = {
-          ...formData,
-          is_active: isActiveForm,
-        };
-        await updateCustomer({ id: selectedCustomer.id, data: updatePayload });
+        const updatePayload: UpdateCustomerRequest = payload;
+        await updateCustomer({ id: selectedCustomer.customerId, data: updatePayload });
       } else {
-        await createCustomer(formData);
+        await createCustomer(payload);
       }
       setIsFormModalOpen(false);
     } catch {
@@ -173,8 +182,8 @@ export const CustomerManagement: React.FC = () => {
   const handleQuickStatusToggle = async (customer: Customer) => {
     try {
       await updateCustomer({
-        id: customer.id,
-        data: { is_active: !customer.isActive },
+        id: customer.customerId,
+        data: { isActive: !customer.isActive },
       });
     } catch {
       // Toast notifications handled inside mutation hook
@@ -184,7 +193,7 @@ export const CustomerManagement: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!selectedCustomer) return;
     try {
-      await deleteCustomer(selectedCustomer.id);
+      await deleteCustomer(selectedCustomer.customerId);
       setIsDeleteModalOpen(false);
       setSelectedCustomer(null);
     } catch {
@@ -195,11 +204,11 @@ export const CustomerManagement: React.FC = () => {
   // CSV Exporter
   const handleExportCSV = () => {
     if (!filteredCustomers.length) return;
-    const headers = "Customer Code,Name,Contact Person,Email,Phone,Tax Number,Credit Limit,Address,Status\n";
+    const headers = "Customer Code,Name,Contact Person,Email,Phone,Tax Number,Price Code,Credit Limit,Address,Status\n";
     const rows = filteredCustomers
       .map(
         (c) =>
-          `"${c.customerCode}","${c.customerName}","${c.contactName}","${c.email}","${c.phone}","${c.taxNumber}",${c.creditLimit},"${c.address}","${c.isActive ? "Active" : "On Hold"}"`
+          `"${c.customerCode}","${c.customerName}","${c.contactName}","${c.email}","${c.phone}","${c.taxNumber}","${c.priceCode}",${c.creditLimit},"${c.address}","${c.isActive ? "Active" : "On Hold"}"`
       )
       .join("\n");
 
@@ -254,7 +263,7 @@ export const CustomerManagement: React.FC = () => {
                     Export CSV
                   </Button>
                   <Button
-                    className="btn-sm border-0 rounded px-3 d-flex align-items-center gap-2 shadow-sm"
+                    className="btn-sm border-0 rounded px-3 d-flex align-items-center gap-2 shadow-sm text-white"
                     style={{ backgroundColor: CORPORATE_NAVY }}
                     onClick={handleOpenCreate}
                   >
@@ -363,13 +372,19 @@ export const CustomerManagement: React.FC = () => {
                       className="form-control form-control-sm fs-12 ps-4"
                       placeholder="Search Code, Name, Tax PIN or Email..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(1);
+                      }}
                     />
                     <i className="ri-search-line position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                     {searchTerm && (
                       <i
                         className="ri-close-circle-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer"
-                        onClick={() => setSearchTerm("")}
+                        onClick={() => {
+                          setSearchTerm("");
+                          setPage(1);
+                        }}
                       ></i>
                     )}
                   </div>
@@ -383,7 +398,10 @@ export const CustomerManagement: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "ALL" ? "active bg-primary text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("ALL")}
+                          onClick={() => {
+                            setStatusFilter("ALL");
+                            setPage(1);
+                          }}
                         >
                           All Status
                         </NavLink>
@@ -393,7 +411,10 @@ export const CustomerManagement: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "ACTIVE" ? "active bg-success text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("ACTIVE")}
+                          onClick={() => {
+                            setStatusFilter("ACTIVE");
+                            setPage(1);
+                          }}
                         >
                           Active
                         </NavLink>
@@ -403,7 +424,10 @@ export const CustomerManagement: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "INACTIVE" ? "active bg-danger text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("INACTIVE")}
+                          onClick={() => {
+                            setStatusFilter("INACTIVE");
+                            setPage(1);
+                          }}
                         >
                           On Hold
                         </NavLink>
@@ -436,11 +460,12 @@ export const CustomerManagement: React.FC = () => {
                   <thead className="table-light fs-11 text-muted text-uppercase sticky-top">
                     <tr>
                       <th style={{ width: "12%" }}>Code</th>
-                      <th style={{ width: "24%" }}>Customer Name & Tax PIN</th>
-                      <th style={{ width: "22%" }}>Contact Person</th>
-                      <th style={{ width: "16%" }}>Credit Limit</th>
-                      <th style={{ width: "12%" }}>Status</th>
-                      <th style={{ width: "14%" }} className="text-end pe-3">
+                      <th style={{ width: "22%" }}>Customer Name & Tax PIN</th>
+                      <th style={{ width: "20%" }}>Contact Person</th>
+                      <th style={{ width: "14%" }}>Price Code</th>
+                      <th style={{ width: "14%" }}>Credit Limit</th>
+                      <th style={{ width: "10%" }}>Status</th>
+                      <th style={{ width: "8%" }} className="text-end pe-3">
                         Actions
                       </th>
                     </tr>
@@ -448,16 +473,16 @@ export const CustomerManagement: React.FC = () => {
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-5">
+                        <td colSpan={7} className="text-center py-5">
                           <Spinner size="sm" color="primary" className="me-2" />
                           <span className="text-muted fs-12 fw-medium">
                             Retrieving Customer Directory...
                           </span>
                         </td>
                       </tr>
-                    ) : filteredCustomers.length === 0 ? (
+                    ) : paginatedCustomers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-5 text-muted">
+                        <td colSpan={7} className="text-center py-5 text-muted">
                           <i className="ri-inbox-archive-line display-5 opacity-50 mb-2"></i>
                           <h6 className="fs-13 fw-semibold text-dark mb-1">
                             No Customers Found
@@ -468,8 +493,8 @@ export const CustomerManagement: React.FC = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredCustomers.map((cust) => (
-                        <tr key={cust.id}>
+                      paginatedCustomers.map((cust) => (
+                        <tr key={cust.customerId}>
                           <td>
                             <Badge
                               color="light"
@@ -483,15 +508,25 @@ export const CustomerManagement: React.FC = () => {
 
                           <td>
                             <div
-                              className="fw-bold text-dark fs-12 cursor-pointer hover-text-primary"
+                              className="fw-bold text-dark fs-12 cursor-pointer"
                               onClick={() => handleOpenInspect(cust)}
                             >
                               {cust.customerName}
                             </div>
+                            <small className="text-muted font-monospace">
+                              PIN: {cust.taxNumber || "N/A"}
+                            </small>
                           </td>
 
                           <td>
                             <div className="fw-bold text-dark fs-12">{cust.contactName}</div>
+                            <div className="text-muted fs-11">{cust.phone}</div>
+                          </td>
+
+                          <td>
+                            <Badge color="light" className="text-dark border fs-11 px-2 py-1 font-monospace">
+                              {cust.priceCode || "STANDARD"}
+                            </Badge>
                           </td>
 
                           <td>
@@ -565,8 +600,8 @@ export const CustomerManagement: React.FC = () => {
               {/* Pagination Footer */}
               <div className="p-3 border-top border-light-subtle d-flex align-items-center justify-content-between fs-12 text-muted">
                 <div>
-                  Showing <strong className="text-dark">{filteredCustomers.length}</strong> of{" "}
-                  <strong className="text-dark">{totalCount}</strong> customer records
+                  Showing <strong className="text-dark">{paginatedCustomers.length}</strong> of{" "}
+                  <strong className="text-dark">{totalCount}</strong> filtered records (Total: {customers.length})
                 </div>
                 <div className="d-flex gap-1">
                   <Button
@@ -679,6 +714,25 @@ export const CustomerManagement: React.FC = () => {
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
+                    Price Code / Tier <span className="text-danger">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    bsSize="sm"
+                    className="font-monospace fs-12"
+                    placeholder="e.g. STANDARD or VIP"
+                    value={formData.priceCode}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priceCode: e.target.value })
+                    }
+                    required
+                  />
+                </FormGroup>
+              </Col>
+
+              <Col md={6}>
+                <FormGroup className="mb-0">
+                  <Label className="fs-12 fw-semibold text-dark">
                     Approved Credit Limit ($) <span className="text-danger">*</span>
                   </Label>
                   <Input
@@ -728,7 +782,7 @@ export const CustomerManagement: React.FC = () => {
                     type="text"
                     bsSize="sm"
                     className="fs-12"
-                    placeholder="e.g. +1 555 019 2831"
+                    placeholder="e.g. +254123456789"
                     value={formData.phone}
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
@@ -738,7 +792,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={12}>
+              <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Email Address <span className="text-danger">*</span>
@@ -776,25 +830,25 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              {selectedCustomer && (
-                <Col md={12}>
-                  <FormGroup className="mb-0">
-                    <Label className="fs-12 fw-semibold text-dark">
-                      Account Status (Credit Hold)
-                    </Label>
+              <Col md={12}>
+                <FormGroup className="mb-0">
+                  <Label className="fs-12 fw-semibold text-dark">
+                    Account Status
+                  </Label>
+                  <div className="d-flex align-items-center gap-2 mt-1">
                     <Input
-                      type="select"
-                      bsSize="sm"
-                      className="form-select fs-12"
-                      value={isActiveForm ? "true" : "false"}
-                      onChange={(e) => setIsActiveForm(e.target.value === "true")}
-                    >
-                      <option value="true">Active Account</option>
-                      <option value="false">On Hold / Credit Suspended</option>
-                    </Input>
-                  </FormGroup>
-                </Col>
-              )}
+                      type="checkbox"
+                      id="isActiveCheckbox"
+                      checked={isActiveForm}
+                      onChange={(e) => setIsActiveForm(e.target.checked)}
+                      style={{ width: "18px", height: "18px" }}
+                    />
+                    <Label for="isActiveCheckbox" className="mb-0 fs-12 cursor-pointer">
+                      {isActiveForm ? "Active & Eligible for Transactions" : "On Hold / Suspended"}
+                    </Label>
+                  </div>
+                </FormGroup>
+              </Col>
             </Row>
           </ModalBody>
 
@@ -809,7 +863,7 @@ export const CustomerManagement: React.FC = () => {
             <Button
               type="submit"
               size="sm"
-              className="border-0 px-3"
+              className="border-0 px-3 text-white"
               style={{ backgroundColor: CORPORATE_NAVY }}
               disabled={isCreating || isUpdating}
             >
@@ -877,6 +931,12 @@ export const CustomerManagement: React.FC = () => {
                     </span>
                   </div>
                   <div className="d-flex justify-content-between fs-12">
+                    <span className="text-muted">Price Tier Code:</span>
+                    <span className="font-monospace fw-bold text-dark">
+                      {selectedCustomer.priceCode || "STANDARD"}
+                    </span>
+                  </div>
+                  <div className="d-flex justify-content-between fs-12">
                     <span className="text-muted">Credit Facility Limit:</span>
                     <span className="fw-bold text-primary font-monospace">
                       {formatCurrency(selectedCustomer.creditLimit)}
@@ -922,20 +982,6 @@ export const CustomerManagement: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {selectedCustomer.createdAt && (
-                <div>
-                  <h6 className="fs-11 fw-bold text-uppercase text-muted mb-2 tracking-wider">
-                    System Record Audit
-                  </h6>
-                  <div className="border rounded-3 p-3 bg-light d-flex flex-column gap-2 fs-11 text-muted">
-                    <div className="d-flex justify-content-between">
-                      <span>Created Date:</span>
-                      <span>{new Date(selectedCustomer.createdAt).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div className="d-flex gap-2 pt-2">
                 <Button

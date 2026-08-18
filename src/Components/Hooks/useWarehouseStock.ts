@@ -4,76 +4,103 @@ import {
   useQueryClient 
 } from "@tanstack/react-query";
 import { 
-  WarehouseStockService 
+  ItemWarehouseService 
 } from "../../services/warehouseStockService";
 import { 
-  InitializeStockPayload, 
-  UpdateStockQtyPayload 
+  ItemWarehouseStock,
+  AssignWarehouseToItemRequest 
 } from "../../types/warehouseStock";
 import { toast } from "react-toastify";
 
-export const useWarehouseStock = (warehouseId?: string, stockId?: string) => {
+interface UseItemWarehouseStockParams {
+  itemId?: string;
+  warehouseId?: string;
+}
+
+export const useItemWarehouseStock = (
+  param?: string | UseItemWarehouseStockParams,
+  directWarehouseId?: string
+) => {
   const queryClient = useQueryClient();
 
-  const allBalances = useQuery({
-    queryKey: ["stockBalances", "list", warehouseId],
-    queryFn: () => WarehouseStockService.getAllBalances(warehouseId),
+  const itemId = typeof param === "string" ? param : param?.itemId;
+  const warehouseId = typeof param === "object" ? param?.warehouseId : directWarehouseId;
+
+  const itemWarehousesQuery = useQuery<ItemWarehouseStock[]>({
+    queryKey: ["itemWarehouses", itemId],
+    queryFn: () => ItemWarehouseService.getItemWarehouses(itemId!),
+    enabled: !!itemId,
   });
 
-  const singleBalance = useQuery({
-    queryKey: ["stockBalances", "detail", stockId],
-    queryFn: () => WarehouseStockService.getBalance(stockId!),
-    enabled: !!stockId,
-    retry: false,
+  const warehouseItemsQuery = useQuery<ItemWarehouseStock[]>({
+    queryKey: ["warehouseItems", warehouseId],
+    queryFn: () => ItemWarehouseService.getWarehouseItems(warehouseId!),
+    enabled: !!warehouseId,
   });
 
-  const initializeStock = useMutation({
-    mutationFn: (payload: InitializeStockPayload) => 
-      WarehouseStockService.initializeStock(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stockBalances"] });
-      toast.success("Stock balance initialized successfully");
+  const assignWarehouse = useMutation({
+    mutationFn: ({ 
+      itemId: targetItemId, 
+      payload 
+    }: { 
+      itemId: string; 
+      payload: AssignWarehouseToItemRequest 
+    }) => ItemWarehouseService.assignWarehouseToItem(targetItemId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses", variables.itemId] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseItems"] });
+      if (variables.payload.warehouseId) {
+        queryClient.invalidateQueries({
+          queryKey: ["warehouseItems", variables.payload.warehouseId],
+        });
+      }
+      toast.success("Warehouse assigned successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to initialize stock balance");
-    }
+      toast.error(
+        error?.response?.data?.message || error.message || "Failed to assign warehouse"
+      );
+    },
   });
 
-  const adjustStock = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateStockQtyPayload }) => 
-      WarehouseStockService.adjustStock(id, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stockBalances"] });
-      toast.success("Stock quantities updated successfully");
+  const removeWarehouse = useMutation({
+    mutationFn: ({ 
+      itemId: targetItemId, 
+      warehouseId: targetWarehouseId 
+    }: { 
+      itemId: string; 
+      warehouseId: string 
+    }) => ItemWarehouseService.removeItemWarehouse(targetItemId, targetWarehouseId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses", variables.itemId] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseItems"] });
+      queryClient.invalidateQueries({
+        queryKey: ["warehouseItems", variables.warehouseId],
+      });
+      toast.info("Warehouse link removed successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to adjust stock quantities");
-    }
-  });
-
-  const removeStockLink = useMutation({
-    mutationFn: (id: string) => 
-      WarehouseStockService.removeStockLink(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stockBalances"] });
-      toast.info("Stock record connection removed");
+      toast.error(
+        error?.response?.data?.message || error.message || "Failed to remove warehouse link"
+      );
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to remove stock record");
-    }
   });
 
   return {
-    balances: allBalances.data || [],
-    currentBalance: singleBalance.data || null,
+    warehouses: itemWarehousesQuery.data || [],
+    warehouseItems: warehouseItemsQuery.data || [],
+    stockItems: warehouseItemsQuery.data || itemWarehousesQuery.data || [],
 
-    isLoading: allBalances.isLoading || singleBalance.isLoading,
-    isInitializing: initializeStock.isPending,
-    isAdjusting: adjustStock.isPending,
-    isRemoving: removeStockLink.isPending,
+    isLoading: itemWarehousesQuery.isLoading || warehouseItemsQuery.isLoading,
+    isFetching: itemWarehousesQuery.isFetching || warehouseItemsQuery.isFetching,
+    isAssigning: assignWarehouse.isPending,
+    isRemoving: removeWarehouse.isPending,
 
-    initializeBalance: initializeStock.mutateAsync,
-    modifyStockQty: adjustStock.mutateAsync,
-    deleteStockLink: removeStockLink.mutateAsync
+    assignWarehouse: assignWarehouse.mutateAsync,
+    removeWarehouse: removeWarehouse.mutateAsync,
+    refetchWarehouses: itemWarehousesQuery.refetch,
+    refetchWarehouseItems: warehouseItemsQuery.refetch,
   };
 };

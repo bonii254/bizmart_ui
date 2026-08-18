@@ -1,3 +1,9 @@
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export interface Supplier {
   supplierId: string;
   supplierCode: string;
@@ -8,8 +14,6 @@ export interface Supplier {
   taxNumber: string;
   paymentTermsDays: number;
   isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface SupplierPayload {
@@ -20,15 +24,13 @@ export interface SupplierPayload {
   email: string;
   taxNumber: string;
   paymentTermsDays: number;
+  isActive: boolean;
 }
 
-export type UpdateSupplierRequest = Partial<SupplierPayload> & {
-  isActive?: boolean;
-};
+export type UpdateSupplierRequest = Partial<SupplierPayload>;
 
-export interface SupplierListResponse {
-  suppliers: Supplier[];
-  total: number;
-  page: number;
-  limit: number;
-}
+export type GetSuppliersResponse = ApiResponse<Supplier[]>;
+export type GetSupplierByIdResponse = ApiResponse<Supplier>;
+export type CreateSupplierResponse = ApiResponse<string>;
+export type UpdateSupplierResponse = ApiResponse<string>;
+export type DeleteSupplierResponse = ApiResponse<string>;

@@ -1,17 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SupplierService } from "../../services/supplierService";
-import { SupplierPayload, UpdateSupplierRequest } from "../../types/supplier";
+import { SupplierPayload, UpdateSupplierRequest, Supplier } from "../../types/supplier";
 import { toast } from "react-toastify";
 
-export const useSuppliers = (page: number = 1, perPage: number = 100) => {
-  return useQuery({
-    queryKey: ["suppliers", page, perPage],
-    queryFn: () => SupplierService.getSuppliers(page, perPage),
+export const useSuppliers = () => {
+  return useQuery<Supplier[]>({
+    queryKey: ["suppliers"],
+    queryFn: () => SupplierService.getSuppliers(),
   });
 };
 
 export const useSupplierDetails = (id: string | null) => {
-  return useQuery({
+  return useQuery<Supplier>({
     queryKey: ["suppliers", id],
     queryFn: () => SupplierService.getSupplierById(id!),
     enabled: !!id,
@@ -28,7 +28,9 @@ export const useSupplierMutation = () => {
       toast.success("Supplier created successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create supplier");
+      toast.error(
+        error?.response?.data?.message || error?.message || "Failed to create supplier"
+      );
     },
   });
 
@@ -41,7 +43,9 @@ export const useSupplierMutation = () => {
       toast.success("Supplier updated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to update supplier");
+      toast.error(
+        error?.response?.data?.message || error?.message || "Failed to update supplier"
+      );
     },
   });
 
@@ -52,7 +56,9 @@ export const useSupplierMutation = () => {
       toast.success("Supplier deleted successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to delete supplier");
+      toast.error(
+        error?.response?.data?.message || error?.message || "Failed to delete supplier"
+      );
     },
   });
 

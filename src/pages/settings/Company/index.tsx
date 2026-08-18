@@ -63,15 +63,17 @@ const CompanyManagement = () => {
   }, [globalError]);
 
   const filteredCompanies = useMemo(() => {
-    const list = data?.companies || [];
+    const list: Company[] = Array.isArray(data)
+      ? data
+      : (data as any)?.data || [];
+
     if (!searchTerm) return list;
     return list.filter(
       (c) =>
-        c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.companyCode.toLowerCase().includes(searchTerm.toLowerCase()),
+        c.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.companyCode?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [data, searchTerm]);
-
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredCompanies.slice(start, start + pageSize);

@@ -2,9 +2,14 @@ export interface Company {
   companyId: string;
   companyCode: string;
   companyName: string;
+  createdAt?: string;
   isActive?: boolean;
-  createdAt: string;
-  updatedAt?: string;
+}
+
+export interface CompanyListResponse {
+  success: boolean;
+  message: string;
+  data: Company[];
 }
 
 export interface CompanyPayload {
@@ -13,12 +18,4 @@ export interface CompanyPayload {
   isActive?: boolean;
 }
 
-export interface UpdateCompanyRequest extends Partial<CompanyPayload> {}
-
-export interface CompanyListResponse {
-  companies: Company[];
-  totalCount: number;
-  totalPages: number;
-  currentPage: number;
-  perPage: number;
-}
+export type UpdateCompanyRequest = Partial<CompanyPayload>;

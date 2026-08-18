@@ -18,7 +18,7 @@ import {
 import { toast } from "react-toastify";
 
 import { usePOSMutation } from "../../Components/Hooks/usePOS";
-import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useCategories } from "../../Components/Hooks/useCategory";
 import { useCustomers } from "../../Components/Hooks/useCustomers";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
@@ -30,14 +30,13 @@ import {
 import { formatCurrency } from "../../utils/qzConfig";
 import { POSLineItem } from "../../types/POS";
 
-// Local extended type in case POSLineItem in types/POS lacks taxRate
 type ExtendedPOSLineItem = POSLineItem & {
   taxRate?: number;
 };
 
 const BRAND_PURPLE = "#042e6d";
 const BRAND_PURPLE_SUBTLE = "rgba(4, 46, 109, 0.08)";
-const DEFAULT_TAX_RATE = 16; // Default 16% VAT
+const DEFAULT_TAX_RATE = 16; 
 
 const PAYMENT_METHODS = [
   { id: "CASH", label: "Cash" },
@@ -48,7 +47,6 @@ const PAYMENT_METHODS = [
 export const PointOfSale: React.FC = () => {
   const { processSale, isProcessing: isPosting } = usePOSMutation() as any;
 
-  // QZ Printer Setup
   const { data: printersList = [], isLoading: isPrintersLoading } = usePrinters();
   const { printReceipt, isPrinting } = usePrintReceiptMutation();
   const [selectedPrinter, setSelectedPrinter] = useState<string>("");
@@ -66,29 +64,34 @@ export const PointOfSale: React.FC = () => {
   };
 
   // Data Queries
-  const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses(true);
+  const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
 
   const warehousesList = useMemo(() => {
     if (!warehousesData) return [];
-    return Array.isArray(warehousesData) ? warehousesData : warehousesData.warehouses ?? [];
+    return Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [];
   }, [warehousesData]);
 
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
+  // PATCHED: Fallback to .id if .warehouseId is missing on firstWh
   useEffect(() => {
     if (warehousesList.length > 0 && !selectedWarehouseId) {
       const firstWh = warehousesList[0];
-      setSelectedWarehouseId(firstWh.id ?? firstWh.warehouseId);
+      setSelectedWarehouseId(firstWh.warehouseId);
     }
   }, [warehousesList, selectedWarehouseId]);
 
-  const { balances: stockBalances = [], isLoading: isStockLoading } = useWarehouseStock(selectedWarehouseId);
+  // Maintains correct object parameter based on GRN structure
+  const { stockItems: stockBalances = [], isLoading: isStockLoading } = useItemWarehouseStock({ 
+    warehouseId: selectedWarehouseId 
+  });
+  
   const { data: categoriesData, isLoading: isCategoriesLoading } = useCategories();
-  const { data: customersData } = useCustomers(1, 100);
+  const { data: customersData } = useCustomers();
 
   const customersList = useMemo(() => {
     if (!customersData) return [];
-    return Array.isArray(customersData) ? customersData : customersData.customers ?? [];
+    return Array.isArray(customersData) ? customersData : customersData ?? [];
   }, [customersData]);
 
   const categoriesList = useMemo(() => {
@@ -155,13 +158,14 @@ export const PointOfSale: React.FC = () => {
 
   const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
 
+  // PATCHED: Added comprehensive flat DTO property fallbacks mapping
   const filteredCatalogItems = useMemo(() => {
     if (!Array.isArray(stockBalances)) return [];
     const query = catalogSearch.toLowerCase();
     return stockBalances.filter((stock: any) => {
-      const itemName = stock.stockItem?.description ?? stock.stock_item?.description ?? "";
-      const itemCode = stock.stockItem?.itemCode ?? stock.stock_item?.stock_code ?? "";
-      const itemCategory = stock.categoryName ?? "";
+      const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? stock.stock_item?.description ?? "";
+      const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_item?.stock_code ?? "";
+      const itemCategory = stock.categoryName ?? stock.category_name ?? "";
 
       const matchesSearch = itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
       const matchesCategory = selectedCategory === "All" || itemCategory === selectedCategory;
@@ -170,15 +174,16 @@ export const PointOfSale: React.FC = () => {
     });
   }, [stockBalances, catalogSearch, selectedCategory]);
 
+  // PATCHED: Extensive fallbacks applied to tile taps to map items securely into cart
   const handleTileTap = (item: any) => {
-    const itemId = item.stockItemId ?? item.stockItem?.id ?? item.id;
+    const itemId = String(item.itemId ?? item.stockItemId ?? item.stockItem?.id ?? item.id);
     const existing = cartMap.get(itemId);
 
     if (existing) {
       handleQuantityOrPriceChange(itemId, "quantity", existing.quantity + 1);
     } else {
-      const itemCode = item.stockItem?.itemCode ?? item.stock_code ?? "STK";
-      const itemName = item.stockItem?.description ?? item.description ?? "Stock Item";
+      const itemCode = item.itemCode ?? item.stockItem?.itemCode ?? item.stockCode ?? item.stock_code ?? "STK";
+      const itemName = item.itemDescription ?? item.stockItem?.description ?? item.description ?? "Stock Item";
       const unitPrice = Number(item.sellingPrice ?? item.unitCost ?? item.unit_cost ?? 0);
       const uom = item.uom ?? item.unitOfMeasure ?? item.stockItem?.uom ?? "PCS";
       const taxRate = item.taxRate ?? DEFAULT_TAX_RATE;
@@ -206,7 +211,6 @@ export const PointOfSale: React.FC = () => {
     }
   };
 
-  // Used now in the cart UI list
   const handleRemoveLineItem = (stockItemId: string | number) => {
     setCart((prev) => prev.filter((i) => i.stockItemId !== stockItemId));
   };
@@ -281,7 +285,7 @@ export const PointOfSale: React.FC = () => {
         saleResponse = await processSale(payload);
       }
 
-      const currentWhObj = warehousesList.find((w) => (w.id ?? w.warehouseId) === selectedWarehouseId);
+      const currentWhObj = warehousesList.find((w) => (w.warehouseId) === selectedWarehouseId);
       
       const receiptPayload = {
         companyName: "FRESHA ENTERPRISES",
@@ -460,12 +464,13 @@ export const PointOfSale: React.FC = () => {
                     ) : filteredCatalogItems.length > 0 ? (
                       <Row className="g-2 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 row-cols-xl-4 row-cols-xxl-5">
                         {filteredCatalogItems.map((item: any) => {
-                          const itemId = item.stockItemId ?? item.stockItem?.id ?? item.id;
-                          const itemCode = item.stockItem?.itemCode ?? item.stock_code ?? "CODE";
-                          const itemName = item.stockItem?.description ?? item.description ?? "Unnamed Item";
-                          const uom = item.stockItem?.uom ?? "PCS";
-                          const qtyOnHand = Number(item.qtyOnHand ?? 0);
-                          const price = Number(item.sellingPrice ?? item.unitCost ?? 0);
+                          // PATCHED: Extensive fallbacks ensuring item metadata correctly renders
+                          const itemId = String(item.itemId ?? item.stockItemId ?? item.stockItem?.id ?? item.id);
+                          const itemCode = item.itemCode ?? item.stockItem?.itemCode ?? item.stockCode ?? item.stock_code ?? "CODE";
+                          const itemName = item.itemDescription ?? item.stockItem?.description ?? item.description ?? "Unnamed Item";
+                          const uom = item.uom ?? item.unitOfMeasure ?? item.stockItem?.uom ?? "PCS";
+                          const qtyOnHand = Number(item.quantityOnHand ?? item.qtyOnHand ?? 0);
+                          const price = Number(item.sellingPrice ?? item.unitCost ?? item.unit_cost ?? 0);
 
                           const cartItem = cartMap.get(itemId);
                           const inCartQty = cartItem ? cartItem.quantity : 0;
@@ -604,7 +609,6 @@ export const PointOfSale: React.FC = () => {
                               <span className="fs-12 fw-semibold text-dark font-monospace text-end" style={{ width: "70px" }}>
                                 {formatCurrency(line.lineTotal)}
                               </span>
-                              {/* Attached handleRemoveLineItem to solve the unread warning */}
                               <i
                                 className="ri-delete-bin-line text-danger cursor-pointer ms-1 fs-14"
                                 title="Remove item"

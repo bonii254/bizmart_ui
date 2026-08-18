@@ -3,10 +3,10 @@ import { CompanyService } from "../../services/companiesService";
 import { CompanyPayload, UpdateCompanyRequest } from "../../types/companies";
 import { toast } from "react-toastify";
 
-export const useCompanies = (active?: boolean) => {
+export const useCompanies = () => {
   return useQuery({
-    queryKey: ["companies", active],
-    queryFn: () => CompanyService.getAllCompanies(active),
+    queryKey: ["companies"],
+    queryFn: () => CompanyService.getAllCompanies(),
   });
 };
 

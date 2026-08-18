@@ -1,20 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StockItemService } from "../../services/stockitemService"; 
-import { StockItemPayload, UpdateStockItemRequest } from "../../types/stockitem";
+import { 
+  StockItem, 
+  StockItemPayload, 
+  UpdateStockItemRequest, 
+  StockItemQueryParams 
+} from "../../types/stockitem";
 
-
-export const useStockItems = (search?: string, activeOnly?: boolean) => {
-  return useQuery({
-    queryKey: ["stockItems", search, activeOnly],
-    queryFn: () => StockItemService.listMasterCatalog(search, activeOnly),
+export const useStockItems = (params?: StockItemQueryParams) => {
+  return useQuery<StockItem[]>({
+    queryKey: ["stockItems", params],
+    queryFn: () => StockItemService.listMasterCatalog(params),
   });
 };
 
-export const useStockItemDetails = (id: string) => {
-  return useQuery({
-    queryKey: ["stockItem", id],
-    queryFn: () => StockItemService.getMasterItemDetails(id),
-    enabled: !!id, 
+export const useStockItemDetails = (itemId?: string) => {
+  return useQuery<StockItem>({
+    queryKey: ["stockItem", itemId],
+    queryFn: () => StockItemService.getMasterItemDetails(itemId!),
+    enabled: !!itemId, 
+  });
+};
+
+export const useStockItemByCode = (itemCode?: string) => {
+  return useQuery<StockItem>({
+    queryKey: ["stockItemCode", itemCode],
+    queryFn: () => StockItemService.getMasterItemByCode(itemCode!),
+    enabled: !!itemCode,
   });
 };
 
@@ -30,17 +42,17 @@ export const useStockItemMutation = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateStockItemRequest }) => 
-      StockItemService.updateMasterStockItem(id, data),
-    onSuccess: (data, variables) => {
+    mutationFn: ({ itemId, data }: { itemId: string; data: UpdateStockItemRequest }) => 
+      StockItemService.updateMasterStockItem(itemId, data),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["stockItems"] });
-      queryClient.invalidateQueries({ queryKey: ["stockItem", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["stockItem", variables.itemId] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => 
-      StockItemService.deleteMasterStockItem(id),
+    mutationFn: (itemId: string) => 
+      StockItemService.deleteMasterStockItem(itemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stockItems"] });
     },

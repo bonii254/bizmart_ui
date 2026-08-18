@@ -32,6 +32,9 @@ import {
 import { handleBackendErrors } from "../../../helpers/form_utils";
 import TablePagination from "../../TablePagination";
 
+
+const getCategoryId = (item: any): string => item?.id || item?.categoryId || "";
+
 const CategoryManagement: React.FC = () => {
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -66,22 +69,23 @@ const CategoryManagement: React.FC = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string>("");
 
-  // Normalize category list from hook response
-  const categoryList = useMemo(() => {
+  // Normalize category list from hook response ({ success, data }, { categories }, or direct array)
+  const categoryList = useMemo<Category[]>(() => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
-    return data.categories || [];
+    if (Array.isArray((data as any).data)) return (data as any).data;
+    if (Array.isArray((data as any).categories)) return (data as any).categories;
+    return [];
   }, [data]);
 
-  // Client-side filtering by search term across code, name, and description
+  // Client-side filtering by search term across code and name
   const filteredCategories = useMemo(() => {
     if (!searchTerm) return categoryList;
     const lower = searchTerm.toLowerCase();
     return categoryList.filter(
       (item: Category) =>
         item.categoryCode.toLowerCase().includes(lower) ||
-        item.categoryName.toLowerCase().includes(lower) ||
-        (item.description && item.description.toLowerCase().includes(lower))
+        item.categoryName.toLowerCase().includes(lower)
     );
   }, [categoryList, searchTerm]);
 
@@ -89,7 +93,8 @@ const CategoryManagement: React.FC = () => {
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
     categoryList.forEach((cat) => {
-      if (cat.id) map.set(cat.id, cat.categoryName);
+      const id = getCategoryId(cat);
+      if (id) map.set(id, cat.categoryName);
     });
     return map;
   }, [categoryList]);
@@ -121,16 +126,13 @@ const CategoryManagement: React.FC = () => {
     initialValues: {
       categoryCode: "",
       categoryName: "",
-      description: "",
       parentCategoryId: "",
-      is_active: true,
     },
     validationSchema: Yup.object({
       categoryCode: Yup.string()
         .max(30, "Category Code is too long")
         .required("Category Code identifier is required"),
       categoryName: Yup.string().required("Category Name is required"),
-      description: Yup.string().optional(),
       parentCategoryId: Yup.string().nullable().optional(),
     }),
     onSubmit: async (values) => {
@@ -138,7 +140,8 @@ const CategoryManagement: React.FC = () => {
         setGlobalError(null);
 
         const payload: CategoryPayload = {
-          ...values,
+          categoryCode: values.categoryCode,
+          categoryName: values.categoryName,
           parentCategoryId: values.parentCategoryId ? values.parentCategoryId : null,
         };
 
@@ -161,15 +164,14 @@ const CategoryManagement: React.FC = () => {
   });
 
   const handleEdit = (item: Category) => {
+    const id = getCategoryId(item);
     setIsEditMode(true);
-    setCurrentCategoryId(item.id);
+    setCurrentCategoryId(id);
     formik.resetForm({
       values: {
         categoryCode: item.categoryCode,
         categoryName: item.categoryName,
-        description: item.description || "",
         parentCategoryId: item.parentCategoryId || "",
-        is_active: item.is_active,
       },
     });
     setModalOpen(true);
@@ -203,7 +205,7 @@ const CategoryManagement: React.FC = () => {
             <Input
               type="text"
               className="form-control form-control-sm fs-13 ps-4"
-              placeholder="Search code, name, or description..."
+              placeholder="Search code or name..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -226,9 +228,7 @@ const CategoryManagement: React.FC = () => {
                 values: {
                   categoryCode: "",
                   categoryName: "",
-                  description: "",
                   parentCategoryId: "",
-                  is_active: true,
                 },
               });
 
@@ -244,27 +244,26 @@ const CategoryManagement: React.FC = () => {
       <Table hover responsive className="align-middle table-nowrap mb-0 custom-datatable">
         <thead className="table-light text-muted text-uppercase fs-11">
           <tr>
-            <th style={{ width: "15%" }}>Category Code</th>
-            <th style={{ width: "25%" }}>Category Name</th>
-            <th style={{ width: "20%" }}>Parent Category</th>
-            <th style={{ width: "25%" }}>Description</th>
-            <th style={{ width: "8%" }}>Status</th>
-            <th style={{ width: "7%" }} className="text-end">Actions</th>
+            <th style={{ width: "20%" }}>Category Code</th>
+            <th style={{ width: "35%" }}>Category Name</th>
+            <th style={{ width: "35%" }}>Parent Category</th>
+            <th style={{ width: "10%" }} className="text-end">Actions</th>
           </tr>
         </thead>
         <tbody className="fs-13">
           {isLoading ? (
             <tr>
-              <td colSpan={6} className="text-center py-4">
+              <td colSpan={4} className="text-center py-4">
                 <Spinner size="sm" color="primary" />
               </td>
             </tr>
           ) : paginatedRows.length > 0 ? (
             paginatedRows.map((item: Category) => {
+              const catId = getCategoryId(item);
               const parentName = item.parentCategoryId ? categoryMap.get(item.parentCategoryId) : null;
 
               return (
-                <tr key={item.id} className="align-middle">
+                <tr key={catId} className="align-middle">
                   {/* 1. Category Code */}
                   <td className="py-2">
                     <span className="fw-semibold text-primary font-monospace fs-12">
@@ -276,7 +275,7 @@ const CategoryManagement: React.FC = () => {
                   <td className="py-2">
                     <div className="d-flex align-items-center">
                       <Link
-                        to={`/inventory/categories/view/${item.id}`}
+                        to={`/inventory/categories/view/${catId}`}
                         className="text-dark fw-medium text-truncate d-inline-block font-poppins"
                         style={{ maxWidth: "220px" }}
                         title={item.categoryName}
@@ -298,31 +297,7 @@ const CategoryManagement: React.FC = () => {
                     )}
                   </td>
 
-                  {/* 4. Description */}
-                  <td className="py-2">
-                    <span
-                      className="text-muted text-truncate d-inline-block font-poppins fs-12"
-                      style={{ maxWidth: "280px" }}
-                      title={item.description || ""}
-                    >
-                      {item.description || "-"}
-                    </span>
-                  </td>
-
-                  {/* 5. Status */}
-                  <td className="py-2">
-                    <span
-                      className={`badge ${
-                        item.is_active
-                          ? "bg-success-subtle text-success"
-                          : "bg-danger-subtle text-danger"
-                      } fs-11`}
-                    >
-                      {item.is_active ? "Active" : "Deactivated"}
-                    </span>
-                  </td>
-
-                  {/* 6. Action Buttons */}
+                  {/* 4. Action Buttons */}
                   <td className="text-end py-2">
                     <div className="d-flex gap-1 justify-content-end">
                       <Button
@@ -341,7 +316,7 @@ const CategoryManagement: React.FC = () => {
                         className="btn-icon waves-effect waves-light"
                         style={{ width: "28px", height: "28px", padding: 0 }}
                         onClick={() => {
-                          setCurrentCategoryId(item.id);
+                          setCurrentCategoryId(catId);
                           setDeleteConfirmation("");
                           setDeleteModal(true);
                         }}
@@ -356,7 +331,7 @@ const CategoryManagement: React.FC = () => {
             })
           ) : (
             <tr>
-              <td colSpan={6} className="text-center py-4 text-muted fs-13">
+              <td colSpan={4} className="text-center py-4 text-muted fs-13">
                 No master categories found matching your search.
               </td>
             </tr>
@@ -413,44 +388,20 @@ const CategoryManagement: React.FC = () => {
                   >
                     <option value="">-- No Parent (Root Category) --</option>
                     {categoryList
-                      .filter((c: Category) => c.id !== currentCategoryId)
-                      .map((cat: Category) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.categoryName} ({cat.categoryCode})
-                        </option>
-                      ))}
+                      .filter((c: Category) => getCategoryId(c) !== currentCategoryId)
+                      .map((cat: Category) => {
+                        const id = getCategoryId(cat);
+                        return (
+                          <option key={id} value={id}>
+                            {cat.categoryName} ({cat.categoryCode})
+                          </option>
+                        );
+                      })}
                   </Input>
                   <FormFeedback>{formik.errors.parentCategoryId}</FormFeedback>
                 </FormGroup>
               </Col>
-
-              <Col md={12}>
-                <FormGroup>
-                  <Label className="form-label">Category Description</Label>
-                  <Input
-                    type="textarea"
-                    rows={3}
-                    placeholder="Detailed category definitions..."
-                    {...formik.getFieldProps("description")}
-                    invalid={!!(formik.touched.description && formik.errors.description)}
-                  />
-                  <FormFeedback>{formik.errors.description}</FormFeedback>
-                </FormGroup>
-              </Col>
             </Row>
-
-            {isEditMode && (
-              <FormGroup check className="mt-3">
-                <Label check>
-                  <Input
-                    type="checkbox"
-                    checked={formik.values.is_active}
-                    onChange={(e) => formik.setFieldValue("is_active", e.target.checked)}
-                  />{" "}
-                  Active Catalog Record (Operational Status)
-                </Label>
-              </FormGroup>
-            )}
           </ModalBody>
           <ModalFooter className="bg-light p-3">
             <Button color="link" onClick={() => setModalOpen(false)}>

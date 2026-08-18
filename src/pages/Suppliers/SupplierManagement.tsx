@@ -32,7 +32,7 @@ import {
 import {
   useSuppliers,
   useSupplierMutation,
-} from "../../Components/Hooks/useSuppliers"; // Adjust to your hook import path
+} from "../../Components/Hooks/useSuppliers";
 import {
   Supplier,
   SupplierPayload,
@@ -51,9 +51,10 @@ const INITIAL_FORM_STATE: SupplierPayload = {
   email: "",
   taxNumber: "",
   paymentTermsDays: 30,
+  isActive: true,
 };
 
-export const SupplierListing: React.FC = () => {
+export const SupplierManagement: React.FC = () => {
   // --- Query Parameters & State ---
   const [page, setPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(10);
@@ -62,7 +63,7 @@ export const SupplierListing: React.FC = () => {
   const [termsFilter, setTermsFilter] = useState<string>("ALL");
 
   // TanStack Query & Mutations
-  const { data: supplierListResponse, isLoading, refetch } = useSuppliers(page, perPage);
+  const { data: suppliers = [], isLoading, refetch } = useSuppliers();
   const {
     createSupplier,
     updateSupplier,
@@ -80,10 +81,6 @@ export const SupplierListing: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState<SupplierPayload>(INITIAL_FORM_STATE);
   const [isActiveForm, setIsActiveForm] = useState<boolean>(true);
-
-  // Extract vendors list
-  const suppliers: Supplier[] = supplierListResponse?.suppliers ?? [];
-  const totalCount: number = supplierListResponse?.total ?? 0;
 
   // --- Filtered Data Computation ---
   const filteredSuppliers = useMemo(() => {
@@ -117,6 +114,14 @@ export const SupplierListing: React.FC = () => {
     });
   }, [suppliers, searchTerm, statusFilter, termsFilter]);
 
+  // Client-side pagination slicing
+  const paginatedSuppliers = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return filteredSuppliers.slice(start, start + perPage);
+  }, [filteredSuppliers, page, perPage]);
+
+  const totalCount = filteredSuppliers.length;
+
   // --- Executive KPI Metrics ---
   const metrics = useMemo(() => {
     const total = suppliers.length;
@@ -147,6 +152,7 @@ export const SupplierListing: React.FC = () => {
       email: supplier.email,
       taxNumber: supplier.taxNumber,
       paymentTermsDays: supplier.paymentTermsDays,
+      isActive: supplier.isActive,
     });
     setIsActiveForm(supplier.isActive);
     setIsFormModalOpen(true);
@@ -176,6 +182,7 @@ export const SupplierListing: React.FC = () => {
       }
       setIsFormModalOpen(false);
     } catch {
+      // Error handled by mutation toasts
     }
   };
 
@@ -186,7 +193,7 @@ export const SupplierListing: React.FC = () => {
         data: { isActive: !supplier.isActive },
       });
     } catch {
-      // Error handling managed inside mutation toasts
+      // Error handled by mutation toasts
     }
   };
 
@@ -197,7 +204,7 @@ export const SupplierListing: React.FC = () => {
       setIsDeleteModalOpen(false);
       setSelectedSupplier(null);
     } catch {
-      // Error handling managed inside mutation toasts
+      // Error handled by mutation toasts
     }
   };
 
@@ -254,8 +261,9 @@ export const SupplierListing: React.FC = () => {
                     <i className="ri-file-excel-2-line text-success fs-14"></i>
                     Export CSV
                   </Button>
+                  {/* Missing Add New Supplier Option Triggered Here */}
                   <Button
-                    className="btn-sm border-0 rounded px-3 d-flex align-items-center gap-2 shadow-sm"
+                    className="btn-sm border-0 rounded px-3 d-flex align-items-center gap-2 shadow-sm text-white"
                     style={{ backgroundColor: CORPORATE_NAVY }}
                     onClick={handleOpenCreate}
                   >
@@ -366,13 +374,19 @@ export const SupplierListing: React.FC = () => {
                       className="form-control form-control-sm fs-12 ps-4"
                       placeholder="Search Code, Name, Tax PIN or Email..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(1);
+                      }}
                     />
                     <i className="ri-search-line position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                     {searchTerm && (
                       <i
                         className="ri-close-circle-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer"
-                        onClick={() => setSearchTerm("")}
+                        onClick={() => {
+                          setSearchTerm("");
+                          setPage(1);
+                        }}
                       ></i>
                     )}
                   </div>
@@ -388,7 +402,10 @@ export const SupplierListing: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "ALL" ? "active bg-primary text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("ALL")}
+                          onClick={() => {
+                            setStatusFilter("ALL");
+                            setPage(1);
+                          }}
                         >
                           All Status
                         </NavLink>
@@ -398,7 +415,10 @@ export const SupplierListing: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "ACTIVE" ? "active bg-success text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("ACTIVE")}
+                          onClick={() => {
+                            setStatusFilter("ACTIVE");
+                            setPage(1);
+                          }}
                         >
                           Active
                         </NavLink>
@@ -408,7 +428,10 @@ export const SupplierListing: React.FC = () => {
                           className={`py-1 px-2 fs-11 fw-semibold cursor-pointer ${
                             statusFilter === "INACTIVE" ? "active bg-danger text-white" : "text-muted"
                           }`}
-                          onClick={() => setStatusFilter("INACTIVE")}
+                          onClick={() => {
+                            setStatusFilter("INACTIVE");
+                            setPage(1);
+                          }}
                         >
                           On Hold
                         </NavLink>
@@ -421,7 +444,10 @@ export const SupplierListing: React.FC = () => {
                       bsSize="sm"
                       className="form-select form-select-sm fs-12 w-auto"
                       value={termsFilter}
-                      onChange={(e) => setTermsFilter(e.target.value)}
+                      onChange={(e) => {
+                        setTermsFilter(e.target.value);
+                        setPage(1);
+                      }}
                     >
                       <option value="ALL">All Terms</option>
                       <option value="COD">COD / Immediate</option>
@@ -457,13 +483,11 @@ export const SupplierListing: React.FC = () => {
                   <thead className="table-light fs-11 text-muted text-uppercase sticky-top">
                     <tr>
                       <th style={{ width: "12%" }}>Vendor Code</th>
-                      <th style={{ width: "26%" }}>Supplier Name & Tax ID</th>
+                      <th style={{ width: "26%" }}>Supplier Name</th>
                       <th style={{ width: "24%" }}>Contact Details</th>
                       <th style={{ width: "14%" }}>Payment Terms</th>
                       <th style={{ width: "10%" }}>Status</th>
-                      <th style={{ width: "14%" }} className="text-end pe-3">
-                        Actions
-                      </th>
+                      <th style={{ width: "14%" }} className="text-end pe-3"> Actions </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -471,68 +495,51 @@ export const SupplierListing: React.FC = () => {
                       <tr>
                         <td colSpan={6} className="text-center py-5">
                           <Spinner size="sm" color="primary" className="me-2" />
-                          <span className="text-muted fs-12 fw-medium">
-                            Retrieving SYSPRO Master Data...
-                          </span>
+                          <span className="text-muted fs-12">Loading suppliers directory...</span>
                         </td>
                       </tr>
-                    ) : filteredSuppliers.length === 0 ? (
+                    ) : paginatedSuppliers.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="text-center py-5 text-muted">
-                          <i className="ri-inbox-archive-line display-5 opacity-50 mb-2"></i>
-                          <h6 className="fs-13 fw-semibold text-dark mb-1">
-                            No Suppliers Found
-                          </h6>
-                          <span className="fs-11">
-                            Adjust search criteria or create a new vendor record.
-                          </span>
+                          <i className="ri-folder-open-line fs-24 d-block mb-1 opacity-50"></i>
+                          No supplier records found matching your filters.
                         </td>
                       </tr>
                     ) : (
-                      filteredSuppliers.map((sup) => (
+                      paginatedSuppliers.map((sup) => (
                         <tr key={sup.supplierId}>
-                          {/* Vendor Code */}
+                          {/* Clickable Vendor Code Badge */}
                           <td>
                             <Badge
                               color="light"
                               className="text-dark border font-monospace fs-11 px-2 py-1 cursor-pointer"
                               onClick={() => handleOpenInspect(sup)}
+                              title="Click to view profile"
                             >
                               <i className="ri-truck-line me-1 text-muted"></i>
                               {sup.supplierCode}
                             </Badge>
                           </td>
 
-                          {/* Name & Tax ID */}
+                          {/* Name & Tax PIN */}
                           <td>
                             <div
-                              className="fw-bold text-dark fs-12 cursor-pointer hover-text-primary"
+                              className="fw-semibold text-dark cursor-pointer"
                               onClick={() => handleOpenInspect(sup)}
                             >
                               {sup.supplierName}
                             </div>
-                  
                           </td>
 
-                          {/* Contact Info */}
+                          {/* Contact */}
                           <td>
-                            <div className="fw-bold text-dark fs-12">
-                              {sup.contactName}
-                            </div>
+                            <div className="text-dark fw-medium">{sup.contactName}</div>
+                
                           </td>
 
                           {/* Payment Terms */}
                           <td>
-                            <Badge
-                              className="px-2 py-1 fs-11 fw-semibold font-poppins"
-                              style={{
-                                backgroundColor:
-                                  sup.paymentTermsDays === 0
-                                    ? "primary"
-                                    : "primary)",
-                                color: sup.paymentTermsDays === 0 ? "secondary" : "secondary",
-                              }}
-                            >
+                            <Badge color="light" className="text-dark border px-2 py-1 fw-normal">
                               {sup.paymentTermsDays === 0
                                 ? "COD / Immediate"
                                 : `Net ${sup.paymentTermsDays} Days`}
@@ -547,11 +554,7 @@ export const SupplierListing: React.FC = () => {
                               onClick={() => handleQuickStatusToggle(sup)}
                               title="Click to toggle hold status"
                             >
-                              <i
-                                className={`ri-record-circle-line me-1 ${
-                                  sup.isActive ? "text-white" : "text-white"
-                                }`}
-                              ></i>
+                              <i className="ri-record-circle-line me-1 text-white"></i>
                               {sup.isActive ? "Active" : "On Hold"}
                             </Badge>
                           </td>
@@ -610,8 +613,8 @@ export const SupplierListing: React.FC = () => {
               {/* Pagination Bar */}
               <div className="p-3 border-top border-light-subtle d-flex align-items-center justify-content-between fs-12 text-muted">
                 <div>
-                  Showing <strong className="text-dark">{filteredSuppliers.length}</strong> of{" "}
-                  <strong className="text-dark">{totalCount}</strong> supplier records
+                  Showing <strong className="text-dark">{paginatedSuppliers.length}</strong> of{" "}
+                  <strong className="text-dark">{totalCount}</strong> filtered records (Total: {suppliers.length})
                 </div>
                 <div className="d-flex gap-1">
                   <Button
@@ -621,7 +624,6 @@ export const SupplierListing: React.FC = () => {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     className="px-2 py-1 fs-12"
                   >
-                    <i className="ri-arrow-left-s-line me-1"></i>
                     Previous
                   </Button>
                   <Button
@@ -632,7 +634,6 @@ export const SupplierListing: React.FC = () => {
                     className="px-2 py-1 fs-12"
                   >
                     Next
-                    <i className="ri-arrow-right-s-line ms-1"></i>
                   </Button>
                 </div>
               </div>
@@ -641,39 +642,34 @@ export const SupplierListing: React.FC = () => {
         </Container>
       </div>
 
-      {/* ==================== CREATE / EDIT MODAL ==================== */}
+      {/* --- Create / Edit Supplier Modal --- */}
       <Modal
         isOpen={isFormModalOpen}
         toggle={() => setIsFormModalOpen(!isFormModalOpen)}
         centered
         size="lg"
-        className="border-0"
       >
         <ModalHeader
           toggle={() => setIsFormModalOpen(false)}
-          className="bg-light p-3 border-bottom"
+          className="bg-light p-3"
         >
-          <div className="d-flex align-items-center gap-2">
-            <i className="ri-building-line text-primary fs-18"></i>
-            <span className="fs-15 fw-bold text-dark">
-              {selectedSupplier ? "Edit Supplier Master Data" : "Register New Supplier"}
-            </span>
-          </div>
+          <span className="fs-15 fw-bold text-dark">
+            {selectedSupplier ? "Edit Supplier Master Profile" : "Register New Supplier"}
+          </span>
         </ModalHeader>
-
         <Form onSubmit={handleFormSubmit}>
           <ModalBody className="p-4">
             <Row className="g-3">
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
-                    Supplier Code <span className="text-danger">*</span>
+                    Supplier Code / Shortcode <span className="text-danger">*</span>
                   </Label>
                   <Input
                     type="text"
                     bsSize="sm"
-                    className="font-monospace fw-bold fs-12"
-                    placeholder="e.g. SUP-00101"
+                    className="font-monospace fs-12"
+                    placeholder="e.g. SUP-001"
                     value={formData.supplierCode}
                     onChange={(e) =>
                       setFormData({ ...formData, supplierCode: e.target.value })
@@ -682,17 +678,16 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
-                    Registered Business Name <span className="text-danger">*</span>
+                    Registered Company Name <span className="text-danger">*</span>
                   </Label>
                   <Input
                     type="text"
                     bsSize="sm"
                     className="fs-12"
-                    placeholder="e.g. Acme Industrial Logistics Ltd"
+                    placeholder="e.g. Pizzo Tech Ltd"
                     value={formData.supplierName}
                     onChange={(e) =>
                       setFormData({ ...formData, supplierName: e.target.value })
@@ -701,7 +696,6 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
@@ -720,7 +714,6 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
@@ -743,7 +736,6 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
@@ -762,7 +754,6 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
@@ -781,7 +772,6 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
               <Col md={6}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
@@ -800,85 +790,71 @@ export const SupplierListing: React.FC = () => {
                   />
                 </FormGroup>
               </Col>
-
-              {selectedSupplier && (
-                <Col md={6}>
-                  <FormGroup className="mb-0">
-                    <Label className="fs-12 fw-semibold text-dark">
-                      Account Status (Hold Control)
-                    </Label>
+              <Col md={6}>
+                <FormGroup className="mb-0">
+                  <Label className="fs-12 fw-semibold text-dark">
+                    Account Status
+                  </Label>
+                  <div className="d-flex align-items-center gap-2 mt-1">
                     <Input
-                      type="select"
-                      bsSize="sm"
-                      className="form-select fs-12"
-                      value={isActiveForm ? "true" : "false"}
-                      onChange={(e) => setIsActiveForm(e.target.value === "true")}
-                    >
-                      <option value="true">Active Trading</option>
-                      <option value="false">On Hold / Blocked</option>
-                    </Input>
-                  </FormGroup>
-                </Col>
-              )}
+                      type="checkbox"
+                      id="isActiveCheckbox"
+                      checked={isActiveForm}
+                      onChange={(e) => setIsActiveForm(e.target.checked)}
+                      style={{ width: "18px", height: "18px" }}
+                    />
+                    <Label for="isActiveCheckbox" className="mb-0 fs-12 cursor-pointer">
+                      {isActiveForm ? "Active & Eligible for POs" : "On Hold / Blocked"}
+                    </Label>
+                  </div>
+                </FormGroup>
+              </Col>
             </Row>
           </ModalBody>
-
-          <ModalFooter className="bg-light p-3 border-top">
+          <ModalFooter className="bg-light p-3">
             <Button
               color="light"
               size="sm"
+              type="button"
               onClick={() => setIsFormModalOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              type="submit"
               size="sm"
-              className="border-0 px-3"
+              type="submit"
+              className="text-white border-0"
               style={{ backgroundColor: CORPORATE_NAVY }}
               disabled={isCreating || isUpdating}
             >
-              {isCreating || isUpdating ? (
-                <>
-                  <Spinner size="sm" className="me-1" />
-                  Saving...
-                </>
-              ) : selectedSupplier ? (
-                "Update Supplier Master"
-              ) : (
-                "Save Supplier"
-              )}
+              {(isCreating || isUpdating) && <Spinner size="sm" className="me-1" />}
+              {selectedSupplier ? "Save Changes" : "Create Supplier"}
             </Button>
           </ModalFooter>
         </Form>
       </Modal>
 
-      {/* ==================== INSPECT DRAWER (OFFCANVAS) ==================== */}
+      {/* --- View Profile Offcanvas Drawer --- */}
       <Offcanvas
         isOpen={isDrawerOpen}
         toggle={() => setIsDrawerOpen(!isDrawerOpen)}
         direction="end"
-        className="border-0 shadow"
-        style={{ width: "450px" }}
+        className="offcanvas-end"
       >
         <OffcanvasHeader
           toggle={() => setIsDrawerOpen(false)}
-          className="bg-light border-bottom p-3"
+          className="border-bottom p-3"
         >
-          <div className="d-flex align-items-center gap-2">
-            <i className="ri-shield-user-line text-primary fs-18"></i>
-            <span className="fs-14 fw-bold text-dark">Supplier Master File</span>
-          </div>
+          <span className="fs-15 fw-bold text-dark">Supplier Profile Overview</span>
         </OffcanvasHeader>
         <OffcanvasBody className="p-4">
           {selectedSupplier && (
             <div className="d-flex flex-column gap-4">
-              {/* Main Badge Header */}
               <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded-3">
                 <div>
-                  <Badge color="light" className="text-dark border font-monospace mb-1">
+                  <span className="font-monospace fs-11 text-muted d-block">
                     {selectedSupplier.supplierCode}
-                  </Badge>
+                  </span>
                   <h5 className="fs-15 fw-bold text-dark mb-0">
                     {selectedSupplier.supplierName}
                   </h5>
@@ -919,75 +895,44 @@ export const SupplierListing: React.FC = () => {
                 <h6 className="fs-11 fw-bold text-uppercase text-muted mb-2 tracking-wider">
                   Direct Representative Contact
                 </h6>
-                <div className="border rounded-3 p-3 bg-white d-flex flex-column gap-3">
-                  <div className="d-flex align-items-center gap-2 fs-12">
-                    <i className="ri-user-3-line text-primary fs-16"></i>
-                    <div>
-                      <div className="text-muted fs-10">Contact Person</div>
-                      <div className="fw-semibold text-dark">
-                        {selectedSupplier.contactName}
-                      </div>
-                    </div>
+                <div className="border rounded-3 p-3 bg-white d-flex flex-column gap-2">
+                  <div className="d-flex justify-content-between fs-12">
+                    <span className="text-muted">Contact Person:</span>
+                    <span className="fw-semibold text-dark">{selectedSupplier.contactName}</span>
                   </div>
-                  <div className="d-flex align-items-center gap-2 fs-12">
-                    <i className="ri-mail-send-line text-primary fs-16"></i>
-                    <div>
-                      <div className="text-muted fs-10">AP Email</div>
-                      <div className="fw-semibold text-dark">
-                        {selectedSupplier.email}
-                      </div>
-                    </div>
+                  <div className="d-flex justify-content-between fs-12">
+                    <span className="text-muted">Telephone:</span>
+                    <span className="font-monospace text-dark">{selectedSupplier.phone}</span>
                   </div>
-                  <div className="d-flex align-items-center gap-2 fs-12">
-                    <i className="ri-phone-find-line text-primary fs-16"></i>
-                    <div>
-                      <div className="text-muted fs-10">Phone Line</div>
-                      <div className="fw-semibold text-dark">
-                        {selectedSupplier.phone}
-                      </div>
-                    </div>
+                  <div className="d-flex justify-content-between fs-12">
+                    <span className="text-muted">Email Address:</span>
+                    <span className="font-monospace text-dark">{selectedSupplier.email}</span>
                   </div>
                 </div>
               </div>
 
-              {/* System Audit Information */}
-              <div>
-                <h6 className="fs-11 fw-bold text-uppercase text-muted mb-2 tracking-wider">
-                  System Audit Log
-                </h6>
-                <div className="border rounded-3 p-3 bg-light d-flex flex-column gap-2 fs-11 text-muted">
-                  <div className="d-flex justify-content-between">
-                    <span>Supplier :</span>
-                    <span className="font-monospace text-truncate ms-2" style={{ maxWidth: "200px" }}>
-                      {selectedSupplier.supplierCode}
-                    </span>
-                  </div>
-                  {selectedSupplier.createdAt && (
-                    <div className="d-flex justify-content-between">
-                      <span>Created On:</span>
-                      <span>{new Date(selectedSupplier.createdAt).toLocaleString()}</span>
-                    </div>
-                  )}
-                  {selectedSupplier.updatedAt && (
-                    <div className="d-flex justify-content-between">
-                      <span>Last Updated:</span>
-                      <span>{new Date(selectedSupplier.updatedAt).toLocaleString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons in Drawer */}
-              <div className="d-flex gap-2 pt-2">
+              <div className="mt-auto pt-3 border-top d-flex gap-2">
                 <Button
-                  color="primary"
-                  className="w-100 fs-12"
+                  color="light"
+                  size="sm"
+                  className="w-100"
                   onClick={() => {
                     setIsDrawerOpen(false);
                     handleOpenEdit(selectedSupplier);
                   }}
                 >
-                  <i className="ri-pencil-line me-1"></i> Edit Supplier
+                  Edit Master
+                </Button>
+                <Button
+                  color="danger"
+                  size="sm"
+                  className="w-100"
+                  onClick={() => {
+                    setIsDrawerOpen(false);
+                    handleOpenDelete(selectedSupplier);
+                  }}
+                >
+                  Delete Supplier
                 </Button>
               </div>
             </div>
@@ -995,7 +940,7 @@ export const SupplierListing: React.FC = () => {
         </OffcanvasBody>
       </Offcanvas>
 
-      {/* ==================== DELETE CONFIRMATION MODAL ==================== */}
+      {/* --- Delete Confirmation Modal --- */}
       <Modal
         isOpen={isDeleteModalOpen}
         toggle={() => setIsDeleteModalOpen(!isDeleteModalOpen)}
@@ -1038,4 +983,4 @@ export const SupplierListing: React.FC = () => {
   );
 };
 
-export default SupplierListing;
+export default SupplierManagement;

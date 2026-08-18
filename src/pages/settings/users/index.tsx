@@ -354,23 +354,45 @@ const OperatorManagement: React.FC = () => {
                   </Badge>
                 </td>
 
-                {/* 4. POS Privileges Badges */}
                 <td className="py-2">
-                  <div className="d-flex gap-1 flex-wrap">
-                    <Badge color={item.canDiscount ? "soft-success" : "soft-light text-muted"} className="fs-10">
-                      <i className={`ri-${item.canDiscount ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
-                      Discount
-                    </Badge>
-                    <Badge color={item.canVoid ? "soft-warning" : "soft-light text-muted"} className="fs-10">
-                      <i className={`ri-${item.canVoid ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
-                      Void
-                    </Badge>
-                    <Badge color={item.canWithdraw ? "soft-danger" : "soft-light text-muted"} className="fs-10">
-                      <i className={`ri-${item.canWithdraw ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
-                      Withdraw
-                    </Badge>
-                  </div>
-                </td>
+  <div className="d-flex gap-1 flex-wrap align-items-center">
+    <Badge
+      color={item.canDiscount ? "success" : "light"}
+      className={`fs-11 px-2 py-1 fw-medium ${
+        item.canDiscount
+          ? "bg-success-subtle text-success border border-success-subtle"
+          : "bg-light text-secondary border border-light-subtle"
+      }`}
+    >
+      <i className={`ri-${item.canDiscount ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
+      Discount
+    </Badge>
+
+    <Badge
+      color={item.canVoid ? "warning" : "light"}
+      className={`fs-11 px-2 py-1 fw-medium ${
+        item.canVoid
+          ? "bg-warning-subtle text-warning border border-warning-subtle"
+          : "bg-light text-secondary border border-light-subtle"
+      }`}
+    >
+      <i className={`ri-${item.canVoid ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
+      Void
+    </Badge>
+
+    <Badge
+      color={item.canWithdraw ? "danger" : "light"}
+      className={`fs-11 px-2 py-1 fw-medium ${
+        item.canWithdraw
+          ? "bg-danger-subtle text-danger border border-danger-subtle"
+          : "bg-light text-secondary border border-light-subtle"
+      }`}
+    >
+      <i className={`ri-${item.canWithdraw ? "checkbox-circle" : "close-circle"}-line me-1`}></i>
+      Withdraw
+    </Badge>
+  </div>
+</td>
 
                 {/* 5. Status */}
                 <td className="py-2">

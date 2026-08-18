@@ -15,6 +15,7 @@ import {
   Dropdown,
   DropdownToggle,
   DropdownMenu,
+  Alert,
 } from "reactstrap";
 import { toast } from "react-toastify";
 
@@ -22,8 +23,9 @@ import { toast } from "react-toastify";
 import { GRNPayload, GRNLineItem } from "../../types/grn";
 import { useGRNMutation } from "../../Components/Hooks/useGrn";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
-import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useSuppliers } from "../../Components/Hooks/useSuppliers";
+import { handleBackendErrors } from "../../helpers/form_utils";
 
 // Visual Theme Palette
 const BRAND_PURPLE = "#042e6d";
@@ -40,13 +42,23 @@ type ExtendedGRNLineItem = GRNLineItem & {
 export const GoodsReceivedNote: React.FC = () => {
   // TanStack Query Hooks
   const { createGRN, isPosting } = useGRNMutation();
-  const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses(true);
-  const { data: suppliersData, isLoading: isSuppliersLoading } = useSuppliers(1, 100);
+  const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
+  const { data: suppliersData, isLoading: isSuppliersLoading } = useSuppliers();
 
-  // Normalize Warehouses List
+  // Global Error Banner State
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!globalError) return;
+    const timer = setTimeout(() => {
+      setGlobalError(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [globalError]);
+
   const warehousesList = useMemo(() => {
     if (!warehousesData) return [];
-    return Array.isArray(warehousesData) ? warehousesData : warehousesData.warehouses ?? [];
+    return Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [];
   }, [warehousesData]);
 
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
@@ -54,17 +66,18 @@ export const GoodsReceivedNote: React.FC = () => {
   useEffect(() => {
     if (warehousesList.length > 0 && !selectedWarehouseId) {
       const firstWh = warehousesList[0];
-      setSelectedWarehouseId(firstWh.id ?? firstWh.warehouseId);
+      setSelectedWarehouseId(firstWh.warehouseId);
     }
   }, [warehousesList, selectedWarehouseId]);
 
-  // Warehouse Stock Inventory Query
-  const { balances: stockBalances = [], isLoading: isStockLoading } = useWarehouseStock(selectedWarehouseId);
+  const { stockItems: stockBalances = [], isLoading: isStockLoading } = useItemWarehouseStock({ 
+    warehouseId: selectedWarehouseId 
+  });
 
   // Normalize Suppliers List
   const suppliersList = useMemo(() => {
     if (!suppliersData) return [];
-    return Array.isArray(suppliersData) ? suppliersData : suppliersData.suppliers ?? [];
+    return Array.isArray(suppliersData) ? suppliersData : suppliersData ?? [];
   }, [suppliersData]);
 
   // GRN Header State
@@ -74,7 +87,6 @@ export const GoodsReceivedNote: React.FC = () => {
     `GRN-${Math.floor(100000 + Math.random() * 900000)}`
   );
 
-  // Search & Line Items State
   const [catalogSearch, setCatalogSearch] = useState("");
   const [lines, setLines] = useState<ExtendedGRNLineItem[]>([]);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
@@ -99,15 +111,15 @@ export const GoodsReceivedNote: React.FC = () => {
     if (!Array.isArray(stockBalances)) return [];
     const query = catalogSearch.toLowerCase();
     return stockBalances.filter((stock: any) => {
-      const itemName = stock.stockItem?.description ?? stock.description ?? stock.stock_item?.description ?? "";
-      const itemCode = stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_item?.stock_code ?? "";
+      const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? stock.stock_item?.description ?? "";
+      const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_item?.stock_code ?? "";
       return itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
     });
   }, [stockBalances, catalogSearch]);
 
   // Fast Add Stock Item to GRN Grid
   const handleAddLineItem = (stock: any) => {
-    const itemId = String(stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
+    const itemId = String(stock.itemId ?? stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
     const existing = lines.find((l) => l.stockItemId === itemId);
 
     if (existing) {
@@ -115,12 +127,12 @@ export const GoodsReceivedNote: React.FC = () => {
       return;
     }
 
-    const itemCode = stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
-    const itemName = stock.stockItem?.description ?? stock.description ?? "Stock Item";
+    const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
+    const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? "Stock Item";
     const baseUom = stock.uom ?? stock.unitOfMeasure ?? stock.stockItem?.uom ?? "EA";
     const altUom = stock.altUom ?? stock.stockItem?.altUom ?? undefined;
     const factor = Number(stock.conversionFactor ?? stock.stockItem?.conversionFactor ?? 1);
-    const defaultCost = Number(stock.unitCost ?? stock.sellingPrice ?? stock.unit_cost ?? 0);
+    const defaultCost = Number(stock.averageCost ?? stock.unitCost ?? stock.sellingPrice ?? stock.unit_cost ?? 0);
 
     const enteredQty = 1;
     const activeUom = altUom || baseUom;
@@ -169,10 +181,7 @@ export const GoodsReceivedNote: React.FC = () => {
         let unitPrice = field === "unitPrice" ? Math.max(0, Number(value)) : line.unitPrice;
         let taxRate = field === "taxRate" ? Math.max(0, Number(value)) : (line.taxRate ?? DEFAULT_TAX_RATE);
 
-        // SYSPRO UOM Logic: Standard Base UOM forces effective factor to 1
         const effectiveFactor = selectedUom === line.uom ? 1 : factor;
-
-        // Normalized Stock Quantity = Entered Quantity * Effective Conversion Factor
         const calculatedBaseQty = Number((enteredQty * effectiveFactor).toFixed(4));
 
         const subtotal = calculatedBaseQty * unitPrice;
@@ -243,7 +252,7 @@ export const GoodsReceivedNote: React.FC = () => {
       supplierInvoiceNo,
       items: lines.map((line) => ({
         stockItemId: line.stockItemId,
-        quantity: Number(line.quantity), // Transmits Normalized Base Stock Qty for FIFO Lot Update
+        quantity: Number(line.quantity),
         unitPrice: Number(line.unitPrice),
       })),
     };
@@ -253,8 +262,8 @@ export const GoodsReceivedNote: React.FC = () => {
       handleClearGRN();
       setSupplierId("");
       setDocumentNumber(`GRN-${Math.floor(100000 + Math.random() * 900000)}`);
-    } catch (err: any) {
-      // Handled in Hook Toast
+    } catch (err: unknown) {
+      handleBackendErrors(err, () => {}, setGlobalError);
     }
   };
 
@@ -262,16 +271,27 @@ export const GoodsReceivedNote: React.FC = () => {
 
   return (
     <React.Fragment>
-      <div className="page-content">
-        <Container fluid>
+      <div className="page-content py-3">
+        <Container fluid className="px-lg-4">
+          {globalError && (
+            <Alert
+              color="danger"
+              className="mb-3 border-0 shadow-sm alert-dismissible fade show"
+              toggle={() => setGlobalError(null)}
+            >
+              <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
+              {globalError}
+            </Alert>
+          )}
+
           <Form onSubmit={handleSubmitGRN}>
             {/* Header Control Panel */}
             <Card className="shadow-sm border-0 mb-3">
-              <CardHeader className="bg-white border-bottom py-3 px-3">
+              <CardHeader className="bg-white border-bottom py-3 px-3 px-lg-4">
                 <Row className="g-3 align-items-center justify-content-between">
-                  <Col md={4} sm={12}>
-                    <div className="d-flex align-items-center gap-2">
-                      <h5 className="card-title mb-0 fs-16 fw-semibold text-dark text-nowrap">
+                  <Col xl={3} lg={4} md={12}>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
                         Goods Received Note
                       </h5>
                       <Badge color="light" className="text-dark border font-monospace px-2 py-1 fs-11">
@@ -280,10 +300,10 @@ export const GoodsReceivedNote: React.FC = () => {
                     </div>
                   </Col>
 
-                  <Col md={8} sm={12}>
-                    <div className="d-flex align-items-center gap-2 justify-content-md-end">
+                  <Col xl={9} lg={8} md={12}>
+                    <div className="d-flex align-items-center gap-2 justify-content-lg-end flex-wrap">
                       {/* Warehouse Selector */}
-                      <div style={{ minWidth: "200px" }}>
+                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "180px" }}>
                         {isWarehousesLoading ? (
                           <Spinner size="sm" color="primary" />
                         ) : (
@@ -304,7 +324,7 @@ export const GoodsReceivedNote: React.FC = () => {
                       </div>
 
                       {/* Supplier Picker Dropdown */}
-                      <div style={{ minWidth: "240px", position: "relative", zIndex: 1050}}>
+                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "220px", position: "relative", zIndex: 1050 }}>
                         <Dropdown
                           isOpen={isSupplierDropdownOpen}
                           toggle={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}
@@ -312,12 +332,12 @@ export const GoodsReceivedNote: React.FC = () => {
                         >
                           <DropdownToggle
                             tag="div"
-                            className="d-flex justify-content-between align-items-center p-1.5 px-2 bg-light rounded cursor-pointer border border-light-subtle"
+                            className="d-flex justify-content-between align-items-center py-1.5 px-2 bg-light rounded cursor-pointer border border-light-subtle"
                           >
                             <div className="d-flex align-items-center gap-1.5">
                               <i className="ri-truck-line text-muted fs-13"></i>
-                              <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "170px" }}>
-                                {selectedSupplier ? (selectedSupplier.name ?? selectedSupplier.supplierName) : "Select Supplier *"}
+                              <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "160px" }}>
+                                {selectedSupplier ? (selectedSupplier.supplierName ?? selectedSupplier.supplierName) : "Select Supplier *"}
                               </span>
                             </div>
                             <i className="ri-arrow-down-s-line text-muted fs-12"></i>
@@ -361,7 +381,7 @@ export const GoodsReceivedNote: React.FC = () => {
                       </div>
 
                       {/* Supplier Invoice / DN Input */}
-                      <div style={{ minWidth: "200px" }}>
+                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "170px" }}>
                         <Input
                           type="text"
                           bsSize="sm"
@@ -378,10 +398,13 @@ export const GoodsReceivedNote: React.FC = () => {
               </CardHeader>
             </Card>
 
-            <Row>
+            <Row className="g-3">
               {/* Product Catalog Selector */}
               <Col lg={4} xl={4}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 240px)", display: "flex", flexDirection: "column" }}>
+                <Card 
+                  className="shadow-sm border-0 mb-0 d-flex flex-column" 
+                  style={{ minHeight: "500px", height: "calc(100vh - 200px)" }}
+                >
                   <CardHeader className="border-bottom py-2.5 px-3 bg-white">
                     <div className="search-box position-relative">
                       <Input
@@ -410,11 +433,11 @@ export const GoodsReceivedNote: React.FC = () => {
                     ) : filteredStockBalances.length > 0 ? (
                       <div className="d-flex flex-column gap-1.5">
                         {filteredStockBalances.map((stock: any) => {
-                          const itemId = String(stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
-                          const itemCode = stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
-                          const itemName = stock.stockItem?.description ?? stock.description ?? "Unnamed Item";
+                          const itemId = String(stock.itemId ?? stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
+                          const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
+                          const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? "Unnamed Item";
                           const uom = stock.uom ?? stock.unitOfMeasure ?? stock.stockItem?.uom ?? "EA";
-                          const qtyOnHand = Number(stock.qtyOnHand ?? 0);
+                          const qtyOnHand = Number(stock.quantityOnHand ?? stock.qtyOnHand ?? 0);
 
                           const isAdded = lines.some((l) => l.stockItemId === itemId);
 
@@ -435,14 +458,14 @@ export const GoodsReceivedNote: React.FC = () => {
                                     {uom}
                                   </span>
                                 </div>
-                                <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate" style={{ maxWidth: "210px" }}>
+                                <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate" style={{ maxWidth: "200px" }}>
                                   {itemName}
                                 </h6>
                               </div>
                               <div className="text-end flex-shrink-0">
                                 <span className="fs-10 text-muted d-block">On Hand</span>
                                 <span className={`fs-11 fw-bold font-monospace ${qtyOnHand > 0 ? "text-success" : "text-danger"}`}>
-                                  {qtyOnHand}
+                                  {qtyOnHand.toLocaleString()}
                                 </span>
                               </div>
                             </div>
@@ -461,7 +484,10 @@ export const GoodsReceivedNote: React.FC = () => {
 
               {/* GRN High-Density Line Grid & Dual UOM Handling */}
               <Col lg={8} xl={8}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 240px)", display: "flex", flexDirection: "column" }}>
+                <Card 
+                  className="shadow-sm border-0 mb-0 d-flex flex-column" 
+                  style={{ minHeight: "500px", height: "calc(100vh - 200px)" }}
+                >
                   <CardHeader className="border-bottom py-2.5 px-3 bg-white d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
                       <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">Received Line Items</h5>
@@ -478,7 +504,7 @@ export const GoodsReceivedNote: React.FC = () => {
 
                   <CardBody className="p-0 overflow-y-auto flex-grow-1" style={{ minHeight: 0 }}>
                     {lines.length === 0 ? (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                      <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted p-4 text-center">
                         <i className="ri-file-add-line display-5 text-muted mb-2 opacity-50"></i>
                         <span className="fs-13 fw-medium">No line items added to GRN</span>
                         <span className="fs-11 text-muted">Select products from the left stock catalog.</span>
@@ -487,11 +513,11 @@ export const GoodsReceivedNote: React.FC = () => {
                       <Table responsive className="mb-0 fs-12 border-0 align-middle">
                         <thead className="table-light fs-11 text-muted text-uppercase sticky-top">
                           <tr>
-                            <th style={{ width: "25%" }}>Stock Code & Name</th>
-                            <th style={{ width: "22%" }}>Receipt Qty & UOM</th>
+                            <th style={{ width: "24%" }}>Stock Code & Name</th>
+                            <th style={{ width: "24%" }}>Receipt Qty & UOM</th>
                             <th style={{ width: "18%" }}>Base Stock Qty</th>
                             <th style={{ width: "15%" }}>Unit Cost</th>
-                            <th style={{ width: "15%" }}>Line Total</th>
+                            <th style={{ width: "14%" }}>Line Total</th>
                             <th style={{ width: "5%" }} className="text-center"></th>
                           </tr>
                         </thead>
@@ -503,7 +529,7 @@ export const GoodsReceivedNote: React.FC = () => {
                               <tr key={line.stockItemId}>
                                 <td>
                                   <div className="fw-semibold text-dark font-monospace">{line.stockItemCode}</div>
-                                  <div className="text-muted fs-11 text-truncate" style={{ maxWidth: "170px" }}>
+                                  <div className="text-muted fs-11 text-truncate" style={{ maxWidth: "160px" }}>
                                     {line.stockItemName}
                                   </div>
                                 </td>
@@ -519,7 +545,7 @@ export const GoodsReceivedNote: React.FC = () => {
                                       className="form-control form-control-sm text-end font-monospace fw-bold shadow-none"
                                       value={line.enteredQty}
                                       onChange={(e) => handleLineUpdate(line.stockItemId, "enteredQty", e.target.value)}
-                                      style={{ width: "75px" }}
+                                      style={{ width: "70px" }}
                                     />
                                     <Input
                                       type="select"
@@ -527,7 +553,7 @@ export const GoodsReceivedNote: React.FC = () => {
                                       className="form-select form-select-sm fs-11 shadow-none"
                                       value={line.selectedUom}
                                       onChange={(e) => handleLineUpdate(line.stockItemId, "selectedUom", e.target.value)}
-                                      style={{ width: "80px" }}
+                                      style={{ width: "75px" }}
                                     >
                                       <option value={line.uom}>{line.uom}</option>
                                       {line.altUom && <option value={line.altUom}>{line.altUom}</option>}
@@ -571,7 +597,7 @@ export const GoodsReceivedNote: React.FC = () => {
                                     className="form-control form-control-sm font-monospace text-end shadow-none"
                                     value={line.unitPrice}
                                     onChange={(e) => handleLineUpdate(line.stockItemId, "unitPrice", e.target.value)}
-                                    style={{ width: "85px" }}
+                                    style={{ width: "80px" }}
                                   />
                                 </td>
 
@@ -601,15 +627,15 @@ export const GoodsReceivedNote: React.FC = () => {
 
                   {/* Summary & Posting Bar */}
                   <div className="p-3 bg-white border-top border-light-subtle flex-shrink-0">
-                    <Row className="align-items-center">
-                      <Col md={7}>
-                        <div className="d-flex align-items-center gap-4 text-muted fs-12">
+                    <Row className="align-items-center g-2">
+                      <Col xl={7} lg={6} md={12}>
+                        <div className="d-flex align-items-center gap-3 text-muted fs-11 flex-wrap">
                           <div>
                             <span>Total Items: </span>
                             <strong className="text-dark">{lines.length}</strong>
                           </div>
                           <div>
-                            <span>Total Base Stock Units: </span>
+                            <span>Base Units: </span>
                             <strong className="text-dark font-monospace">{totals.totalBaseUnits.toLocaleString()}</strong>
                           </div>
                           <div>
@@ -619,10 +645,10 @@ export const GoodsReceivedNote: React.FC = () => {
                         </div>
                       </Col>
 
-                      <Col md={5} className="d-flex align-items-center justify-content-end gap-3">
+                      <Col xl={5} lg={6} md={12} className="d-flex align-items-center justify-content-lg-end justify-content-between gap-3">
                         <div className="text-end">
                           <span className="fs-11 text-muted d-block">Grand Total</span>
-                          <h4 className="mb-0 fw-bold text-dark fs-18 font-monospace">
+                          <h4 className="mb-0 fw-bold text-dark fs-16 font-monospace">
                             {totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </h4>
                         </div>
@@ -638,11 +664,11 @@ export const GoodsReceivedNote: React.FC = () => {
                           {isPosting ? (
                             <>
                               <Spinner size="sm" />
-                              <span className="fs-13 fw-semibold">Posting GRN...</span>
+                              <span className="fs-12 fw-semibold">Posting...</span>
                             </>
                           ) : (
                             <>
-                              <span className="fs-13 fw-semibold text-white">Post Goods Receipt</span>
+                              <span className="fs-12 fw-semibold text-white">Post Goods Receipt</span>
                               <i className="ri-arrow-right-line fs-14 text-white"></i>
                             </>
                           )}

@@ -1,5 +1,11 @@
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export interface Customer {
-  id: number;
+  customerId: string;
   customerCode: string;
   customerName: string;
   contactName: string;
@@ -8,9 +14,8 @@ export interface Customer {
   address: string;
   taxNumber: string;
   creditLimit: number;
+  priceCode: string;
   isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface CustomerPayload {
@@ -22,11 +27,17 @@ export interface CustomerPayload {
   address: string;
   taxNumber: string;
   creditLimit: number;
+  priceCode: string;
+  isActive: boolean;
 }
 
-export interface UpdateUserRequest extends Partial<CustomerPayload> {
-  is_active?: boolean; 
-}
+export type UpdateCustomerRequest = Partial<CustomerPayload>;
+
+export type GetCustomersResponse = ApiResponse<Customer[]>;
+export type GetCustomerByIdResponse = ApiResponse<Customer>;
+export type CreateCustomerResponse = ApiResponse<string>;
+export type UpdateCustomerResponse = ApiResponse<string>;
+export type DeleteCustomerResponse = ApiResponse<string>;
 
 export interface CustomerListResponse {
   customers: Customer[];

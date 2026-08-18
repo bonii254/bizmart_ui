@@ -1,32 +1,48 @@
 import { APIClient } from "../helpers/api_helper";
-import { 
-  WarehouseStock, 
-  InitializeStockPayload, 
-  UpdateStockQtyPayload, 
-  DeleteStockLinkResponse 
+import {
+  ApiResponse,
+  ItemWarehouseStock,
+  AssignWarehouseToItemRequest,
 } from "../types/warehouseStock";
 
 const api = new APIClient();
-const BASE_URL = "/mock/stock-balances";
+const ITEMS_BASE_URL = "/api/inventory/items";
+const WAREHOUSES_BASE_URL = "/api/inventory/warehouses";
 
-export const WarehouseStockService = {
-  initializeStock: async (payload: InitializeStockPayload): Promise<WarehouseStock> => {
-    return await api.create(`${BASE_URL}`, payload);
+export const ItemWarehouseService = {
+  getItemWarehouses: async (itemId: string): Promise<ItemWarehouseStock[]> => {
+    const response: ApiResponse<ItemWarehouseStock[]> = await api.get(
+      `${ITEMS_BASE_URL}/${itemId}/warehouses`
+    );
+    return response.data || [];
   },
 
-  getAllBalances: async (warehouseId?: string): Promise<WarehouseStock[]> => {
-    const url = warehouseId ? `${BASE_URL}?warehouse_id=${warehouseId}` : BASE_URL;
-    return await api.get(url);
+  getWarehouseItems: async (warehouseId: string): Promise<ItemWarehouseStock[]> => {
+    const response: ApiResponse<ItemWarehouseStock[]> = await api.get(
+      `${WAREHOUSES_BASE_URL}/${warehouseId}/items`
+    );
+    return response.data || [];
   },
 
-  getBalance: async (stockId: string): Promise<WarehouseStock> => {
-    return await api.get(`${BASE_URL}/${stockId}`);
+  assignWarehouseToItem: async (
+    itemId: string,
+    payload: AssignWarehouseToItemRequest
+  ): Promise<string> => {
+    const response: ApiResponse<string> = await api.create(
+      `${ITEMS_BASE_URL}/${itemId}/warehouses`,
+      payload
+    );
+    return response.data;
   },
 
-  adjustStock: async (stockId: string, payload: UpdateStockQtyPayload): Promise<WarehouseStock> => {
-    return await api.update(`${BASE_URL}/${stockId}`, payload);
+  removeItemWarehouse: async (
+    itemId: string,
+    warehouseId: string
+  ): Promise<string> => {
+    const response: ApiResponse<string> = await api.create(
+      `${ITEMS_BASE_URL}/${itemId}/warehouses/${warehouseId}/delete`,
+      ""
+    );
+    return response.data;
   },
-  removeStockLink: async (stockId: string): Promise<DeleteStockLinkResponse> => {
-    return await api.delete(`${BASE_URL}/${stockId}`);
-  }
 };

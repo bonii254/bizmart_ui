@@ -20,7 +20,7 @@ import CategoryManagement from "./Category";
 import CompanyManagement from "./Company";
 import WarehouseManagement from "./Warehouse";
 import StockItemManagement from "./StockItem";
-import WarehouseStockManagement from "./WarehouseStock";
+import ItemWarehouseManagement from "./WarehouseStock";
 
 interface TabItem {
   id: string;
@@ -94,7 +94,7 @@ const SettingsHub: React.FC = () => {
         menuLabel: "Warehouse Stock",
         menuSubtitle: "Manage warehouse stock",
         icon: "ri-store-2-line",
-        component: <WarehouseStockManagement />,
+        component: <ItemWarehouseManagement />,
       },
     ],
     []

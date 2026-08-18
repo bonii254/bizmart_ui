@@ -1,16 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CustomerService } from "../../services/customerService";
-import { CustomerPayload, UpdateUserRequest } from "../../types/customer";
+import { CustomerPayload, UpdateCustomerRequest } from "../../types/customer";
 import { toast } from "react-toastify";
 
-export const useCustomers = (page: number = 1, perPage: number = 10) => {
+export const useCustomers = () => {
   return useQuery({
-    queryKey: ["customers", page, perPage],
-    queryFn: () => CustomerService.getAllCustomers(page, perPage),
+    queryKey: ["customers"],
+    queryFn: () => CustomerService.getAllCustomers(),
   });
 };
 
-export const useCustomerDetails = (id: number) => {
+export const useCustomerDetails = (id: string) => {
   return useQuery({
     queryKey: ["customers", id],
     queryFn: () => CustomerService.getCustomerById(id),
@@ -33,7 +33,7 @@ export const useCustomerMutation = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateUserRequest }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateCustomerRequest }) =>
       CustomerService.updateCustomer(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -46,7 +46,7 @@ export const useCustomerMutation = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => CustomerService.deleteCustomer(id),
+    mutationFn: (id: string) => CustomerService.deleteCustomer(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Customer deleted successfully");

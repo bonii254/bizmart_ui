@@ -1,10 +1,15 @@
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+
 export interface Warehouse {
   warehouseId: string;
   warehouseCode: string;
   warehouseName: string;
-  isActive?: boolean;
-  createdAt: string;
-  updatedAt?: string;
+  isActive: boolean;
 }
 
 export interface WarehousePayload {
@@ -15,10 +20,6 @@ export interface WarehousePayload {
 
 export interface UpdateWarehouseRequest extends Partial<WarehousePayload> {}
 
-export interface WarehouseListResponse {
-  warehouses: Warehouse[];
-  totalCount: number;
-  totalPages: number;
-  currentPage: number;
-  perPage: number;
-}
+export type WarehouseListResponse = ApiResponse<Warehouse[]>;
+export type WarehouseSingleResponse = ApiResponse<Warehouse>;
+export type WarehouseMutationResponse = ApiResponse<string>;

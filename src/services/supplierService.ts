@@ -3,34 +3,40 @@ import {
   Supplier, 
   SupplierPayload, 
   UpdateSupplierRequest, 
-  SupplierListResponse 
+  GetSuppliersResponse,
+  GetSupplierByIdResponse,
+  CreateSupplierResponse,
+  UpdateSupplierResponse,
+  DeleteSupplierResponse
 } from "../types/supplier";
 
 const api = new APIClient();
 
-// Ensure BASE_URL starts with a single slash and has no trailing slashes
-const BASE_URL = "/mock/suppliers"; 
+const BASE_URL = "/api/suppliers"; 
 
 export const SupplierService = {
-  getSuppliers: async (page = 1, perPage = 100): Promise<SupplierListResponse> => {
-    return await api.get(BASE_URL, { page, per_page: perPage });
+  getSuppliers: async (page = 1, perPage = 100): Promise<Supplier[]> => {
+    const response: GetSuppliersResponse = await api.get(BASE_URL);
+    return response.data || [];
   },
 
   getSupplierById: async (id: string): Promise<Supplier> => {
-    return await api.get(`${BASE_URL}/${id}`);
+    const response: GetSupplierByIdResponse = await api.get(`${BASE_URL}/${id}`);
+    return response.data;
   },
 
-  createSupplier: async (payload: SupplierPayload): Promise<Supplier> => {
-    const response = await api.create(BASE_URL, payload);
-    return response.supplier ?? response;
+  createSupplier: async (payload: SupplierPayload): Promise<string> => {
+    const response: CreateSupplierResponse = await api.create(BASE_URL, payload);
+    return response.data;
   },
 
-  updateSupplier: async (id: string, payload: UpdateSupplierRequest): Promise<Supplier> => {
-    const response = await api.update(`${BASE_URL}/${id}`, payload);
-    return response.supplier ?? response;
+  updateSupplier: async (id: string, payload: UpdateSupplierRequest): Promise<string> => {
+    const response: UpdateSupplierResponse = await api.create(`${BASE_URL}/${id}/update`, payload);
+    return response.data;
   },
 
-  deleteSupplier: async (id: string): Promise<{ message: string }> => {
-    return await api.delete(`${BASE_URL}/${id}`);
+  deleteSupplier: async (id: string): Promise<string> => {
+    const response: DeleteSupplierResponse = await api.create(`${BASE_URL}/${id}/delete`, "");
+    return response.data;
   }
 };

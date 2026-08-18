@@ -3,16 +3,15 @@ import {
   Company,
   CompanyPayload,
   UpdateCompanyRequest,
-  CompanyListResponse,
 } from "../types/companies";
 
 const api = new APIClient();
-const BASE_URL = "/mock/companies";
+const BASE_URL = "/api/administration/companies";
 
 export const CompanyService = {
-  getAllCompanies: async (active?: boolean): Promise<CompanyListResponse> => {
-    const params = active !== undefined ? { active: String(active) } : {};
-    return await api.get(`${BASE_URL}`, { params });
+  getAllCompanies: async (): Promise<Company[]> => {
+    const response = await api.get(BASE_URL);
+    return response.data || []
   },
 
   createCompany: async (payload: CompanyPayload): Promise<Company> => {
@@ -25,7 +24,7 @@ export const CompanyService = {
     payload: UpdateCompanyRequest,
   ): Promise<Company> => {
     const response = await api.update(`${BASE_URL}/${id}`, payload);
-    return response.company;
+    return response.data;
   },
 
   deleteCompany: async (id: string): Promise<{ message: string }> => {

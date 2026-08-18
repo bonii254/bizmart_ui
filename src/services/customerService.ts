@@ -2,33 +2,35 @@ import { APIClient } from "../helpers/api_helper";
 import { 
   Customer, 
   CustomerPayload, 
-  UpdateUserRequest, 
-  CustomerListResponse 
+  UpdateCustomerRequest 
 } from "../types/customer";
 
 const api = new APIClient();
-const BASE_URL = "/mock/customers";
+const BASE_URL = "/api/customers";
 
 export const CustomerService = {
-  getAllCustomers: async (page = 1, perPage = 10): Promise<CustomerListResponse> => {
-    return await api.get(BASE_URL, { page, per_page: perPage });
+  getAllCustomers: async (): Promise<Customer[]> => {
+    const response = await api.get(BASE_URL);
+    return response.data?.data ?? response.data ?? response;
   },
 
-  getCustomerById: async (id: number): Promise<Customer> => {
-    return await api.get(`${BASE_URL}/${id}`);
+  getCustomerById: async (id: string): Promise<Customer> => {
+    const response = await api.get(`${BASE_URL}/${id}`);
+    return response.data?.data ?? response.data ?? response;
   },
 
-  createCustomer: async (payload: CustomerPayload): Promise<Customer> => {
+  createCustomer: async (payload: CustomerPayload): Promise<string> => {
     const response = await api.create(BASE_URL, payload);
-    return response.customer ?? response;
+    return response.data?.data ?? response.data ?? response;
   },
 
-  updateCustomer: async (id: number, payload: UpdateUserRequest): Promise<Customer> => {
-    const response = await api.update(`${BASE_URL}/${id}`, payload);
-    return response.customer ?? response;
+  updateCustomer: async (id: string, payload: UpdateCustomerRequest): Promise<string> => {
+    const response = await api.create(`${BASE_URL}/${id}/update`, payload);
+    return response.data?.data ?? response.data ?? response;
   },
 
-  deleteCustomer: async (id: number): Promise<{ message: string }> => {
-    return await api.delete(`${BASE_URL}/${id}`);
+  deleteCustomer: async (id: string): Promise<string> => {
+    const response = await api.create(`${BASE_URL}/${id}/delete`, {});
+    return response.data?.data ?? response.data ?? response;
   }
 };

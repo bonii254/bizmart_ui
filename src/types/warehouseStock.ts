@@ -1,71 +1,40 @@
-import { UOM } from "./stockitem";
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
 
-export interface NestedWarehouse {
-  id: string;
+export interface ItemWarehouseStock {
+  itemId: string;
+  itemCode: string;
+  itemDescription?: string;
+  warehouseId: string;
   warehouseCode: string;
   warehouseName: string;
+  quantityOnHand: number;
+  averageCost: number;
+  inventoryValue: number;
 }
 
-export interface NestedStockItem {
-  id: string;
-  itemCode: string;
-  description: string;
-  uom: UOM; 
-}
-
-export interface WarehouseStock {
-  id: string;
+export interface AssignWarehouseToItemRequest {
   warehouseId: string;
-  stockItemId: string;
-  
-  qtyOnHand: number;
-  unitCost: number;
-  totalValue: number;
-  sellingPrice?: number | null;
-  
-  uom: UOM;
-  alternateUom?: UOM | null;
-  alternateUomConversionFactor?: number | null;
-  
-  warehouse: NestedWarehouse;
-  stockItem: NestedStockItem;
-  
-  createdAt?: string;
-  updatedAt?: string;
+  quantityOnHand?: number;
+  averageCost?: number;
+  [key: string]: any;
 }
 
-export interface InitializeStockPayload {
-  warehouseId: string;
-  stockItemId: string;
-  qtyOnHand?: number | string;
-  unitCost?: number | string;
-  sellingPrice?: number | string | null;
-  totalValue?: number | string;
-  alternateUom?: UOM | null;
-  alternateUomConversionFactor?: number | string | null;
-}
+// Response Types
+export type GetItemWarehousesResponse = ApiResponse<ItemWarehouseStock[]>;
+export type GetWarehouseItemsResponse = ApiResponse<ItemWarehouseStock[]>;
+export type AssignWarehouseToItemResponse = ApiResponse<string>;
+export type DeleteItemWarehouseResponse = ApiResponse<string>;
 
-export interface UpdateStockQtyPayload {
-  qtyOnHand?: number | string;
-  unitCost?: number | string;
-  totalValue?: number | string;
-  sellingPrice?: number | string | null;
-  alternateUom?: UOM | null;
-  alternateUomConversionFactor?: number | string | null;
-}
-
-export interface GetBalancesParams {
+// Path Parameter Interfaces
+export interface ItemWarehousePathParams {
+  itemId?: string;
   warehouseId?: string;
-  stockItemId?: string;
-  search?: string;
 }
 
-export interface DeleteStockLinkResponse {
-  message: string;
-}
-
-export interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-  [field: string]: any;
+export interface GetWarehouseItemsParams {
+  warehouseId: string;
 }
