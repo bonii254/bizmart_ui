@@ -271,7 +271,7 @@ export const GoodsReceivedNote: React.FC = () => {
 
   return (
     <React.Fragment>
-      <div className="page-content py-3">
+      <div className="page-content">
         <Container fluid className="px-lg-4">
           {globalError && (
             <Alert

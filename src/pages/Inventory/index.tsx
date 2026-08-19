@@ -12,10 +12,19 @@ import {
   Badge,
 } from "reactstrap";
 
-import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
-import { WarehouseStock } from "../../types/warehouseStock";
+import { ItemWarehouseStock } from "../../types/warehouseStock";
 import TablePagination from "../TablePagination";
+import { StockItem } from "../../types/stockitem";
+import { useStockItems } from "../../Components/Hooks/useStockItems"
+
+export interface EnrichedWarehouseStock extends ItemWarehouseStock {
+  sellingPrice?: number;
+  stockUom?: string;
+  alternateUom?: string | null;
+}
+
 
 const StockBalanceOverview: React.FC = () => {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
@@ -34,27 +43,26 @@ const StockBalanceOverview: React.FC = () => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // React Query Custom Hooks
-  const { balances, isLoading } = useWarehouseStock(
+  const { stockItems, isLoading } = useItemWarehouseStock(
     selectedWarehouseId || undefined
   );
-  const { data: warehouseData } = useWarehouses(true);
+  const { data: warehouseData } = useWarehouses();
 
   const warehouseList = useMemo(
-    () => warehouseData?.warehouses || [],
+    () => warehouseData || [],
     [warehouseData]
   );
 
   // Client-side Filter by Search Term (Stock code or description)
   const filteredBalances = useMemo(() => {
-    if (!searchTerm) return balances;
+    if (!searchTerm) return stockItems;
     const lower = searchTerm.toLowerCase();
-    return balances.filter(
-      (b: WarehouseStock) =>
-        b.stockItem?.itemCode?.toLowerCase().includes(lower) ||
-        b.stockItem?.description?.toLowerCase().includes(lower)
+    return stockItems.filter(
+      (b: ItemWarehouseStock) =>
+        b.itemCode?.toLowerCase().includes(lower) ||
+        b.itemDescription?.toLowerCase().includes(lower)
     );
-  }, [balances, searchTerm]);
+  }, [stockItems, searchTerm]);
 
   // Pagination Math
   const paginatedRows = useMemo(() => {
@@ -195,12 +203,12 @@ const StockBalanceOverview: React.FC = () => {
                             </td>
                           </tr>
                         ) : paginatedRows.length > 0 ? (
-                          paginatedRows.map((item: WarehouseStock) => (
-                            <tr key={item.id} className="align-middle">
+                          paginatedRows.map((item: ItemWarehouseStock) => (
+                            <tr key={item.itemId} className="align-middle">
                               {/* 1. Stock Code */}
                               <td className="py-1.5 ps-3">
                                 <span className="fw-semibold text-primary font-monospace fs-11">
-                                  {item.stockItem?.itemCode || "N/A"}
+                                  {item.itemCode || "N/A"}
                                 </span>
                               </td>
 
@@ -209,9 +217,9 @@ const StockBalanceOverview: React.FC = () => {
                                 <span
                                   className="text-dark fw-medium text-truncate d-inline-block align-middle"
                                   style={{ maxWidth: "340px" }}
-                                  title={item.stockItem?.description}
+                                  title={item.itemDescription}
                                 >
-                                  {item.stockItem?.description || "N/A"}
+                                  {item.itemDescription || "N/A"}
                                 </span>
                               </td>
 
@@ -221,7 +229,7 @@ const StockBalanceOverview: React.FC = () => {
                                   color="light"
                                   className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
                                 >
-                                  {item.alternateUom || "N/A"}
+                                  {"N/A"}
                                 </Badge>
                               </td>
 
@@ -230,7 +238,7 @@ const StockBalanceOverview: React.FC = () => {
                                   color="light"
                                   className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
                                 >
-                                  {item.stockItem?.uom || "N/A"}
+                                  {"N/A"}
                                 </Badge>
                               </td>
 

@@ -16,10 +16,10 @@ import {
 } from "reactstrap";
 
 import { useStockTake } from "../../Components/Hooks/useStocktake";
-import { useWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
 import { CreateStockTakeLinePayload } from "../../types/stocktake";
-import { WarehouseStock } from "../../types/warehouseStock";
+import { ItemWarehouseStock } from "../../types/warehouseStock";
 import TablePagination from "../TablePagination";
 
 const NewStockTake: React.FC = () => {
@@ -40,10 +40,10 @@ const NewStockTake: React.FC = () => {
 
   // Hook Integrations
   const { createStockTakeRecord, isCreating } = useStockTake();
-  const { balances: liveWarehouseStock, isLoading: isStockLoading } = useWarehouseStock(newWarehouseId || undefined);
-  const { data: warehouseData } = useWarehouses(true);
+  const { stockItems: liveWarehouseStock, isLoading: isStockLoading } = useItemWarehouseStock(newWarehouseId || undefined);
+  const { data: warehouseData } = useWarehouses();
 
-  const warehouseList = useMemo(() => warehouseData?.warehouses || [], [warehouseData]);
+  const warehouseList = useMemo(() => warehouseData || [], [warehouseData]);
 
   // Debounce search input
   useEffect(() => {
@@ -57,13 +57,13 @@ const NewStockTake: React.FC = () => {
   // Auto-populate counting form when target warehouse changes
   useEffect(() => {
     if (liveWarehouseStock && liveWarehouseStock.length > 0) {
-      const initialLines = liveWarehouseStock.map((stock: WarehouseStock) => ({
-        item_id: stock.id,
-        expected_quantity: String(stock.qtyOnHand || 0),
-        counted_quantity: String(stock.qtyOnHand || 0),
-        stock_code: stock.stockItem?.itemCode || "N/A",
-        description: stock.stockItem?.description || "N/A",
-        uom: stock.stockItem?.uom || "EA",
+      const initialLines = liveWarehouseStock.map((stock: ItemWarehouseStock) => ({
+        item_id: stock.itemId,
+        expected_quantity: String(stock.quantityOnHand || 0),
+        counted_quantity: String(stock.quantityOnHand || 0),
+        stock_code: stock.itemCode || "N/A",
+        description: stock.itemDescription || "N/A",
+        uom: "EA",
       }));
       setCountFormLines(initialLines);
       setPageIndex(0);
