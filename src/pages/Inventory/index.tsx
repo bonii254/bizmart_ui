@@ -74,7 +74,7 @@ const StockBalanceOverview: React.FC = () => {
 
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
-    setPageSize: (size: number) => {
+    setPageSize: (size: number) => {    
       setPageSize(size);
       setPageIndex(0);
     },
