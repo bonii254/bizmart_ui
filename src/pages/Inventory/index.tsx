@@ -14,24 +14,27 @@ import {
 
 import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
+import { useStockItems } from "../../Components/Hooks/useStockItems";
+
 import { ItemWarehouseStock } from "../../types/warehouseStock";
-import TablePagination from "../TablePagination";
+import { Warehouse } from "../../types/warehouse";
 import { StockItem } from "../../types/stockitem";
-import { useStockItems } from "../../Components/Hooks/useStockItems"
+
+import TablePagination from "../TablePagination";
+import qz from 'qz-tray';
 
 export interface EnrichedWarehouseStock extends ItemWarehouseStock {
   sellingPrice?: number;
   stockUom?: string;
   alternateUom?: string | null;
+  totalValue?: number;
 }
-
 
 const StockBalanceOverview: React.FC = () => {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("");
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Debounced auto-search state
   const [searchInput, setSearchInput] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
@@ -42,29 +45,72 @@ const StockBalanceOverview: React.FC = () => {
     }, 300);
     return () => clearTimeout(handler);
   }, [searchInput]);
+  
+  const { stockItems: rawStockItems, isLoading: isStockLoading } = useItemWarehouseStock({
+    warehouseId: selectedWarehouseId || undefined,
+  });
+  const { data: warehouseData, isLoading: isWarehouseLoading } = useWarehouses();
+  const { data: stockCatalog } = useStockItems();
 
-  const { stockItems, isLoading } = useItemWarehouseStock(
-    selectedWarehouseId || undefined
-  );
-  const { data: warehouseData } = useWarehouses();
-
-  const warehouseList = useMemo(
+  const warehouseList: Warehouse[] = useMemo(
     () => warehouseData || [],
     [warehouseData]
   );
 
-  // Client-side Filter by Search Term (Stock code or description)
+  useEffect(() => {
+    if (warehouseList.length > 0 && !selectedWarehouseId) {
+      setSelectedWarehouseId(warehouseList[0].warehouseId);
+    }
+  }, [warehouseList, selectedWarehouseId]);
+
+  const stockCatalogMap = useMemo(() => {
+    const map = new Map<string, StockItem>();
+    if (stockCatalog && Array.isArray(stockCatalog)) {
+      stockCatalog.forEach((item) => {
+        if (item.itemId) map.set(item.itemId, item);
+        if (item.itemCode) map.set(item.itemCode, item);
+      });
+    }
+    return map;
+  }, [stockCatalog]);
+
+  const enrichedStockBalances = useMemo<EnrichedWarehouseStock[]>(() => {
+    if (!rawStockItems) return [];
+    return rawStockItems.map((stock: ItemWarehouseStock) => {
+      const catalogItem = stockCatalogMap.get(stock.itemId) || stockCatalogMap.get(stock.itemCode);
+      const qtyOnHand = Number(stock.quantityOnHand ?? 0);
+      const unitCost = Number(stock.averageCost ?? 0);
+      
+      // Compute total inventory value as Quantity On Hand * Unit Cost
+      const calculatedTotalValue = (qtyOnHand * unitCost);
+
+      return {
+        ...stock,
+        sellingPrice: catalogItem?.sellingPrice ?? 0,
+        stockUom: catalogItem?.stockUom || "N/A",
+        alternateUom: catalogItem?.alternateUom || "N/A",
+        totalValue: calculatedTotalValue,
+      };
+    });
+  }, [rawStockItems, stockCatalogMap]);
+  
   const filteredBalances = useMemo(() => {
-    if (!searchTerm) return stockItems;
+    if (!searchTerm) return enrichedStockBalances;
     const lower = searchTerm.toLowerCase();
-    return stockItems.filter(
-      (b: ItemWarehouseStock) =>
+    return enrichedStockBalances.filter(
+      (b: EnrichedWarehouseStock) =>
         b.itemCode?.toLowerCase().includes(lower) ||
         b.itemDescription?.toLowerCase().includes(lower)
     );
-  }, [stockItems, searchTerm]);
+  }, [enrichedStockBalances, searchTerm]);
 
-  // Pagination Math
+  const totalWarehouseValue = useMemo(() => {
+    return filteredBalances.reduce(
+      (sum, item) => sum + Number(item.totalValue || 0),
+      0
+    );
+  }, [filteredBalances]);
+
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredBalances.slice(start, start + pageSize);
@@ -74,7 +120,7 @@ const StockBalanceOverview: React.FC = () => {
 
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
-    setPageSize: (size: number) => {    
+    setPageSize: (size: number) => {
       setPageSize(size);
       setPageIndex(0);
     },
@@ -87,6 +133,8 @@ const StockBalanceOverview: React.FC = () => {
     getPrePaginationRowModel: () => ({ rows: filteredBalances }),
   };
 
+  const isLoading = isStockLoading || isWarehouseLoading;
+
   document.title = "Stock Balance Overview | Inventory";
 
   return (
@@ -96,10 +144,8 @@ const StockBalanceOverview: React.FC = () => {
           <Row>
             <Col lg={12}>
               <Card id="stockBalanceList" className="shadow-sm border-0">
-                {/* Clean, Spacious Header with Aligned Controls */}
                 <CardHeader className="border-bottom py-3 px-3 bg-white">
                   <Row className="g-3 align-items-center justify-content-between">
-                    {/* Left: Title & Warehouse Dropdown */}
                     <Col lg={5} md={6} sm={12}>
                       <div className="d-flex align-items-center gap-3">
                         <h5 className="card-title mb-0 fs-15 fw-semibold text-dark text-nowrap">
@@ -116,7 +162,7 @@ const StockBalanceOverview: React.FC = () => {
                             }}
                           >
                             <option value="">All Warehouses</option>
-                            {warehouseList.map((wh: any) => (
+                            {warehouseList.map((wh: Warehouse) => (
                               <option key={wh.warehouseId} value={wh.warehouseId}>
                                 {wh.warehouseName} ({wh.warehouseCode})
                               </option>
@@ -126,12 +172,12 @@ const StockBalanceOverview: React.FC = () => {
                       </div>
                     </Col>
 
-                    {/* Right: Search Input & Badge */}
                     <Col lg={7} md={6} sm={12}>
                       <div className="d-flex align-items-center justify-content-md-end gap-2 flex-wrap">
+                        {/* Auto-scaling Search Input Container */}
                         <div
                           className="search-box position-relative flex-grow-1 flex-md-grow-0"
-                          style={{ minWidth: "250px" }}
+                          style={{ minWidth: "200px", maxWidth: "100%" }}
                         >
                           <Input
                             type="text"
@@ -142,13 +188,19 @@ const StockBalanceOverview: React.FC = () => {
                           />
                           <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                         </div>
-
+  
                         <Badge
-                          color="primary-subtle"
-                          className="text-primary border border-primary-subtle fs-11 px-2.5 py-1.5 rounded-2 fw-medium text-nowrap"
+                          color="success-subtle"
+                          className="text-success border border-success-subtle fs-11 px-2.5 py-1.5 rounded-2 fw-semibold text-nowrap d-inline-flex align-items-center"
                         >
-                          <i className="ri-list-check me-1 align-middle"></i>
-                          {filteredBalances.length} Records
+                          <i className="ri-money-dollar-circle-line me-1 fs-13 lh-1"></i>
+                          <span>
+                            Total Value: Ksh{" "}
+                            {totalWarehouseValue.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
                         </Badge>
                       </div>
                     </Col>
@@ -156,7 +208,6 @@ const StockBalanceOverview: React.FC = () => {
                 </CardHeader>
 
                 <CardBody className="p-0">
-                  {/* Compact High-Density Datatable */}
                   <div className="table-responsive">
                     <Table
                       hover
@@ -195,7 +246,7 @@ const StockBalanceOverview: React.FC = () => {
                       <tbody className="fs-12">
                         {isLoading ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-4">
+                            <td colSpan={8} className="text-center py-4">
                               <Spinner size="sm" color="primary" className="me-2" />
                               <span className="text-muted fs-12">
                                 Loading records...
@@ -203,16 +254,14 @@ const StockBalanceOverview: React.FC = () => {
                             </td>
                           </tr>
                         ) : paginatedRows.length > 0 ? (
-                          paginatedRows.map((item: ItemWarehouseStock) => (
-                            <tr key={item.itemId} className="align-middle">
-                              {/* 1. Stock Code */}
+                          paginatedRows.map((item: EnrichedWarehouseStock) => (
+                            <tr key={`${item.warehouseId}-${item.itemId}`} className="align-middle">
                               <td className="py-1.5 ps-3">
                                 <span className="fw-semibold text-primary font-monospace fs-11">
                                   {item.itemCode || "N/A"}
                                 </span>
                               </td>
 
-                              {/* 2. Description (Truncated single-line) */}
                               <td className="py-1.5">
                                 <span
                                   className="text-dark fw-medium text-truncate d-inline-block align-middle"
@@ -223,13 +272,12 @@ const StockBalanceOverview: React.FC = () => {
                                 </span>
                               </td>
 
-                              {/* 3. UOM */}
                               <td className="py-1.5">
                                 <Badge
                                   color="light"
                                   className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
                                 >
-                                  {"N/A"}
+                                  {item.alternateUom || "N/A"}
                                 </Badge>
                               </td>
 
@@ -238,11 +286,10 @@ const StockBalanceOverview: React.FC = () => {
                                   color="light"
                                   className="text-secondary border fs-10 fw-normal px-1.5 py-0.5"
                                 >
-                                  {"N/A"}
+                                  {item.stockUom || "N/A"}
                                 </Badge>
                               </td>
 
-                              {/* 5. Unit Cost (Selling Price) */}
                               <td className="py-1.5 text-start fw-medium text-body font-monospace">
                                 Ksh{" "}
                                 {Number(item.sellingPrice || 0).toLocaleString(
@@ -254,15 +301,13 @@ const StockBalanceOverview: React.FC = () => {
                                 )}
                               </td>
 
-                              {/* 4. Quantity On Hand */}
                               <td className="py-1.5 text-start fw-semibold text-dark font-monospace">
-                                {Number(item.qtyOnHand).toLocaleString()}
+                                {Number(item.quantityOnHand ?? 0).toLocaleString()}
                               </td>
 
-                              {/* 5. Unit Cost (Selling Price) */}
                               <td className="py-1.5 text-start fw-medium text-body font-monospace">
                                 Ksh{" "}
-                                {Number(item.unitCost || 0).toLocaleString(
+                                {Number(item.averageCost ?? 0).toLocaleString(
                                   undefined,
                                   {
                                     minimumFractionDigits: 2,
@@ -271,10 +316,9 @@ const StockBalanceOverview: React.FC = () => {
                                 )}
                               </td>
 
-                              {/* 6. Total Value */}
                               <td className="py-1.5 text-start pe-3 fw-semibold text-success font-monospace">
                                 Ksh{" "}
-                                {Number(item.totalValue).toLocaleString(
+                                {Number(item.totalValue ?? 0).toLocaleString(
                                   undefined,
                                   {
                                     minimumFractionDigits: 2,
@@ -286,7 +330,7 @@ const StockBalanceOverview: React.FC = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={6} className="text-center py-4 text-muted fs-12">
+                            <td colSpan={8} className="text-center py-4 text-muted fs-12">
                               <i className="ri-inbox-line display-6 d-block text-muted mb-1"></i>
                               No stock balance records found.
                             </td>
@@ -296,7 +340,6 @@ const StockBalanceOverview: React.FC = () => {
                     </Table>
                   </div>
 
-                  {/* Compact Table Footer */}
                   <div className="px-3 py-2 border-top">
                     <TablePagination table={tableInstance} />
                   </div>

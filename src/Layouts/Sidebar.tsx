@@ -1,59 +1,62 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import SimpleBar from "simplebar-react";
+import { Container } from "reactstrap";
 
 import logoSm from "../assets/images/logo-sm.png";
-import logoDark from "../assets/images/logo-dark.png";
-import logoLight from "../assets/images/logo-light.png";
 
-//Import Components
+// Import Hooks & Types
+import { useCompanies } from "../Components/Hooks/useCompanies";
+
+// Import Components
 import VerticalLayout from "./VerticalLayouts";
 import TwoColumnLayout from "./TwoColumnLayout";
-import { Container } from "reactstrap";
 import HorizontalLayout from "./HorizontalLayout";
 
-const Sidebar = ({ layoutType } : any) => {
+const Sidebar = ({ layoutType }: any) => {
+  const { data: companiesData } = useCompanies();
+
+  const companyName = useMemo(() => {
+    if (!companiesData) return "Enterprise ERP";
+    const list = Array.isArray(companiesData)
+      ? companiesData
+      : (companiesData as any)?.data ?? [];
+    return list[0]?.companyName || "Enterprise ERP";
+  }, [companiesData]);
 
   useEffect(() => {
     var verticalOverlay = document.getElementsByClassName("vertical-overlay");
-    if (verticalOverlay) {
+    if (verticalOverlay && verticalOverlay[0]) {
       verticalOverlay[0].addEventListener("click", function () {
         document.body.classList.remove("vertical-sidebar-enable");
       });
     }
-  });
+  }, []);
 
   const addEventListenerOnSmHoverMenu = () => {
-    if (document.documentElement.getAttribute('data-sidebar-size') === 'sm-hover') {
-      document.documentElement.setAttribute('data-sidebar-size', 'sm-hover-active');
-    } else if (document.documentElement.getAttribute('data-sidebar-size') === 'sm-hover-active') {
-      document.documentElement.setAttribute('data-sidebar-size', 'sm-hover');
+    if (document.documentElement.getAttribute("data-sidebar-size") === "sm-hover") {
+      document.documentElement.setAttribute("data-sidebar-size", "sm-hover-active");
+    } else if (document.documentElement.getAttribute("data-sidebar-size") === "sm-hover-active") {
+      document.documentElement.setAttribute("data-sidebar-size", "sm-hover");
     } else {
-      document.documentElement.setAttribute('data-sidebar-size', 'sm-hover');
+      document.documentElement.setAttribute("data-sidebar-size", "sm-hover");
     }
   };
 
   return (
     <React.Fragment>
       <div className="app-menu navbar-menu">
-        <div className="navbar-brand-box">
-          <Link to="/" className="logo logo-dark">
+        <div className="navbar-brand-box px-3 d-flex align-items-center justify-content-between">
+         
+          <Link to="/" className="logo logo-light text-start d-flex align-items-center gap-2 overflow-hidden text-decoration-none">
             <span className="logo-sm">
-              <img src={logoSm} alt="" height="20" />
+              <img src={logoSm} alt="" height="22" />
             </span>
-            <span className="logo-lg">
-              <img src={logoDark} alt="" height="20" />
+            <span className="logo-lg text-truncate fw-bold fs-14 text-white text-uppercase tracking-wide">
+              {companyName}
             </span>
           </Link>
 
-          <Link to="/" className="logo logo-light">
-            <span className="logo-sm">
-              <img src={logoSm} alt="" height="20" />
-            </span>
-            <span className="logo-lg">
-              <img src={logoLight} alt="" height="20" />
-            </span>
-          </Link>
           <button
             onClick={addEventListenerOnSmHoverMenu}
             type="button"
@@ -63,6 +66,7 @@ const Sidebar = ({ layoutType } : any) => {
             <i className="ri-record-circle-line"></i>
           </button>
         </div>
+
         {layoutType === "horizontal" ? (
           <div id="scrollbar">
             <Container fluid>
@@ -72,7 +76,7 @@ const Sidebar = ({ layoutType } : any) => {
               </ul>
             </Container>
           </div>
-        ) : layoutType === 'twocolumn' ? (
+        ) : layoutType === "twocolumn" ? (
           <React.Fragment>
             <TwoColumnLayout layoutType={layoutType} />
             <div className="sidebar-background"></div>

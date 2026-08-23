@@ -1,47 +1,65 @@
-export enum warehouseType {
-  MAIN_STORE = "MAIN_STORE",
-  IN_TRANSIT = "IN_TRANSIT",
-  COOLER = "COOLER"
+export interface StockTakeBrowseQueryParams {
+  fromDate?: string;
+  toDate?: string; 
+  WarehouseId?: string;
+  operatorId?: string;
 }
 
-export interface FifoLayerItem {
+export interface StockTakeTransaction {
+  id?: string;
+  stockTakeId?: string;
+  stockTakeNo?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  operatorId?: string;
+  operatorName?: string;
+  itemCode?: string;
+  itemName?: string;
+  systemQuantity?: number;
+  countedQuantity?: number;
+  varianceQuantity?: number;
+  unitCost?: number;
+  varianceValue?: number;
+  transactionDate?: string;
+  remarks?: string;
+  [key: string]: unknown;
+}
+
+export interface StockTakeBrowseResponse {
+  success: boolean;
+  message: string;
+  data: StockTakeTransaction[];
+}
+
+
+export interface InventoryTransactionQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  warehouseId?: string;
+  itemId?: string;
+}
+
+export type InventoryTransactionType = 
+  | "sale" 
+  | "goods_receipt" 
+  | "stock_take" 
+  | (string & {});
+
+export interface InventoryTransaction {
+  transaction_id: string;
+  posted_at: string;
+  transaction_type: InventoryTransactionType;
+  reference_number: string;
   warehouse_code: string;
-  warehouse_name: string;
-  stock_code: string;
+  item_code: string;
   description: string;
-  layer_id: string;
-  original_qty: string;
-  remaining_qty: string;
-  unit_cost: string;
-  layer_total_value: string;
-  receipt_date: string;
+  stock_uom: string;
+  quantity: number;
+  unit_cost: number;
 }
 
-export interface FifoValuationReportResponse {
-  description: string;
-  generated_at: string;
-  dataset: FifoLayerItem[];
-}
-
-export interface FifoReportParams {
-  warehouse_id?: string;
-}
-
-export interface WarehouseSummaryItem {
-  warehouse_code: string;
-  warehouse_name: string;
-  warehouse_type: warehouseType;
-  distinct_skus: number;
-  total_physical_units: string;
-  total_value_balance: string;
-}
-
-export interface WarehouseSummaryResponse {
-  description: string;
-  generated_at: string;
-  dataset: WarehouseSummaryItem[];
-}
-
-export interface WarehouseSummaryParams {
-  warehouse_id?: string;
+export interface InventoryTransactionsResponse {
+  success: boolean;
+  message: string;
+  data: InventoryTransaction[];
 }

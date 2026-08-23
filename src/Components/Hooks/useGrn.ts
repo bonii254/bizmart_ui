@@ -1,31 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { GRNService } from "../../services/grnService";
-import { GRNPayload } from "../../types/grn";
+import { GoodsReceiptService } from "../../services/grnService";
+import { 
+  CreateGoodsReceiptPayload, 
+  GoodsReceiptCreatedData, 
+  GoodsReceiptDetailData 
+} from "../../types/grn";
 import { toast } from "react-toastify";
 
-export const useGRNs = (page: number = 1, perPage: number = 100) => {
-  return useQuery({
-    queryKey: ["goods-receipts", page, perPage],
-    queryFn: () => GRNService.getGRNs(page, perPage),
-  });
-};
-
-export const useGRNDetails = (id: string | null) => {
-  return useQuery({
+export const useGoodsReceiptDetails = (id: string | null) => {
+  return useQuery<GoodsReceiptDetailData>({
     queryKey: ["goods-receipts", id],
-    queryFn: () => GRNService.getGRNById(id!),
+    queryFn: () => GoodsReceiptService.getGoodsReceiptById(id!),
     enabled: !!id,
   });
 };
 
-export const useGRNMutation = () => {
+export const useGoodsReceiptMutation = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (data: GRNPayload) => GRNService.createGRN(data),
-    onSuccess: () => {
+    mutationFn: (data: CreateGoodsReceiptPayload): Promise<GoodsReceiptCreatedData> => 
+      GoodsReceiptService.createGoodsReceipt(data),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["goods-receipts"] });
-      toast.success("Goods Receipt posted successfully (FIFO Lot Updated)");
+      queryClient.invalidateQueries({ queryKey: ["stock-balances"] });
+      toast.success(`Goods Receipt ${data.documentNumber} posted successfully.`);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to post Goods Receipt");
@@ -33,7 +32,7 @@ export const useGRNMutation = () => {
   });
 
   return {
-    createGRN: createMutation.mutateAsync,
+    createGoodsReceipt: createMutation.mutateAsync,
     isPosting: createMutation.isPending,
   };
 };

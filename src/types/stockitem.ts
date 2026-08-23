@@ -54,4 +54,4 @@ export interface ApiResponse<T> {
 
 export type StockCatalogResponse = ApiResponse<StockItem[]>;
 export type StockItemSingleResponse = ApiResponse<StockItem>;
-export type CreateStockItemResponse = ApiResponse<string>; // Returns newly created itemId
+export type CreateStockItemResponse = ApiResponse<string>; 

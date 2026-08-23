@@ -1,43 +1,43 @@
-
-export interface GRNLineItem {
-  stockItemId: string;
-  stockItemCode: string;
-  stockItemName: string;
-  uom: string;
-  taxRate?: number;
-  taxAmount?: number;
+export interface GoodsReceiptLinePayload {
+  itemId: string;
   quantity: number;
   unitPrice: number;
-  lineTotal: number;
+  uomCode: string;
 }
 
-export interface GRNHeader {
+export interface CreateGoodsReceiptPayload {
+  warehouseId: string;
+  supplierId: string;
+  operatorId: string;
+  lines: GoodsReceiptLinePayload[];
+}
+
+export interface GoodsReceiptCreatedData {
   documentId: string;
   documentNumber: string;
-  supplierId: string;
-  supplierName?: string;
-  supplierInvoiceNo?: string;
   total: number;
   postedAt: string;
-  items?: GRNLineItem[];
 }
 
-export interface GRNPayload {
-  documentNumber?: string;
-  supplierId: string;
-  supplierInvoiceNo: string;
-  items: {
-    stockItemId: string;
-    quantity: number;
-    unitPrice: number;
-  }[];
+export interface CreateGoodsReceiptResponse {
+  success: boolean;
+  message: string;
+  data: GoodsReceiptCreatedData;
 }
 
-export interface SingleGRNResponse {
-  goods_receipt_201: GRNHeader;
+export interface GoodsReceiptDetailData {
+  documentId: string;
+  documentNumber: string;
+  total: number;
+  postedAt: string;
+  warehouseId?: string;
+  supplierId?: string;
+  operatorId?: string;
+  lines?: GoodsReceiptLinePayload[];
 }
 
-export interface GRNListResponse {
-  goodsReceipts: GRNHeader[];
-  recordCount?: number;
+export interface SingleGoodsReceiptResponse {
+  success: boolean;
+  message: string;
+  data: GoodsReceiptDetailData;
 }

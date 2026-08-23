@@ -1,30 +1,29 @@
-import { APIClient } from "helpers/api_helper";
+import { APIClient } from "../helpers/api_helper";
 import { 
-    FifoValuationReportResponse,
-    WarehouseSummaryResponse,
-    FifoReportParams,
-    WarehouseSummaryParams
+  StockTakeBrowseQueryParams, 
+  StockTakeBrowseResponse,
+  InventoryTransactionQueryParams,
+  InventoryTransactionsResponse
 } from "../types/reports";
 
 const api = new APIClient();
-const BASE_URL = "/reports/inventory";
 
-export const InventoryReportService = {
-  getFifoValuationReport: async (
-    params?: FifoReportParams
-  ): Promise<FifoValuationReportResponse> => {
-    const query = params ? new URLSearchParams(
-        params as Record<string, string>).toString() : "";
-    return await api.get(
-        `${BASE_URL}/fifo-valuation${query ? `?${query}` : ""}`);
+export const StockTakeBrowseService = {
+  getStockTakeTransactions: async (
+    params?: StockTakeBrowseQueryParams
+  ): Promise<StockTakeBrowseResponse> => {
+    const response = await api.get(
+      `/api/browses/stoktake-transactions`, params
+    );
+    return response.data
   },
-
-  getWarehouseSummaryReport: async (
-    params?: WarehouseSummaryParams
-  ): Promise<WarehouseSummaryResponse> => {
-    const query = params ? new URLSearchParams(
-        params as Record<string, string>).toString() : "";
-    return await api.get(
-        `${BASE_URL}/warehouse-summary${query ? `?${query}` : ""}`);
-  },
+  
+  getInventoryTransactions: async (
+      params?: InventoryTransactionQueryParams
+    ): Promise<InventoryTransactionsResponse> => {
+      const response = await api.get(
+        `/api/browses/inventory-transactions`, params
+      );
+      return response.data;
+    }
 };

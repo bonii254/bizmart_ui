@@ -10,7 +10,6 @@ import {
   CardBody,
   CardHeader,
   Container,
-  Badge,
   Table,
   Dropdown,
   DropdownToggle,
@@ -19,83 +18,99 @@ import {
 } from "reactstrap";
 import { toast } from "react-toastify";
 
-// Hooks & Types
-import { GRNPayload, GRNLineItem } from "../../types/grn";
-import { useGRNMutation } from "../../Components/Hooks/useGrn";
-import { useWarehouses } from "../../Components/Hooks/useWarehouse";
+import { 
+  CreateGoodsReceiptPayload, 
+  GoodsReceiptLinePayload, 
+  GoodsReceiptCreatedData 
+} from "../../types/grn";
+import { useGoodsReceiptMutation } from "../../Components/Hooks/useGrn";
+import { useStockItems } from "../../Components/Hooks/useStockItems";
 import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useWarehouses } from "../../Components/Hooks/useWarehouse";
 import { useSuppliers } from "../../Components/Hooks/useSuppliers";
+import { usePrinters } from "../../Components/Hooks/useQZPrinter"; 
+import { ItemWarehouseStock } from "../../types/warehouseStock";
+import { useCompanies } from "../../Components/Hooks/useCompanies"
 import { handleBackendErrors } from "../../helpers/form_utils";
+import { getLoggedinUser } from "../../helpers/api_helper";
 
-// Visual Theme Palette
+import { printGRNReceipt } from "../../utils/printerUtil"; 
+
 const BRAND_PURPLE = "#042e6d";
-const BRAND_PURPLE_SUBTLE = "rgba(4, 46, 109, 0.08)";
-const DEFAULT_TAX_RATE = 16;
 
-type ExtendedGRNLineItem = GRNLineItem & {
+type ExtendedGRNLineItem = {
+  itemId: string;
+  itemCode: string;
+  description: string;
+  baseUom: string;
+  altUom?: string | null;
+  conversionFactor: number;
   enteredQty: number;
   selectedUom: string;
-  altUom?: string;
-  conversionFactor: number;
+  unitPrice: number;
+  lineTotal: number;
 };
 
 export const GoodsReceivedNote: React.FC = () => {
-  // TanStack Query Hooks
-  const { createGRN, isPosting } = useGRNMutation();
+  const { createGoodsReceipt, isPosting } = useGoodsReceiptMutation();
   const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
   const { data: suppliersData, isLoading: isSuppliersLoading } = useSuppliers();
+  const { data: catalogResponse, isLoading: isStockLoading } = useStockItems();
+  const { data: printersList, isLoading: isPrintersLoading } = usePrinters();
+  const { data: companiesData } = useCompanies();
 
-  // Global Error Banner State
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const { data: user } = getLoggedinUser();
+  const operatorId = user?.operatorId;
+  const operatorName = user?.userName;
+  
+  const [companyName, setCompanyName] = useState<string>("")
 
-  useEffect(() => {
-    if (!globalError) return;
-    const timer = setTimeout(() => {
-      setGlobalError(null);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [globalError]);
+  const warehousesList = useMemo(() => Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [], [warehousesData]);
+  const suppliersList = useMemo(() => Array.isArray(suppliersData) ? suppliersData : suppliersData ?? [], [suppliersData]);
+  const stockItemsList = useMemo(() => catalogResponse ?? [], [catalogResponse]);
 
-  const warehousesList = useMemo(() => {
-    if (!warehousesData) return [];
-    return Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [];
-  }, [warehousesData]);
-
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (warehousesList.length > 0 && !selectedWarehouseId) {
-      const firstWh = warehousesList[0];
-      setSelectedWarehouseId(firstWh.warehouseId);
-    }
-  }, [warehousesList, selectedWarehouseId]);
-
-  const { stockItems: stockBalances = [], isLoading: isStockLoading } = useItemWarehouseStock({ 
-    warehouseId: selectedWarehouseId 
-  });
-
-  // Normalize Suppliers List
-  const suppliersList = useMemo(() => {
-    if (!suppliersData) return [];
-    return Array.isArray(suppliersData) ? suppliersData : suppliersData ?? [];
-  }, [suppliersData]);
-
-  // GRN Header State
+  const [warehouseId, setWarehouseId] = useState<string>("");
   const [supplierId, setSupplierId] = useState<string>("");
-  const [supplierInvoiceNo, setSupplierInvoiceNo] = useState<string>("");
-  const [documentNumber, setDocumentNumber] = useState<string>(
-    `GRN-${Math.floor(100000 + Math.random() * 900000)}`
-  );
+  const [lines, setLines] = useState<ExtendedGRNLineItem[]>([]);
+  
+  const [selectedPrinter, setSelectedPrinter] = useState<string>("EXPORT_PDF");
 
   const [catalogSearch, setCatalogSearch] = useState("");
-  const [lines, setLines] = useState<ExtendedGRNLineItem[]>([]);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
 
-  // Selected Supplier Lookup
-  const selectedSupplier = useMemo(() => {
-    return suppliersList.find((s: any) => String(s.id ?? s.supplierId) === String(supplierId));
-  }, [suppliersList, supplierId]);
+  const { stockItems: warehouseStockItems = [], isLoading: isWarehouseStockLoading } = useItemWarehouseStock({
+    warehouseId: warehouseId || undefined,
+  });
+
+  const companiesList = useMemo(() => {
+      return Array.isArray(companiesData) ? companiesData : companiesData || [];
+    }, [companiesData]);
+
+  useEffect(() => {
+    if (globalError) {
+      const timer = setTimeout(() => setGlobalError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [globalError]);
+
+  useEffect(() => {
+      if (companiesList.length > 0 ){
+        const firstCompany = companiesList[0];
+        setCompanyName(firstCompany.companyName);
+      }
+    }, [companiesList, companyName])
+
+  useEffect(() => {
+    if (warehousesList.length > 0 && !warehouseId) {
+      setWarehouseId(warehousesList[0].warehouseId);
+    }
+  }, [warehousesList, warehouseId]);
+
+  const selectedSupplier = useMemo(() => 
+    suppliersList.find((s: any) => String(s.id ?? s.supplierId) === String(supplierId)), 
+  [suppliersList, supplierId]);
 
   const filteredSuppliers = useMemo(() => {
     const q = supplierSearch.toLowerCase();
@@ -106,214 +121,180 @@ export const GoodsReceivedNote: React.FC = () => {
     });
   }, [suppliersList, supplierSearch]);
 
-  // Catalog Filtering for Stock Picker
-  const filteredStockBalances = useMemo(() => {
-    if (!Array.isArray(stockBalances)) return [];
+  const validWarehouseItemIds = useMemo(() => {
+    if (
+      !warehouseStockItems || !Array.isArray(warehouseStockItems
+      )) return new Set<string>();
+    return new Set(warehouseStockItems.map((ws: ItemWarehouseStock) => String(ws.itemId)));
+  }, [warehouseStockItems]);
+
+  // Filter master catalog by selected warehouse assignment and search query
+  const filteredCatalog = useMemo(() => {
     const query = catalogSearch.toLowerCase();
-    return stockBalances.filter((stock: any) => {
-      const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? stock.stock_item?.description ?? "";
-      const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_item?.stock_code ?? "";
-      return itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
+    return stockItemsList.filter((item) => {
+      const itemIdStr = String(item.itemId);
+      
+      // Filter out items not assigned to the selected warehouse
+      if (warehouseId && !validWarehouseItemIds.has(itemIdStr)) {
+        return false;
+      }
+
+      return (
+        item.description.toLowerCase().includes(query) || 
+        item.itemCode.toLowerCase().includes(query)
+      );
     });
-  }, [stockBalances, catalogSearch]);
+  }, [stockItemsList, catalogSearch, warehouseId, validWarehouseItemIds]);
 
-  // Fast Add Stock Item to GRN Grid
-  const handleAddLineItem = (stock: any) => {
-    const itemId = String(stock.itemId ?? stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
-    const existing = lines.find((l) => l.stockItemId === itemId);
-
+  const handleAddLineItem = (item: any) => {
+    const existing = lines.find((l) => l.itemId === item.itemId);
     if (existing) {
-      handleLineUpdate(itemId, "enteredQty", existing.enteredQty + 1);
+      handleLineUpdate(item.itemId, "enteredQty", existing.enteredQty + 1);
       return;
     }
 
-    const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
-    const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? "Stock Item";
-    const baseUom = stock.uom ?? stock.unitOfMeasure ?? stock.stockItem?.uom ?? "EA";
-    const altUom = stock.altUom ?? stock.stockItem?.altUom ?? undefined;
-    const factor = Number(stock.conversionFactor ?? stock.stockItem?.conversionFactor ?? 1);
-    const defaultCost = Number(stock.averageCost ?? stock.unitCost ?? stock.sellingPrice ?? stock.unit_cost ?? 0);
-
-    const enteredQty = 1;
-    const activeUom = altUom || baseUom;
-    const effectiveFactor = activeUom === baseUom ? 1 : factor;
-    const calculatedBaseQty = enteredQty * effectiveFactor;
-    const taxRate = DEFAULT_TAX_RATE;
-
-    const subtotal = calculatedBaseQty * defaultCost;
-    const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
-    const lineTotal = Number((subtotal + taxAmount).toFixed(2));
-
+    const conversionFactor = item.alternateConversionFactor ?? 1;
+    const baseUom = item.stockUom ?? "EA";
+    
     const newLine: ExtendedGRNLineItem = {
-      stockItemId: itemId,
-      stockItemCode: itemCode,
-      stockItemName: itemName,
-      uom: baseUom,
-      altUom: altUom,
-      selectedUom: activeUom,
-      conversionFactor: factor,
-      enteredQty: enteredQty,
-      quantity: calculatedBaseQty,
-      unitPrice: defaultCost,
-      taxRate,
-      taxAmount,
-      lineTotal,
+      itemId: item.itemId,
+      itemCode: item.itemCode,
+      description: item.description,
+      baseUom: baseUom,
+      altUom: item.alternateUom,
+      conversionFactor: conversionFactor,
+      enteredQty: 1,
+      selectedUom: baseUom, 
+      unitPrice: item.sellingPrice ?? 0, 
+      lineTotal: item.sellingPrice ?? 0,
     };
 
     setLines((prev) => [...prev, newLine]);
   };
 
-  // SYSPRO Dual UOM & Line Calculation Handler
-  const handleLineUpdate = (
-    stockItemId: string,
-    field: keyof ExtendedGRNLineItem,
-    value: any
-  ) => {
+  const handleLineUpdate = (itemId: string, field: keyof ExtendedGRNLineItem, value: any) => {
     setLines((prev) =>
       prev.map((line) => {
-        if (line.stockItemId !== stockItemId) return line;
+        if (line.itemId !== itemId) return line;
 
         const updated = { ...line, [field]: value };
+        const enteredQty = field === "enteredQty" ? Math.max(0.0001, Number(value)) : line.enteredQty;
+        const selectedUom = field === "selectedUom" ? value : line.selectedUom;
+        const unitPrice = field === "unitPrice" ? Math.max(0, Number(value)) : line.unitPrice;
 
-        let enteredQty = field === "enteredQty" ? Math.max(0.0001, Number(value)) : line.enteredQty;
-        let selectedUom = field === "selectedUom" ? value : line.selectedUom;
-        let factor = field === "conversionFactor" ? Math.max(0.0001, Number(value)) : line.conversionFactor;
-        let unitPrice = field === "unitPrice" ? Math.max(0, Number(value)) : line.unitPrice;
-        let taxRate = field === "taxRate" ? Math.max(0, Number(value)) : (line.taxRate ?? DEFAULT_TAX_RATE);
+        const isAltUom = selectedUom === line.altUom;
+        const resolvedBaseQty = isAltUom ? enteredQty * line.conversionFactor : enteredQty;
+        const lineTotal = Number((resolvedBaseQty * unitPrice).toFixed(2));
 
-        const effectiveFactor = selectedUom === line.uom ? 1 : factor;
-        const calculatedBaseQty = Number((enteredQty * effectiveFactor).toFixed(4));
-
-        const subtotal = calculatedBaseQty * unitPrice;
-        const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
-        const lineTotal = Number((subtotal + taxAmount).toFixed(2));
-
-        return {
-          ...updated,
-          enteredQty,
-          selectedUom,
-          conversionFactor: factor,
-          quantity: calculatedBaseQty,
-          unitPrice,
-          taxRate,
-          taxAmount,
-          lineTotal,
-        };
+        return { ...updated, enteredQty, selectedUom, unitPrice, lineTotal };
       })
     );
   };
 
-  const handleRemoveLineItem = (stockItemId: string) => {
-    setLines((prev) => prev.filter((i) => i.stockItemId !== stockItemId));
+  const handleRemoveLineItem = (itemId: string) => {
+    setLines((prev) => prev.filter((i) => i.itemId !== itemId));
   };
 
-  const handleClearGRN = () => {
-    setLines([]);
-    setSupplierInvoiceNo("");
-  };
-
-  // Order Totals Summary
   const totals = useMemo(() => {
-    return lines.reduce(
-      (acc, item) => {
-        const sub = item.quantity * item.unitPrice;
-        acc.subtotal += sub;
-        acc.taxTotal += item.taxAmount ?? 0;
-        acc.grandTotal += item.lineTotal;
-        acc.totalBaseUnits += item.quantity;
-        return acc;
-      },
-      { subtotal: 0, taxTotal: 0, grandTotal: 0, totalBaseUnits: 0 }
-    );
+    return lines.reduce((acc, item) => {
+      const isAltUom = item.selectedUom === item.altUom;
+      const resolvedBaseQty = isAltUom ? item.enteredQty * item.conversionFactor : item.enteredQty;
+      acc.grandTotal += item.lineTotal;
+      acc.totalBaseUnits += resolvedBaseQty;
+      return acc;
+    }, { grandTotal: 0, totalBaseUnits: 0 });
   }, [lines]);
 
-  // Form Submission via GRN Mutation Hook
   const handleSubmitGRN = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!supplierId) {
-      toast.error("Please select a Supplier for 3-Way Matching.");
+    if (!supplierId || !warehouseId) {
+      toast.error("Please select both a Receiving Warehouse and a Supplier.");
       return;
     }
-
-    if (!supplierInvoiceNo.trim()) {
-      toast.error("Supplier Invoice / Delivery Note # is required.");
-      return;
-    }
-
     if (lines.length === 0) {
-      toast.error("Please select items to receive into stock.");
+      toast.error("Please add items from the catalog.");
       return;
     }
 
-    const payload: GRNPayload = {
-      documentNumber,
+    const payload: CreateGoodsReceiptPayload = {
+      warehouseId,
       supplierId,
-      supplierInvoiceNo,
-      items: lines.map((line) => ({
-        stockItemId: line.stockItemId,
-        quantity: Number(line.quantity),
-        unitPrice: Number(line.unitPrice),
-      })),
+      operatorId,
+      lines: lines.map((line): GoodsReceiptLinePayload => {
+        const isAltUom = line.selectedUom === line.altUom;
+        const resolvedQuantity = isAltUom ? line.enteredQty * line.conversionFactor : line.enteredQty;
+        return {
+          itemId: line.itemId,
+          quantity: resolvedQuantity, 
+          unitPrice: Number(line.unitPrice),
+          uomCode: line.baseUom,
+        };
+      }),
     };
 
     try {
-      await createGRN(payload);
-      handleClearGRN();
+      const responseData: GoodsReceiptCreatedData = await createGoodsReceipt(payload);
+      
+      const supplierName = selectedSupplier?.supplierName ?? "Unknown Supplier";
+      const selectedWarehouse = warehousesList.find((w: any) => String(w.id ?? w.warehouseId) === String(warehouseId));
+      const warehouseName = selectedWarehouse?.warehouseName ?? "Main Store";
+
+      await printGRNReceipt(
+        responseData,
+        lines,
+        supplierName,
+        warehouseName,
+        selectedPrinter,
+        companyName,
+        operatorName,
+      );
+
+      setLines([]);
       setSupplierId("");
-      setDocumentNumber(`GRN-${Math.floor(100000 + Math.random() * 900000)}`);
     } catch (err: unknown) {
       handleBackendErrors(err, () => {}, setGlobalError);
     }
   };
 
-  document.title = "Goods Received Note | SYSPRO ERP";
+  const isMasterCatalogLoading = isStockLoading || isWarehouseStockLoading;
+
+  document.title = `${companyName} Goods Received Note `;
 
   return (
     <React.Fragment>
       <div className="page-content">
         <Container fluid className="px-lg-4">
           {globalError && (
-            <Alert
-              color="danger"
-              className="mb-3 border-0 shadow-sm alert-dismissible fade show"
-              toggle={() => setGlobalError(null)}
-            >
-              <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
-              {globalError}
+            <Alert color="danger" className="mb-3 border-0 shadow-sm" toggle={() => setGlobalError(null)}>
+              <i className="ri-error-warning-line me-2 align-middle fs-16"></i>{globalError}
             </Alert>
           )}
 
           <Form onSubmit={handleSubmitGRN}>
-            {/* Header Control Panel */}
             <Card className="shadow-sm border-0 mb-3">
               <CardHeader className="bg-white border-bottom py-3 px-3 px-lg-4">
                 <Row className="g-3 align-items-center justify-content-between">
                   <Col xl={3} lg={4} md={12}>
-                    <div className="d-flex align-items-center gap-2 flex-wrap">
-                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
-                        Goods Received Note
-                      </h5>
-                      <Badge color="light" className="text-dark border font-monospace px-2 py-1 fs-11">
-                        Ref: {documentNumber}
-                      </Badge>
-                    </div>
+                    <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
+                      Goods Receipt (GRN)
+                    </h5>
                   </Col>
 
                   <Col xl={9} lg={8} md={12}>
                     <div className="d-flex align-items-center gap-2 justify-content-lg-end flex-wrap">
-                      {/* Warehouse Selector */}
-                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "180px" }}>
+                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "220px" }}>
                         {isWarehousesLoading ? (
                           <Spinner size="sm" color="primary" />
                         ) : (
                           <Input
                             type="select"
-                            className="form-select form-select-sm fs-12 fw-medium"
-                            value={selectedWarehouseId ?? ""}
-                            onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                            className="form-select form-select-sm fs-12 fw-medium border-primary-subtle"
+                            value={warehouseId}
+                            onChange={(e) => setWarehouseId(e.target.value)}
+                            required
                           >
-                            <option value="" disabled>Select Receiving Warehouse</option>
+                            <option value="" disabled>Receiving Warehouse *</option>
                             {warehousesList.map((wh: any) => (
                               <option key={wh.id ?? wh.warehouseId} value={wh.id ?? wh.warehouseId}>
                                 🏬 {wh.warehouseName ?? wh.name}
@@ -323,21 +304,13 @@ export const GoodsReceivedNote: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Supplier Picker Dropdown */}
-                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "220px", position: "relative", zIndex: 1050 }}>
-                        <Dropdown
-                          isOpen={isSupplierDropdownOpen}
-                          toggle={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}
-                          className="w-100"
-                        >
-                          <DropdownToggle
-                            tag="div"
-                            className="d-flex justify-content-between align-items-center py-1.5 px-2 bg-light rounded cursor-pointer border border-light-subtle"
-                          >
+                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "240px", position: "relative", zIndex: 1050 }}>
+                        <Dropdown isOpen={isSupplierDropdownOpen} toggle={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)} className="w-100">
+                          <DropdownToggle tag="div" className="d-flex justify-content-between align-items-center py-1.5 px-2 bg-light rounded cursor-pointer border border-primary-subtle">
                             <div className="d-flex align-items-center gap-1.5">
                               <i className="ri-truck-line text-muted fs-13"></i>
                               <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "160px" }}>
-                                {selectedSupplier ? (selectedSupplier.supplierName ?? selectedSupplier.supplierName) : "Select Supplier *"}
+                                {selectedSupplier ? ( selectedSupplier.supplierName) : "Select Supplier *"}
                               </span>
                             </div>
                             <i className="ri-arrow-down-s-line text-muted fs-12"></i>
@@ -345,52 +318,32 @@ export const GoodsReceivedNote: React.FC = () => {
                           <DropdownMenu className="p-2 shadow-lg w-100 border-0 rounded-3" style={{ minWidth: "260px" }}>
                             <Input
                               type="text"
-                              placeholder="Search supplier name/code..."
+                              placeholder="Search supplier..."
                               bsSize="sm"
-                              className="mb-2 fs-12 shadow-none border-light-subtle bg-light"
+                              className="mb-2 fs-12 shadow-none"
                               value={supplierSearch}
                               onChange={(e) => setSupplierSearch(e.target.value)}
                             />
                             <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                              {isSuppliersLoading ? (
-                                <div className="p-2 text-center text-muted fs-11">Loading suppliers...</div>
-                              ) : filteredSuppliers.length === 0 ? (
-                                <div className="p-2 text-center text-muted fs-11">No suppliers found</div>
-                              ) : (
-                                filteredSuppliers.map((sup: any) => {
-                                  const sId = String(sup.id ?? sup.supplierId);
-                                  const sName = sup.name ?? sup.supplierName ?? sup.companyName;
-                                  return (
-                                    <div
-                                      key={sId}
-                                      className="p-2 rounded fs-12 cursor-pointer hover-bg-light d-flex align-items-center justify-content-between"
-                                      onClick={() => {
-                                        setSupplierId(sId);
-                                        setIsSupplierDropdownOpen(false);
-                                      }}
-                                    >
-                                      <span className="fw-medium text-dark d-block text-truncate">{sName}</span>
-                                      <span className="badge bg-light text-muted font-monospace fs-10">{sup.code ?? sup.supplierCode ?? sId}</span>
-                                    </div>
-                                  );
-                                })
-                              )}
+                              {filteredSuppliers.map((sup: any) => {
+                                const sId = String(sup.id ?? sup.supplierId);
+                                const sName = sup.name ?? sup.supplierName ?? sup.companyName;
+                                return (
+                                  <div
+                                    key={sId}
+                                    className="p-2 rounded fs-12 cursor-pointer hover-bg-light d-flex justify-content-between"
+                                    onClick={() => {
+                                      setSupplierId(sId);
+                                      setIsSupplierDropdownOpen(false);
+                                    }}
+                                  >
+                                    <span className="fw-medium text-dark">{sName}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </DropdownMenu>
                         </Dropdown>
-                      </div>
-
-                      {/* Supplier Invoice / DN Input */}
-                      <div className="flex-grow-1 flex-lg-grow-0" style={{ minWidth: "170px" }}>
-                        <Input
-                          type="text"
-                          bsSize="sm"
-                          className="form-control form-control-sm fs-12 font-monospace border-primary-subtle"
-                          placeholder="Supplier Invoice / DN # *"
-                          value={supplierInvoiceNo}
-                          onChange={(e) => setSupplierInvoiceNo(e.target.value)}
-                          required
-                        />
                       </div>
                     </div>
                   </Col>
@@ -399,222 +352,145 @@ export const GoodsReceivedNote: React.FC = () => {
             </Card>
 
             <Row className="g-3">
-              {/* Product Catalog Selector */}
               <Col lg={4} xl={4}>
-                <Card 
-                  className="shadow-sm border-0 mb-0 d-flex flex-column" 
-                  style={{ minHeight: "500px", height: "calc(100vh - 200px)" }}
-                >
+                <Card className="shadow-sm border-0 mb-0 d-flex flex-column" style={{ height: "calc(100vh - 190px)" }}>
                   <CardHeader className="border-bottom py-2.5 px-3 bg-white">
                     <div className="search-box position-relative">
                       <Input
                         type="text"
                         className="form-control form-control-sm fs-12 ps-4"
-                        placeholder="Search stock code or description..."
+                        placeholder="Search master catalog..."
                         value={catalogSearch}
                         onChange={(e) => setCatalogSearch(e.target.value)}
                       />
                       <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
-                      {catalogSearch && (
-                        <i
-                          className="ri-close-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer"
-                          onClick={() => setCatalogSearch("")}
-                        ></i>
-                      )}
                     </div>
                   </CardHeader>
 
-                  <CardBody className="p-2 overflow-y-auto flex-grow-1 bg-light-subtle" style={{ minHeight: 0 }}>
-                    {isStockLoading ? (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
-                        <Spinner size="sm" color="primary" className="mb-2" />
-                        <span className="text-muted fs-12 fw-medium">Loading warehouse stock...</span>
-                      </div>
-                    ) : filteredStockBalances.length > 0 ? (
+                  <CardBody className="p-2 overflow-y-auto flex-grow-1 bg-light-subtle">
+                    {isMasterCatalogLoading ? (
+                      <div className="text-center py-5"><Spinner size="sm" color="primary" /></div>
+                    ) : filteredCatalog.length > 0 ? (
                       <div className="d-flex flex-column gap-1.5">
-                        {filteredStockBalances.map((stock: any) => {
-                          const itemId = String(stock.itemId ?? stock.stockItemId ?? stock.stockItem?.id ?? stock.id);
-                          const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_code ?? "STK";
-                          const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? "Unnamed Item";
-                          const uom = stock.uom ?? stock.unitOfMeasure ?? stock.stockItem?.uom ?? "EA";
-                          const qtyOnHand = Number(stock.quantityOnHand ?? stock.qtyOnHand ?? 0);
-
-                          const isAdded = lines.some((l) => l.stockItemId === itemId);
-
+                        {filteredCatalog.map((item) => {
+                          const isAdded = lines.some((l) => l.itemId === item.itemId);
                           return (
                             <div
-                              key={itemId}
-                              onClick={() => handleAddLineItem(stock)}
-                              className={`p-2 rounded-2 border cursor-pointer transition-all bg-white hover-shadow-sm d-flex align-items-center justify-content-between ${
+                              key={item.itemId}
+                              onClick={() => handleAddLineItem(item)}
+                              className={`p-2 rounded-2 border cursor-pointer transition-all bg-white hover-shadow-sm d-flex justify-content-between ${
                                 isAdded ? "border-primary shadow-xs" : "border-light-subtle"
                               }`}
                             >
-                              <div className="pe-2" style={{ minWidth: 0 }}>
-                                <div className="d-flex align-items-center gap-1.5 mb-1">
-                                  <span className="badge bg-light text-muted border font-monospace fs-10 px-1 py-0.5 fw-normal">
-                                    {itemCode}
-                                  </span>
-                                  <span className="badge bg-primary-subtle text-primary fs-10 px-1 py-0.5">
-                                    {uom}
-                                  </span>
-                                </div>
-                                <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate" style={{ maxWidth: "200px" }}>
-                                  {itemName}
-                                </h6>
+                              <div>
+                                <span className="badge bg-light text-muted border font-monospace fs-10 px-1 py-0.5 mb-1 me-1">{item.itemCode}</span>
+                                {item.alternateUom && <span className="badge bg-info-subtle text-info fs-10 px-1 py-0.5 mb-1">Dual UOM</span>}
+                                <h6 className="fs-12 fw-semibold text-dark mb-0">{item.description}</h6>
                               </div>
-                              <div className="text-end flex-shrink-0">
-                                <span className="fs-10 text-muted d-block">On Hand</span>
-                                <span className={`fs-11 fw-bold font-monospace ${qtyOnHand > 0 ? "text-success" : "text-danger"}`}>
-                                  {qtyOnHand.toLocaleString()}
-                                </span>
+                              <div className="text-end">
+                                <span className="badge bg-primary-subtle text-primary fs-10">{item.stockUom}</span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-center text-muted">
-                        <i className="ri-inbox-line display-6 text-muted mb-2 opacity-50"></i>
-                        <h6 className="fs-13 fw-semibold text-dark mb-1">No stock items found</h6>
-                      </div>
+                      <div className="text-center py-5 text-muted fs-13">No items found for this warehouse</div>
                     )}
                   </CardBody>
                 </Card>
               </Col>
 
-              {/* GRN High-Density Line Grid & Dual UOM Handling */}
               <Col lg={8} xl={8}>
-                <Card 
-                  className="shadow-sm border-0 mb-0 d-flex flex-column" 
-                  style={{ minHeight: "500px", height: "calc(100vh - 200px)" }}
-                >
+                <Card className="shadow-sm border-0 mb-0 d-flex flex-column" style={{ height: "calc(100vh - 190px)" }}>
                   <CardHeader className="border-bottom py-2.5 px-3 bg-white d-flex justify-content-between align-items-center">
-                    <div className="d-flex align-items-center gap-2">
-                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">Received Line Items</h5>
-                      <Badge style={{ backgroundColor: BRAND_PURPLE_SUBTLE, color: BRAND_PURPLE }} className="px-2 py-0.5 fs-11">
-                        {lines.length} Line{lines.length !== 1 ? "s" : ""}
-                      </Badge>
-                    </div>
+                    <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">Receiving Lines</h5>
                     {lines.length > 0 && (
-                      <span className="text-danger fs-12 fw-medium cursor-pointer" onClick={handleClearGRN}>
-                        Clear Lines
-                      </span>
+                      <span className="text-danger fs-12 fw-medium cursor-pointer" onClick={() => setLines([])}>Clear Lines</span>
                     )}
                   </CardHeader>
 
-                  <CardBody className="p-0 overflow-y-auto flex-grow-1" style={{ minHeight: 0 }}>
+                  <CardBody className="p-0 overflow-y-auto flex-grow-1">
                     {lines.length === 0 ? (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted p-4 text-center">
-                        <i className="ri-file-add-line display-5 text-muted mb-2 opacity-50"></i>
-                        <span className="fs-13 fw-medium">No line items added to GRN</span>
-                        <span className="fs-11 text-muted">Select products from the left stock catalog.</span>
+                      <div className="text-center p-5 text-muted">
+                        <i className="ri-shopping-cart-2-line display-5 mb-2 opacity-50"></i>
+                        <span className="fs-13 fw-medium d-block">No stock received yet.</span>
                       </div>
                     ) : (
                       <Table responsive className="mb-0 fs-12 border-0 align-middle">
                         <thead className="table-light fs-11 text-muted text-uppercase sticky-top">
                           <tr>
-                            <th style={{ width: "24%" }}>Stock Code & Name</th>
-                            <th style={{ width: "24%" }}>Receipt Qty & UOM</th>
-                            <th style={{ width: "18%" }}>Base Stock Qty</th>
+                            <th style={{ width: "30%" }}>Item Description</th>
+                            <th style={{ width: "25%" }}>Entered Qty & UOM</th>
+                            <th style={{ width: "15%" }}>Base Qty (<span className="text-primary">Converted</span>)</th>
                             <th style={{ width: "15%" }}>Unit Cost</th>
-                            <th style={{ width: "14%" }}>Line Total</th>
-                            <th style={{ width: "5%" }} className="text-center"></th>
+                            <th style={{ width: "10%" }}>Total</th>
+                            <th style={{ width: "5%" }}></th>
                           </tr>
                         </thead>
                         <tbody>
                           {lines.map((line) => {
-                            const isAltSelected = line.selectedUom !== line.uom;
+                            const isAltSelected = line.selectedUom === line.altUom;
+                            const resolvedBaseQty = isAltSelected ? line.enteredQty * line.conversionFactor : line.enteredQty;
 
                             return (
-                              <tr key={line.stockItemId}>
+                              <tr key={line.itemId}>
                                 <td>
-                                  <div className="fw-semibold text-dark font-monospace">{line.stockItemCode}</div>
-                                  <div className="text-muted fs-11 text-truncate" style={{ maxWidth: "160px" }}>
-                                    {line.stockItemName}
-                                  </div>
+                                  <div className="fw-semibold text-dark font-monospace">{line.itemCode}</div>
+                                  <div className="text-muted fs-11 text-truncate" style={{ maxWidth: "180px" }}>{line.description}</div>
                                 </td>
 
-                                {/* Dual UOM Controls */}
                                 <td>
                                   <div className="d-flex align-items-center gap-1 mb-1">
                                     <Input
-                                      type="number"
-                                      bsSize="sm"
-                                      min="0.0001"
-                                      step="any"
-                                      className="form-control form-control-sm text-end font-monospace fw-bold shadow-none"
+                                      type="number" bsSize="sm" min="0.0001" step="any"
+                                      className="form-control text-end font-monospace shadow-none"
                                       value={line.enteredQty}
-                                      onChange={(e) => handleLineUpdate(line.stockItemId, "enteredQty", e.target.value)}
+                                      onChange={(e) => handleLineUpdate(line.itemId, "enteredQty", e.target.value)}
                                       style={{ width: "70px" }}
                                     />
                                     <Input
-                                      type="select"
-                                      bsSize="sm"
-                                      className="form-select form-select-sm fs-11 shadow-none"
+                                      type="select" bsSize="sm"
+                                      className="form-select fs-11 shadow-none"
                                       value={line.selectedUom}
-                                      onChange={(e) => handleLineUpdate(line.stockItemId, "selectedUom", e.target.value)}
-                                      style={{ width: "75px" }}
+                                      onChange={(e) => handleLineUpdate(line.itemId, "selectedUom", e.target.value)}
+                                      style={{ width: "80px" }}
                                     >
-                                      <option value={line.uom}>{line.uom}</option>
+                                      <option value={line.baseUom}>{line.baseUom}</option>
                                       {line.altUom && <option value={line.altUom}>{line.altUom}</option>}
                                     </Input>
                                   </div>
-
-                                  {/* Inline Conversion Factor Adjustment */}
                                   {isAltSelected && (
-                                    <div className="d-flex align-items-center gap-1 fs-10 text-muted">
-                                      <span>1 {line.selectedUom} =</span>
-                                      <Input
-                                        type="number"
-                                        bsSize="sm"
-                                        min="0.0001"
-                                        step="any"
-                                        className="form-control form-control-sm p-0 px-1 text-center font-monospace fs-10"
-                                        value={line.conversionFactor}
-                                        onChange={(e) => handleLineUpdate(line.stockItemId, "conversionFactor", e.target.value)}
-                                        style={{ width: "45px", height: "20px" }}
-                                      />
-                                      <span>{line.uom}</span>
-                                    </div>
+                                    <span className="fs-10 text-muted">Factor: 1 {line.altUom} = {line.conversionFactor} {line.baseUom}</span>
                                   )}
                                 </td>
 
-                                {/* Normalized Base Quantity */}
                                 <td>
                                   <div className="fw-bold font-monospace text-primary fs-12">
-                                    {line.quantity.toLocaleString()} {line.uom}
+                                    {resolvedBaseQty.toLocaleString()} {line.baseUom}
                                   </div>
-                                  <span className="fs-10 text-muted">Base Stock Unit</span>
+                                  <span className="fs-10 text-muted">Sent to ledger</span>
                                 </td>
 
-                                {/* Unit Cost Input */}
                                 <td>
                                   <Input
-                                    type="number"
-                                    bsSize="sm"
-                                    min="0"
-                                    step="any"
-                                    className="form-control form-control-sm font-monospace text-end shadow-none"
+                                    type="number" bsSize="sm" min="0" step="any"
+                                    className="form-control font-monospace text-end shadow-none"
                                     value={line.unitPrice}
-                                    onChange={(e) => handleLineUpdate(line.stockItemId, "unitPrice", e.target.value)}
-                                    style={{ width: "80px" }}
+                                    onChange={(e) => handleLineUpdate(line.itemId, "unitPrice", e.target.value)}
                                   />
                                 </td>
 
-                                {/* Calculated Line Total */}
                                 <td>
                                   <div className="fw-bold text-dark font-monospace">
-                                    {line.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {line.lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </div>
-                                  <span className="fs-10 text-muted">VAT ({line.taxRate ?? DEFAULT_TAX_RATE}%)</span>
                                 </td>
 
-                                {/* Action */}
                                 <td className="text-center">
                                   <i
                                     className="ri-delete-bin-line text-danger cursor-pointer fs-14"
-                                    title="Remove line item"
-                                    onClick={() => handleRemoveLineItem(line.stockItemId)}
+                                    onClick={() => handleRemoveLineItem(line.itemId)}
                                   ></i>
                                 </td>
                               </tr>
@@ -625,51 +501,54 @@ export const GoodsReceivedNote: React.FC = () => {
                     )}
                   </CardBody>
 
-                  {/* Summary & Posting Bar */}
-                  <div className="p-3 bg-white border-top border-light-subtle flex-shrink-0">
+                  <div className="p-3 bg-white border-top flex-shrink-0">
                     <Row className="align-items-center g-2">
-                      <Col xl={7} lg={6} md={12}>
-                        <div className="d-flex align-items-center gap-3 text-muted fs-11 flex-wrap">
-                          <div>
-                            <span>Total Items: </span>
-                            <strong className="text-dark">{lines.length}</strong>
-                          </div>
-                          <div>
-                            <span>Base Units: </span>
-                            <strong className="text-dark font-monospace">{totals.totalBaseUnits.toLocaleString()}</strong>
-                          </div>
-                          <div>
-                            <span>Tax Total: </span>
-                            <strong className="text-dark font-monospace">{totals.taxTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
-                          </div>
+                      <Col xs={5}>
+                        <div className="d-flex gap-4 text-muted fs-11">
+                          <div>Lines: <strong className="text-dark">{lines.length}</strong></div>
+                          <div>Base Ledger Units: <strong className="text-dark font-monospace">{totals.totalBaseUnits.toLocaleString()}</strong></div>
                         </div>
                       </Col>
 
-                      <Col xl={5} lg={6} md={12} className="d-flex align-items-center justify-content-lg-end justify-content-between gap-3">
+                      <Col xs={7} className="d-flex align-items-center justify-content-end gap-3">
                         <div className="text-end">
-                          <span className="fs-11 text-muted d-block">Grand Total</span>
+                          <span className="fs-11 text-muted d-block">Document Value</span>
                           <h4 className="mb-0 fw-bold text-dark fs-16 font-monospace">
-                            {totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {totals.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </h4>
+                        </div>
+
+                        <div style={{ width: "170px" }}>
+                          {isPrintersLoading ? (
+                            <Spinner size="sm" color="primary" />
+                          ) : (
+                            <Input
+                              type="select"
+                              bsSize="sm"
+                              className="form-select form-select-sm fs-12 border-primary-subtle shadow-none"
+                              value={selectedPrinter}
+                              onChange={(e) => setSelectedPrinter(e.target.value)}
+                            >
+                              <option value="EXPORT_PDF">Export to PDF</option>
+                              {printersList?.map((printer: string) => (
+                                <option key={printer} value={printer}>{printer}</option>
+                              ))}
+                            </Input>
+                          )}
                         </div>
 
                         <Button
                           type="submit"
                           className="border-0 rounded py-2 px-3 shadow-sm d-flex align-items-center gap-2"
-                          style={{
-                            backgroundColor: isPosting || lines.length === 0 || !supplierId || !supplierInvoiceNo ? "#a3b4cc" : BRAND_PURPLE,
-                          }}
-                          disabled={isPosting || lines.length === 0 || !supplierId || !supplierInvoiceNo}
+                          style={{ backgroundColor: isPosting || lines.length === 0 || !supplierId ? "#a3b4cc" : BRAND_PURPLE }}
+                          disabled={isPosting || lines.length === 0 || !supplierId}
                         >
-                          {isPosting ? (
+                          {isPosting ? <Spinner size="sm" /> : (
                             <>
-                              <Spinner size="sm" />
-                              <span className="fs-12 fw-semibold">Posting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="fs-12 fw-semibold text-white">Post Goods Receipt</span>
-                              <i className="ri-arrow-right-line fs-14 text-white"></i>
+                              <i className={selectedPrinter === "EXPORT_PDF" ? "ri-file-pdf-line text-white" : "ri-printer-line text-white"}></i> 
+                              <span className="fs-12 fw-semibold text-white">
+                                {selectedPrinter === "EXPORT_PDF" ? "Post & Export PDF" : "Post & Print"}
+                              </span>
                             </>
                           )}
                         </Button>

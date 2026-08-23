@@ -10,10 +10,21 @@ export interface Bank {
   isActive: boolean;
 }
 
-export interface BankPayload extends Omit<Bank, 'bankId'> {}
+export interface BankPayload {
+  bankCode: string;
+  bankName: string;
+  branchName: string;
+  accountName: string;
+  accountNumber: string;
+  currencyCode: string;
+  swiftCode: string;
+  isActive: boolean;
+}
 
 export type UpdateBankRequest = Partial<BankPayload>;
 
-export interface BankListResponse {
-  banks: Bank[];
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
 }

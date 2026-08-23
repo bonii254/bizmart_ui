@@ -8,11 +8,11 @@ const Footer = () => {
                 <Container fluid>
                     <Row>
                         <Col sm={6}>
-                            {new Date().getFullYear()} © FRESHA.
+                            {new Date().getFullYear()} 
                         </Col>
                         <Col sm={6}>
                             <div className="text-sm-end d-none d-sm-block">
-                                Design & Develop by Fresha ICT
+                                
                             </div>
                         </Col>
                     </Row>

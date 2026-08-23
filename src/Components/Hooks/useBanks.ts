@@ -1,19 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BankService } from "../../services/bankService";
-import { BankPayload, UpdateBankRequest } from "../../types/bank";
+import { Bank, BankPayload, UpdateBankRequest } from "../../types/bank";
 import { toast } from "react-toastify";
 
-export const useBanks = (page: number = 1, perPage: number = 100) => {
-  return useQuery({
-    queryKey: ["banks", page, perPage],
-    queryFn: () => BankService.getBanks(page, perPage),
+export const useBanks = () => {
+  return useQuery<Bank[]>({
+    queryKey: ["banks"],
+    queryFn: async () => {
+      const res = await BankService.getBanks();
+      return res.data ?? [];
+    },
   });
 };
 
 export const useBankDetails = (id: string | null) => {
-  return useQuery({
+  return useQuery<Bank | null>({
     queryKey: ["banks", id],
-    queryFn: () => BankService.getBankById(id!),
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await BankService.getBankById(id);
+      return res.data ?? null;
+    },
     enabled: !!id,
   });
 };

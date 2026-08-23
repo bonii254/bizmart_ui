@@ -20,19 +20,17 @@ const Login = (props: any) => {
         initialValues: {
             userName: "",
             password: "",
-            workstation: "",
+            workstation: "ws-01",
         },
         validationSchema: Yup.object({
             userName: Yup.string().required("Please Enter Your Username"),
             password: Yup.string().required("Please Enter Your Password"),
-            workstation: Yup.string().required("Please Enter Your Workstation"),
         }),
         onSubmit: async (values) => {
             try {
                 await login(values);
                 props.router.navigate('/dashboard');
             } catch (err) {
-                // Handled gracefully via loginError state
             }
         }
     });
@@ -92,28 +90,6 @@ const Login = (props: any) => {
                                                             {validation.touched.userName && validation.errors.userName && (
                                                                 <FormFeedback type="invalid">
                                                                     {validation.errors.userName}
-                                                                </FormFeedback>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Workstation Field */}
-                                                        <div className="mb-3">
-                                                            <Label htmlFor="workstation" className="form-label">Workstation</Label>
-                                                            <Input
-                                                                name="workstation"
-                                                                className="form-control"
-                                                                placeholder="Enter workstation (e.g. WS-01)"
-                                                                type="text"
-                                                                onChange={validation.handleChange}
-                                                                onBlur={validation.handleBlur}
-                                                                value={validation.values.workstation || ""}
-                                                                invalid={
-                                                                    validation.touched.workstation && validation.errors.workstation ? true : false
-                                                                }
-                                                            />
-                                                            {validation.touched.workstation && validation.errors.workstation && (
-                                                                <FormFeedback type="invalid">
-                                                                    {validation.errors.workstation}
                                                                 </FormFeedback>
                                                             )}
                                                         </div>

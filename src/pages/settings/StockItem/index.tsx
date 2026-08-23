@@ -257,7 +257,7 @@ const StockItemManagement: React.FC = () => {
                     >
                       <option value="">All Categories</option>
                       {categoriesList.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
+                        <option key={cat.categoryId} value={cat.categoryId}>
                           {cat.categoryName}
                         </option>
                       ))}
@@ -461,6 +461,22 @@ const StockItemManagement: React.FC = () => {
               <Col md={6} sm={12}>
                 <FormGroup>
                   <Label className="form-label fs-12 fw-medium">
+                    Description <span className="text-danger">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    bsSize="sm"
+                    placeholder="e.g. Industrial Grade Lubricant"
+                    {...formik.getFieldProps("description")}
+                    invalid={!!(formik.touched.description && formik.errors.description)}
+                  />
+                  <FormFeedback>{formik.errors.description}</FormFeedback>
+                </FormGroup>
+              </Col>
+
+              <Col md={4} sm={12}>
+                <FormGroup>
+                  <Label className="form-label fs-12 fw-medium">
                     Base Unit of Measure (Stock UOM) <span className="text-danger">*</span>
                   </Label>
                   <Input
@@ -474,7 +490,7 @@ const StockItemManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6} sm={12}>
+              <Col md={4} sm={12}>
                 <FormGroup>
                   <Label className="form-label fs-12 fw-medium">
                     Selling Price <span className="text-danger">*</span>
@@ -491,7 +507,7 @@ const StockItemManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6} sm={12}>
+              <Col md={4} sm={12}>
                 <FormGroup>
                   <Label className="form-label fs-12 fw-medium">
                     Category <span className="text-danger">*</span>
@@ -537,23 +553,6 @@ const StockItemManagement: React.FC = () => {
                     placeholder="e.g. 12"
                     {...formik.getFieldProps("alternateConversionFactor")}
                   />
-                </FormGroup>
-              </Col>
-
-              <Col md={12}>
-                <FormGroup>
-                  <Label className="form-label fs-12 fw-medium">
-                    Description <span className="text-danger">*</span>
-                  </Label>
-                  <Input
-                    type="textarea"
-                    rows={3}
-                    bsSize="sm"
-                    placeholder="e.g. Industrial Grade Lubricant"
-                    {...formik.getFieldProps("description")}
-                    invalid={!!(formik.touched.description && formik.errors.description)}
-                  />
-                  <FormFeedback>{formik.errors.description}</FormFeedback>
                 </FormGroup>
               </Col>
             </Row>

@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { POSService } from "../../services/posService";
-import { POSPayload } from "../../types/POS";
+import { CreateSalesReceiptPayload, SalesTransactionQueryParams } from "../../types/POS"; 
 import { toast } from "react-toastify";
 
-export const useSales = (page: number = 1, perPage: number = 100) => {
+export const useSales = () => {
   return useQuery({
-    queryKey: ["pos-sales", page, perPage],
-    queryFn: () => POSService.getSales(page, perPage),
+    queryKey: ["pos-sales"],
+    queryFn: () => POSService.getSales(),
   });
 };
 
@@ -18,15 +18,22 @@ export const useSaleDetails = (id: string | null) => {
   });
 };
 
+export const useSalesTransactions = (params?: SalesTransactionQueryParams) => {
+  return useQuery({
+    queryKey: ["sales-transactions", params],
+    queryFn: () => POSService.getSalesTransactions(params),
+  });
+};
+
 export const usePOSMutation = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (data: POSPayload) => POSService.createSale(data),
+    mutationFn: (data: CreateSalesReceiptPayload) => POSService.createSale(data),
     onSuccess: () => {
-      // Invalidate both sales history and inventory since a sale reduces stock
       queryClient.invalidateQueries({ queryKey: ["pos-sales"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-products"] }); 
+      queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
       toast.success("Sale completed successfully");
     },
     onError: (error: any) => {

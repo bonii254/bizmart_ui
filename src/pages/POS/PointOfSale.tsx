@@ -14,83 +14,96 @@ import {
   Dropdown,
   DropdownToggle,
   DropdownMenu,
+  Alert,
 } from "reactstrap";
 import { toast } from "react-toastify";
 
 import { usePOSMutation } from "../../Components/Hooks/usePOS";
-import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
+import { useStockItems } from "../../Components/Hooks/useStockItems";
+import { 
+  useItemWarehouseStock 
+} from "../../Components/Hooks/useWarehouseStock";
 import { useCategories } from "../../Components/Hooks/useCategory";
 import { useCustomers } from "../../Components/Hooks/useCustomers";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
-
+import { useCompanies } from "../../Components/Hooks/useCompanies"
+import { useBanks } from "../../Components/Hooks/useBanks";
 import { 
   usePrinters, 
   usePrintReceiptMutation 
 } from "../../Components/Hooks/useQZPrinter";
 import { formatCurrency } from "../../utils/qzConfig";
-import { POSLineItem } from "../../types/POS";
+import { 
+  CreateSalesReceiptPayload, 
+  PaymentMethodCode 
+} from "../../types/POS";
+import { StockItem } from "../../types/stockitem";
+import { ItemWarehouseStock } from "../../types/warehouseStock";
+import { handleBackendErrors } from "../../helpers/form_utils";
+import { getLoggedinUser } from "../../helpers/api_helper";
 
-type ExtendedPOSLineItem = POSLineItem & {
-  taxRate?: number;
+type CartLineItem = {
+  itemId: string;
+  itemCode: string;
+  description: string;
+  uomCode: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  lineTotal: number;
 };
 
 const BRAND_PURPLE = "#042e6d";
 const BRAND_PURPLE_SUBTLE = "rgba(4, 46, 109, 0.08)";
-const DEFAULT_TAX_RATE = 16; 
 
-const PAYMENT_METHODS = [
+const PAYMENT_METHODS: { id: PaymentMethodCode; label: string }[] = [
   { id: "CASH", label: "Cash" },
-  { id: "MOBILE_MONEY", label: "Mobile Money" },
+  { id: "MOBILE", label: "Mobile Money" },
   { id: "CARD", label: "Card" },
 ];
 
 export const PointOfSale: React.FC = () => {
-  const { processSale, isProcessing: isPosting } = usePOSMutation() as any;
-
+  const { processSale, isPosting } = usePOSMutation();
   const { data: printersList = [], isLoading: isPrintersLoading } = usePrinters();
   const { printReceipt, isPrinting } = usePrintReceiptMutation();
+
+  const { data: user } = getLoggedinUser();
+  const operatorId = user?.operatorId;
+  const displayname = user?.userName;
+
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [selectedPrinter, setSelectedPrinter] = useState<string>("");
+  const [warehouseId, setWarehouseId] = useState<string>("");
+  const [bankId, setBankId] = useState<string>("");
+  const [companyName, setCompanyName] = useState<string>("")
+  const [customerId, setCustomerId] = useState<string>("");
 
-  useEffect(() => {
-    if (printersList.length > 0 && !selectedPrinter) {
-      const savedPrinter = localStorage.getItem("pos_preferred_printer");
-      setSelectedPrinter(savedPrinter && printersList.includes(savedPrinter) ? savedPrinter : printersList[0]);
-    }
-  }, [printersList, selectedPrinter]);
-
-  const handlePrinterChange = (printerName: string) => {
-    setSelectedPrinter(printerName);
-    localStorage.setItem("pos_preferred_printer", printerName);
-  };
-
-  // Data Queries
   const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
+  const { data: banksData, isLoading: isBanksLoading } = useBanks();
+  const { data: companiesData } = useCompanies();
+  const { data: stockItems = [], isLoading: isStockLoading } = useStockItems();
+
+  // Fetch warehouse-specific stock items linked to selected warehouseId
+  const { stockItems: warehouseStockItems = [], isLoading: isWarehouseStockLoading } = useItemWarehouseStock({
+    warehouseId: warehouseId || undefined,
+  });
+
+  const { data: categoriesData, isLoading: isCategoriesLoading } = useCategories();
+  const { data: customersData, isLoading: isCustomersLoading } = useCustomers();
 
   const warehousesList = useMemo(() => {
-    if (!warehousesData) return [];
     return Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [];
   }, [warehousesData]);
 
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const banksList = useMemo(() => {
+    return Array.isArray(banksData) ? banksData : banksData || [];
+  }, [banksData]);
 
-  // PATCHED: Fallback to .id if .warehouseId is missing on firstWh
-  useEffect(() => {
-    if (warehousesList.length > 0 && !selectedWarehouseId) {
-      const firstWh = warehousesList[0];
-      setSelectedWarehouseId(firstWh.warehouseId);
-    }
-  }, [warehousesList, selectedWarehouseId]);
-
-  // Maintains correct object parameter based on GRN structure
-  const { stockItems: stockBalances = [], isLoading: isStockLoading } = useItemWarehouseStock({ 
-    warehouseId: selectedWarehouseId 
-  });
-  
-  const { data: categoriesData, isLoading: isCategoriesLoading } = useCategories();
-  const { data: customersData } = useCustomers();
+  const companiesList = useMemo(() => {
+    return Array.isArray(companiesData) ? companiesData : companiesData || [];
+  }, [companiesData]);
 
   const customersList = useMemo(() => {
-    if (!customersData) return [];
     return Array.isArray(customersData) ? customersData : customersData ?? [];
   }, [customersData]);
 
@@ -103,50 +116,95 @@ export const PointOfSale: React.FC = () => {
     return ["All", ...Array.from(new Set(validNames))];
   }, [categoriesData]);
 
-  // POS State
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  useEffect(() => {
+    if (globalError) {
+      const timer = setTimeout(() => setGlobalError(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [globalError]);
+
+  useEffect(() => {
+    if (warehousesList.length > 0 && !warehouseId) {
+      const firstWh = warehousesList[0];
+      setWarehouseId(String(firstWh.warehouseId));
+    }
+  }, [warehousesList, warehouseId]);
+
+  useEffect(() => {
+    if (customersList.length > 0 && !customerId) {
+      const firstCustomer = customersList[0];
+      setCustomerId(String(firstCustomer.customerId));
+    }
+  }, [customersList, customerId]);
+
+  useEffect(() => {
+    if (companiesList.length > 0 ){
+      const firstCompany = companiesList[0];
+      setCompanyName(firstCompany.companyName);
+    }
+  }, [companiesList, companyName])
+  
+
+  useEffect(() => {
+    if (banksList.length > 0 && !bankId) {
+      const firstBank = banksList[0];
+      setBankId(String(firstBank.bankId));
+    }
+  }, [banksList, bankId]);
+
+  useEffect(() => {
+    if (printersList.length > 0 && !selectedPrinter) { 
+      const savedPrinter = localStorage.getItem("pos_preferred_printer");
+      setSelectedPrinter(
+        savedPrinter && printersList.includes(savedPrinter) ? 
+        savedPrinter : printersList[0]
+      );
+    }
+  }, [printersList, selectedPrinter]);
+
+  const handlePrinterChange = (printerName: string) => {
+    setSelectedPrinter(printerName);
+    localStorage.setItem("pos_preferred_printer", printerName);
+  };
+
+  const selectedCustomer = useMemo(() => {
+    return customersList.find((c: any) => String(c.customerId) === String(customerId));
+  }, [customersList, customerId]);
+
   const [customerSearch, setCustomerSearch] = useState("");
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodCode>("CASH");
   const [amountTendered, setAmountTendered] = useState<string>("");
-  const [cart, setCart] = useState<ExtendedPOSLineItem[]>([]);
-
+  const [cart, setCart] = useState<CartLineItem[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const activeCustomer = selectedCustomer ?? customersList[0] ?? { id: 0, name: "Walk-in Customer", phone: "+254712345678" };
-
   const cartMap = useMemo(() => {
-    const map = new Map<string | number, ExtendedPOSLineItem>();
-    cart.forEach((item) => map.set(item.stockItemId, item));
+    const map = new Map<string, CartLineItem>();
+    cart.forEach((item) => map.set(item.itemId, item));
     return map;
   }, [cart]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.toLowerCase();
     return customersList.filter((c: any) => {
-      const nameMatch = (c.name ?? c.fullName ?? "").toLowerCase().includes(query);
-      const phoneMatch = (c.phone ?? c.phoneNumber ?? "").includes(query);
+      const nameMatch = (c.customerName ?? "").toLowerCase().includes(query);
+      const phoneMatch = (c.phone ?? "").includes(query);
       return nameMatch || phoneMatch;
     });
   }, [customersList, customerSearch]);
 
-  // Order Summaries
   const cartTotals = useMemo(() => {
     return cart.reduce(
       (acc, item) => {
         const lineSub = item.quantity * item.unitPrice;
         const lineDisc = item.discount ?? 0;
-        const lineTax = item.taxAmount ?? 0;
-        
         acc.subtotal += lineSub;
         acc.discountTotal += lineDisc;
-        acc.taxTotal += lineTax;
-        acc.grandTotal += (item.lineTotal ?? (lineSub - lineDisc + lineTax));
+        acc.grandTotal += lineSub - lineDisc;
         return acc;
       },
-      { subtotal: 0, discountTotal: 0, taxTotal: 0, grandTotal: 0 }
+      { subtotal: 0, discountTotal: 0, grandTotal: 0 }
     );
   }, [cart]);
 
@@ -158,90 +216,90 @@ export const PointOfSale: React.FC = () => {
 
   const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
 
-  // PATCHED: Added comprehensive flat DTO property fallbacks mapping
-  const filteredCatalogItems = useMemo(() => {
-    if (!Array.isArray(stockBalances)) return [];
-    const query = catalogSearch.toLowerCase();
-    return stockBalances.filter((stock: any) => {
-      const itemName = stock.itemDescription ?? stock.stockItem?.description ?? stock.description ?? stock.stock_item?.description ?? "";
-      const itemCode = stock.itemCode ?? stock.stockItem?.itemCode ?? stock.stockCode ?? stock.stock_item?.stock_code ?? "";
-      const itemCategory = stock.categoryName ?? stock.category_name ?? "";
+  // Build a set of Item IDs currently linked to the selected warehouse
+  const validWarehouseItemIds = useMemo(() => {
+    if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Set<string>();
+    return new Set(warehouseStockItems.map((ws: ItemWarehouseStock) => String(ws.itemId)));
+  }, [warehouseStockItems]);
 
+  // Map Item IDs to Quantity On Hand for quick lookup
+  const stockOnHandMap = useMemo(() => {
+    if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Map<string, number>();
+    const map = new Map<string, number>();
+    warehouseStockItems.forEach((ws: ItemWarehouseStock) => {
+      map.set(String(ws.itemId), ws.quantityOnHand ?? 0);
+    });
+    return map;
+  }, [warehouseStockItems]);
+
+  // Filter Catalog items by Warehouse Assignment, Active Status, Category, and Search Query
+  const filteredCatalogItems = useMemo(() => {
+    if (!Array.isArray(stockItems)) return [];
+    const query = catalogSearch.toLowerCase();
+
+    return stockItems.filter((stock: StockItem) => {
+      const itemIdStr = String(stock.itemId);
+      
+      // Filter out items not assigned to the selected warehouse
+      if (warehouseId && !validWarehouseItemIds.has(itemIdStr)) {
+        return false;
+      }
+
+      const itemName = stock.description ?? "";
+      const itemCode = stock.itemCode ?? "";
+      const itemCategory = stock.categoryName ?? "";
       const matchesSearch = itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
       const matchesCategory = selectedCategory === "All" || itemCategory === selectedCategory;
-
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && stock.isActive;
     });
-  }, [stockBalances, catalogSearch, selectedCategory]);
+  }, [stockItems, catalogSearch, selectedCategory, warehouseId, validWarehouseItemIds]);
 
-  // PATCHED: Extensive fallbacks applied to tile taps to map items securely into cart
-  const handleTileTap = (item: any) => {
-    const itemId = String(item.itemId ?? item.stockItemId ?? item.stockItem?.id ?? item.id);
+  const handleTileTap = (item: StockItem) => {
+    const itemId = String(item.itemId);
     const existing = cartMap.get(itemId);
 
     if (existing) {
       handleQuantityOrPriceChange(itemId, "quantity", existing.quantity + 1);
     } else {
-      const itemCode = item.itemCode ?? item.stockItem?.itemCode ?? item.stockCode ?? item.stock_code ?? "STK";
-      const itemName = item.itemDescription ?? item.stockItem?.description ?? item.description ?? "Stock Item";
-      const unitPrice = Number(item.sellingPrice ?? item.unitCost ?? item.unit_cost ?? 0);
-      const uom = item.uom ?? item.unitOfMeasure ?? item.stockItem?.uom ?? "PCS";
-      const taxRate = item.taxRate ?? DEFAULT_TAX_RATE;
+      const unitPrice = Number(item.sellingPrice ?? 0);
+      const uomCode = item.stockUom ?? "EA";
       const discount = 0;
-
-      const subtotal = 1 * unitPrice - discount;
-      const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
-      const lineTotal = Number((subtotal + taxAmount).toFixed(2));
+      const lineTotal = Number((1 * unitPrice - discount).toFixed(2));
 
       setCart((prev) => [
         ...prev,
         {
-          stockItemId: itemId,
-          stockItemCode: itemCode,
-          stockItemName: itemName,
-          uom,
+          itemId,
+          itemCode: item.itemCode,
+          description: item.description,
+          uomCode,
           quantity: 1,
           unitPrice,
           discount,
-          taxRate,
-          taxAmount,
           lineTotal,
         },
       ]);
     }
   };
 
-  const handleRemoveLineItem = (stockItemId: string | number) => {
-    setCart((prev) => prev.filter((i) => i.stockItemId !== stockItemId));
+  const handleRemoveLineItem = (itemId: string) => {
+    setCart((prev) => prev.filter((i) => i.itemId !== itemId));
   };
 
   const handleQuantityOrPriceChange = (
-    stockItemId: string | number,
-    field: "quantity" | "unitPrice" | "discount" | "taxRate",
+    itemId: string,
+    field: "quantity" | "unitPrice" | "discount",
     value: number
   ) => {
     setCart((prev) =>
       prev.map((item) => {
-        if (item.stockItemId !== stockItemId) return item;
-
+        if (item.itemId !== itemId) return item;
         const qty = field === "quantity" ? Math.max(1, value) : item.quantity;
         const price = field === "unitPrice" ? Math.max(0, value) : item.unitPrice;
-        const discount = field === "discount" ? Math.max(0, value) : (item.discount ?? 0);
-        const taxRate = field === "taxRate" ? Math.max(0, value) : (item.taxRate ?? DEFAULT_TAX_RATE);
+        const discount = field === "discount" ? Math.max(0, value) : item.discount ?? 0;
+        const lineTotal = Number((qty * price - discount).toFixed(2));
 
-        const subtotal = (qty * price) - discount;
-        const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
-        const lineTotal = Number((subtotal + taxAmount).toFixed(2));
-
-        return {
-          ...item,
-          quantity: qty,
-          unitPrice: price,
-          discount,
-          taxRate,
-          taxAmount,
-          lineTotal,
-        };
+        return { ...item, quantity: qty, unitPrice: price, discount, lineTotal };
       })
     );
   };
@@ -254,58 +312,72 @@ export const PointOfSale: React.FC = () => {
   const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!warehouseId) {
+      toast.error("Please select a valid Warehouse.");
+      return;
+    }
+
+    if (!customerId) {
+      toast.error("Please select a valid Customer.");
+      return;
+    }
+
+    if (!operatorId) {
+      toast.error("Operator session is invalid. Please log in again.");
+      return;
+    }
+
     if (cart.length === 0) {
       toast.error("Please select items to build an order.");
       return;
     }
 
     if (paymentMethod === "CASH" && tenderedValue < cartTotals.grandTotal) {
-      toast.error("Amount is less than total sale amount.");
+      toast.error("Amount tendered is less than the total sale amount.");
       return;
     }
 
-    try {
-      const payload = {
-        customerId: activeCustomer.id,
-        warehouseId: selectedWarehouseId,
-        paymentMethod,
-        amountPaid: paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
-        items: cart.map((item) => ({
-          stockItemId: item.stockItemId,
-          quantity: Number(item.quantity),
-          unitPrice: Number(item.unitPrice),
-          discount: Number(item.discount ?? 0),
-          taxAmount: Number(item.taxAmount ?? 0),
-          taxRate: Number(item.taxRate ?? DEFAULT_TAX_RATE)
-        })),
-      };
+    const payload: CreateSalesReceiptPayload = {
+      warehouseId,
+      customerId,
+      operatorId,
+      paidAmount: paymentMethod === "CASH" ? cartTotals.grandTotal : 0,
+      paymentMethodCode: paymentMethod,
+      bankId,
+      paymentReference: paymentMethod === "CASH" ? "CASH" : `REF-${Date.now()}`,
+      lines: cart.map((item) => ({
+        itemId: item.itemId,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        uomCode: item.uomCode,
+      })),
+    };
 
+    try {
       let saleResponse: any = null;
       if (processSale) {
         saleResponse = await processSale(payload);
       }
 
-      const currentWhObj = warehousesList.find((w) => (w.warehouseId) === selectedWarehouseId);
+      const activeWh = warehousesList.find((w: any) => String(w.warehouseId) === String(warehouseId));
       
       const receiptPayload = {
-        companyName: "FRESHA ENTERPRISES",
-        storeName: currentWhObj?.warehouseName ?? "POS STORE",
-        receiptNo: saleResponse?.sale_receipt_201?.receiptNumber ?? saleResponse?.receiptNo ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
+        companyName: companyName ?? "ENTERPRISES",
+        storeName: activeWh?.warehouseName ?? "POS STORE",
+        receiptNo: saleResponse?.data?.documentNumber ?? saleResponse?.documentNumber ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
-        cashier: "CASHIER",
-        customerName: activeCustomer.customerName ?? "Walk-in Customer",
+        cashier: displayname ?? "CASHIER",
+        customerName: selectedCustomer?.customerName ?? "Walk-in Customer",
         items: cart.map((i) => ({
-          name: i.stockItemName,
+          name: i.description,
           qty: i.quantity,
           unitPrice: i.unitPrice,
           discount: i.discount ?? 0,
-          taxRate: i.taxRate ?? DEFAULT_TAX_RATE,
-          taxAmount: i.taxAmount ?? 0,
           total: i.lineTotal,
         })),
         subtotal: cartTotals.subtotal,
         discountTotal: cartTotals.discountTotal,
-        taxTotal: cartTotals.taxTotal,
+        taxTotal: 0,
         grandTotal: cartTotals.grandTotal,
         paymentMethod,
         amountTendered: paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
@@ -321,18 +393,16 @@ export const PointOfSale: React.FC = () => {
         } catch (printErr) {
           console.error("Thermal print failure:", printErr);
         }
-      } else {
-        toast.warn("Sale recorded, but no thermal printer is connected.");
       }
 
-      handleClearCart();
-      setSelectedCustomer(null);
-      setPaymentMethod("CASH");
       toast.success("Transaction completed successfully!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? err.message ?? "Transaction failed.");
+      handleClearCart();
+    } catch (err: unknown) {
+      handleBackendErrors(err, () => {}, setGlobalError);
     }
   };
+
+  const isCatalogLoading = isStockLoading || isWarehouseStockLoading;
 
   document.title = "Point of Sale | Terminal";
 
@@ -340,9 +410,16 @@ export const PointOfSale: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
+          {globalError && (
+            <Alert color="danger" className="alert-dismissible-consecutive fade show mb-3">
+              <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
+              {globalError}
+            </Alert>
+          )}
+
           <Form onSubmit={handleSubmitSale}>
             <Row>
-              {/* Product Catalog */}
+              {/* Product Catalog Column */}
               <Col lg={7} xl={8}>
                 <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 165px)", display: "flex", flexDirection: "column" }}>
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
@@ -360,15 +437,41 @@ export const PointOfSale: React.FC = () => {
                               <Input
                                 type="select"
                                 className="form-select form-select-sm fs-12"
-                                value={selectedWarehouseId ?? ""}
-                                onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                                value={warehouseId}
+                                onChange={(e) => setWarehouseId(e.target.value)}
                               >
-                                <option value="" disabled>Warehouse</option>
-                                {warehousesList.map((wh: any) => (
-                                  <option key={wh.id ?? wh.warehouseId} value={wh.id ?? wh.warehouseId}>
-                                    {wh.warehouseName}
-                                  </option>
-                                ))}
+                                <option value="" disabled>Select Warehouse</option>
+                                {warehousesList.map((wh: any) => {
+                                  const id = String(wh.id ?? wh.warehouseId);
+                                  return (
+                                    <option key={id} value={id}>
+                                      {wh.warehouseName}
+                                    </option>
+                                  );
+                                })}
+                              </Input>
+                            )}
+                          </div>
+
+                          <div className="flex-grow-1" style={{ maxWidth: "170px" }}>
+                            { isBanksLoading ? (
+                              <Spinner size="sm" color="primary" />
+                            ) : (
+                              <Input
+                                type="select"
+                                className="form-select form-select-sm fs-12"
+                                value={bankId}
+                                onChange={(e) => setBankId(e.target.value)}
+                              >
+                                <option value="" disabled>Select Bank</option>
+                                {banksList.map((bk: any) => {
+                                  const id = String(bk.bankId);
+                                  return (
+                                    <option key={id} value={id}>
+                                      {bk.bankName}
+                                    </option>
+                                  );
+                                })}
                               </Input>
                             )}
                           </div>
@@ -456,26 +559,19 @@ export const PointOfSale: React.FC = () => {
                   </CardHeader>
 
                   <CardBody className="p-2 p-sm-3 overflow-y-auto flex-grow-1 bg-light-subtle" style={{ minHeight: 0 }}>
-                    {isStockLoading ? (
+                    {isCatalogLoading ? (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
                         <Spinner size="sm" color="primary" className="mb-2" />
                         <span className="text-muted fs-12 fw-medium">Loading inventory...</span>
                       </div>
                     ) : filteredCatalogItems.length > 0 ? (
                       <Row className="g-2 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 row-cols-xl-4 row-cols-xxl-5">
-                        {filteredCatalogItems.map((item: any) => {
-                          // PATCHED: Extensive fallbacks ensuring item metadata correctly renders
-                          const itemId = String(item.itemId ?? item.stockItemId ?? item.stockItem?.id ?? item.id);
-                          const itemCode = item.itemCode ?? item.stockItem?.itemCode ?? item.stockCode ?? item.stock_code ?? "CODE";
-                          const itemName = item.itemDescription ?? item.stockItem?.description ?? item.description ?? "Unnamed Item";
-                          const uom = item.uom ?? item.unitOfMeasure ?? item.stockItem?.uom ?? "PCS";
-                          const qtyOnHand = Number(item.quantityOnHand ?? item.qtyOnHand ?? 0);
-                          const price = Number(item.sellingPrice ?? item.unitCost ?? item.unit_cost ?? 0);
-
+                        {filteredCatalogItems.map((item: StockItem) => {
+                          const itemId = String(item.itemId);
                           const cartItem = cartMap.get(itemId);
                           const inCartQty = cartItem ? cartItem.quantity : 0;
                           const isSelected = inCartQty > 0;
-                          const isOutOfStock = qtyOnHand <= 0;
+                          const qoh = stockOnHandMap.get(itemId) ?? 0;
 
                           return (
                             <Col key={itemId}>
@@ -483,7 +579,7 @@ export const PointOfSale: React.FC = () => {
                                 onClick={() => handleTileTap(item)}
                                 className={`card h-100 border cursor-pointer user-select-none transition-all mb-0 rounded-2 position-relative ${
                                   isSelected ? "border-primary shadow-sm" : "border-light-subtle shadow-none hover-shadow-sm"
-                                } ${isOutOfStock ? "opacity-75" : ""}`}
+                                }`}
                                 style={{
                                   minHeight: "128px",
                                   backgroundColor: isSelected ? "rgba(4, 46, 109, 0.05)" : "#ffffff",
@@ -493,7 +589,7 @@ export const PointOfSale: React.FC = () => {
                                 <div className="card-body p-2 d-flex flex-column justify-content-between">
                                   <div className="d-flex align-items-center justify-content-between gap-1 mb-1">
                                     <span className="badge bg-light text-muted border border-light-subtle font-monospace fs-10 px-1.5 py-0.5 fw-normal text-truncate" style={{ maxWidth: "60%" }}>
-                                      {itemCode}
+                                      {item.itemCode}
                                     </span>
                                     {isSelected && (
                                       <Badge className="fs-10 px-2 py-0.5 rounded-pill d-flex align-items-center gap-1 fw-semibold shadow-xs ms-auto flex-shrink-0" style={{ backgroundColor: BRAND_PURPLE, color: "#ffffff" }}>
@@ -504,20 +600,22 @@ export const PointOfSale: React.FC = () => {
                                   </div>
                                   <div className="my-auto py-1">
                                     <h6 className="fs-12 fw-semibold text-dark mb-0 lh-sm" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                                      {itemName}
+                                      {item.description}
                                     </h6>
                                   </div>
                                   <div className="pt-1.5 border-top border-light-subtle mt-auto">
                                     <div className="d-flex align-items-end justify-content-between gap-1">
                                       <div className="d-flex flex-column lh-1">
-                                        <span className="text-muted fs-10 fw-normal mb-1">{uom}</span>
-                                        <span className={`fs-10 fw-medium ${qtyOnHand > 0 ? "text-success" : "text-danger"}`}>
-                                          {qtyOnHand > 0 ? `${qtyOnHand} left` : "Out of stock"}
-                                        </span>
+                                        <span className="text-muted fs-10 fw-normal mb-1">{item.stockUom}</span>
+                                        {qoh <= 0 ? (
+                                          <span className="text-danger fs-10 fw-semibold mb-1">Out of Stock</span>
+                                        ) : (
+                                          <span className="text-muted fs-10 fw-normal mb-1">Stock: {qoh}</span>
+                                        )}
                                       </div>
                                       <div className="text-end flex-shrink-0">
                                         <span className="fs-12 fw-bold text-primary font-monospace d-block lh-1">
-                                          {formatCurrency(price)}
+                                          {formatCurrency(item.sellingPrice)}
                                         </span>
                                       </div>
                                     </div>
@@ -538,7 +636,7 @@ export const PointOfSale: React.FC = () => {
                 </Card>
               </Col>
 
-              {/* Cart Summary & Payment */}
+              {/* Cart Summary & Order Processing Column */}
               <Col lg={5} xl={4}>
                 <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 165px)", display: "flex", flexDirection: "column" }}>
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
@@ -551,12 +649,13 @@ export const PointOfSale: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Customer Selection Dropdown */}
                     <Dropdown isOpen={isCustomerDropdownOpen} toggle={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)} className="w-100">
                       <DropdownToggle tag="div" className="d-flex justify-content-between align-items-center p-2 bg-light rounded cursor-pointer border border-light-subtle">
                         <div className="d-flex align-items-center gap-2">
                           <i className="ri-user-3-line text-muted fs-14"></i>
                           <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "200px" }}>
-                            {activeCustomer.customerName ?? "Select Customer"}
+                            {selectedCustomer?.customerName ?? "Select Customer"}
                           </span>
                         </div>
                         <i className="ri-arrow-down-s-line text-muted"></i>
@@ -571,12 +670,26 @@ export const PointOfSale: React.FC = () => {
                           onChange={(e) => setCustomerSearch(e.target.value)}
                         />
                         <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                          {filteredCustomers.map((cust: any) => (
-                            <div key={cust.id} className="p-2 rounded fs-12 cursor-pointer hover-bg-light" onClick={() => { setSelectedCustomer(cust); setIsCustomerDropdownOpen(false); }}>
-                              <span className="fw-medium text-dark d-block">{cust.customerName }</span>
-                              <span className="text-muted fs-11">{cust.phone ?? cust.phoneNumber}</span>
-                            </div>
-                          ))}
+                          {isCustomersLoading ? (
+                            <div className="text-center py-2"><Spinner size="sm" color="primary" /></div>
+                          ) : (
+                            filteredCustomers.map((cust: any) => {
+                              const custId = String(cust.id ?? cust.customerId);
+                              return (
+                                <div
+                                  key={custId}
+                                  className="p-2 rounded fs-12 cursor-pointer hover-bg-light"
+                                  onClick={() => {
+                                    setCustomerId(custId);
+                                    setIsCustomerDropdownOpen(false);
+                                  }}
+                                >
+                                  <span className="fw-medium text-dark d-block">{cust.customerName ?? cust.name}</span>
+                                  <span className="text-muted fs-11">{cust.phone ?? cust.phoneNumber}</span>
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
                       </DropdownMenu>
                     </Dropdown>
@@ -590,19 +703,19 @@ export const PointOfSale: React.FC = () => {
                       </div>
                     ) : (
                       cart.map((line) => (
-                        <div key={line.stockItemId} className="p-2 mb-2 bg-light rounded border border-light-subtle position-relative">
+                        <div key={line.itemId} className="p-2 mb-2 bg-light rounded border border-light-subtle position-relative">
                           <div className="d-flex align-items-center justify-content-between mb-1">
                             <div className="flex-grow-1 pe-2" style={{ minWidth: 0 }}>
-                              <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">{line.stockItemName}</h6>
-                              <span className="fs-11 text-muted">{formatCurrency(line.unitPrice)} / {line.uom}</span>
+                              <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">{line.description}</h6>
+                              <span className="fs-11 text-muted">{formatCurrency(line.unitPrice)} / {line.uomCode}</span>
                             </div>
                             <div className="d-flex align-items-center gap-2">
                               <div className="d-flex align-items-center bg-white rounded border border-light-subtle p-1 shadow-none">
-                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity - 1)}>
+                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5" onClick={() => handleQuantityOrPriceChange(line.itemId, "quantity", line.quantity - 1)}>
                                   <i className="ri-subtract-line fs-11"></i>
                                 </span>
                                 <span className="fs-12 fw-semibold px-2 text-dark">{line.quantity}</span>
-                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5" onClick={() => handleQuantityOrPriceChange(line.stockItemId, "quantity", line.quantity + 1)}>
+                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5" onClick={() => handleQuantityOrPriceChange(line.itemId, "quantity", line.quantity + 1)}>
                                   <i className="ri-add-line fs-11"></i>
                                 </span>
                               </div>
@@ -612,17 +725,16 @@ export const PointOfSale: React.FC = () => {
                               <i
                                 className="ri-delete-bin-line text-danger cursor-pointer ms-1 fs-14"
                                 title="Remove item"
-                                onClick={() => handleRemoveLineItem(line.stockItemId)}
+                                onClick={() => handleRemoveLineItem(line.itemId)}
                               ></i>
                             </div>
                           </div>
                           
-                          <div className="d-flex justify-content-between align-items-center pt-1 border-top border-light-subtle fs-10 text-muted">
-                            <span>VAT ({line.taxRate ?? DEFAULT_TAX_RATE}%): {formatCurrency(line.taxAmount ?? 0)}</span>
-                            {line.discount ? (
+                          {line.discount > 0 && (
+                            <div className="d-flex justify-content-end align-items-center pt-1 border-top border-light-subtle fs-10 text-muted">
                               <span className="text-success">Disc: -{formatCurrency(line.discount)}</span>
-                            ) : null}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -674,10 +786,6 @@ export const PointOfSale: React.FC = () => {
                           <span>-{formatCurrency(cartTotals.discountTotal)}</span>
                         </div>
                       )}
-                      <div className="d-flex justify-content-between">
-                        <span>Tax Total:</span>
-                        <span>{formatCurrency(cartTotals.taxTotal)}</span>
-                      </div>
                     </div>
 
                     <div className="d-flex justify-content-between align-items-end mb-2 px-1">

@@ -1,26 +1,44 @@
 import { APIClient } from "../helpers/api_helper";
 import { 
-  POSHeader, 
-  POSPayload, 
-  POSListResponse, 
-  SinglePOSResponse 
-} from "../types/POS";
+  CreateSalesReceiptPayload, 
+  SalesReceiptDocument,
+  GetSalesReceiptResponse,
+  CreateSalesReceiptResponse,
+  ApiResponse,
+  SalesTransaction,
+  SalesTransactionQueryParams
+} from "../types/POS"; 
 
 const api = new APIClient();
-const BASE_URL = "/mock/pos";
+
+const DOCUMENTS_BASE_URL = "/api/documents/sales-receipts";
+const TRANSACTIONS_BASE_URL = "/api/transactions/sales-receipts";
+const BROWSE_TRANSACTIONS_BASE_URL = "/api/browses/sales-transactions";
 
 export const POSService = {
-  getSales: async (page = 1, perPage = 100): Promise<POSListResponse> => {
-    return await api.get(`${BASE_URL}/sales`, { params: { page, per_page: perPage } });
+  getSales: async (): Promise<ApiResponse<SalesReceiptDocument[]>> => {
+    return await api.get(DOCUMENTS_BASE_URL);
   },
 
-  getSaleById: async (id: string): Promise<POSHeader> => {
-    const response: SinglePOSResponse = await api.get(`${BASE_URL}/sales/${id}`);
-    return response.sale_receipt_201 ?? response;
+  getSaleById: async (id: string): Promise<SalesReceiptDocument> => {
+    const response: GetSalesReceiptResponse = await api.get(
+      `${DOCUMENTS_BASE_URL}/${id}`
+    );
+    return response.data;
   },
 
-  createSale: async (payload: POSPayload): Promise<POSHeader> => {
-    const response: SinglePOSResponse = await api.create(`${BASE_URL}/sales`, payload);
-    return response.sale_receipt_201 ?? response;
+  createSale: async (
+    payload: CreateSalesReceiptPayload
+  ): Promise<SalesReceiptDocument> => {
+    const response: CreateSalesReceiptResponse = await api.create(
+      TRANSACTIONS_BASE_URL, payload
+    );
+    return response.data;
+  },
+
+  getSalesTransactions: async (
+    params?: SalesTransactionQueryParams
+  ): Promise<ApiResponse<SalesTransaction[]>> => {
+    return await api.get(BROWSE_TRANSACTIONS_BASE_URL, params);
   }
 };

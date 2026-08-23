@@ -15,6 +15,9 @@ import PointOfSale from "../pages/POS/PointOfSale";
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 
+import StockTakeReport from "../pages/Report/StockTakeReport";
+import InventoryTransactions from "../pages/Report/InventoryTransactions"
+
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
 import BasicSignIn from "../pages/AuthenticationInner/Login/BasicSignIn";
@@ -51,6 +54,7 @@ import Register from "../pages/Authentication/Register";
 
 
 import UserProfile from "../pages/Authentication/user-profile";
+import { components } from "react-select";
 
 
 const authProtectedRoutes = [
@@ -67,9 +71,12 @@ const authProtectedRoutes = [
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/banks", component: <BankManagement/> },
   { path: "/cash-withdrawal", component: <CashWithdrawal /> },
+  { path: "/reports/sales-transactions", component: <SalesHistory />},
   { path: "/settings", component: <SettingsHub /> },
   { path: "/audit-logs", component: <AuditLogs /> },
 
+  { path: "/reports/stocktake-transactions", component: <StockTakeReport /> },
+  { path: "/reports/inventory-transactions", components: <InventoryTransactions /> },
   { path: "/pages-profile", component: <SimplePage /> },
   { path: "/pages-profile-settings", component: <Settings /> },
 

@@ -1,51 +1,59 @@
-export interface POSLineItem {
-  stockItemId: string;
-  stockItemCode: string;
-  stockItemName: string;
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface SalesReceiptDocument {
+  documentId: string;
+  documentNumber: string;
+  total: number;
+  postedAt: string;
+}
+
+export type PaymentMethodCode = 'CASH' | 'CARD' | 'MOBILE';
+
+export interface SalesReceiptLinePayload {
+  itemId: string;
   quantity: number;
   unitPrice: number;
-  discount?: number;
-  uom?: string
-  taxRate?: number;
-  taxAmount?: number;
-  lineTotal: number;
+  uomCode: string;
 }
 
-export interface POSHeader {
-  transactionId: string;
-  receiptNumber: string;
+export interface CreateSalesReceiptPayload {
+  warehouseId: string;
+  customerId: string;
+  operatorId: string;
+  paidAmount: number;
+  paymentMethodCode: PaymentMethodCode;
+  bankId: string;
+  paymentReference: string;
+  lines: SalesReceiptLinePayload[];
+}
+
+export type CreateSalesReceiptResponse = ApiResponse<SalesReceiptDocument>;
+
+export type GetSalesReceiptResponse = ApiResponse<SalesReceiptDocument>;
+
+export interface SalesTransaction {
+  invoice_id: string;
+  invoice_number: string;
+  sold_at: string;
+  warehouse_code: string;
+  customer_name: string;
+  operator_name: string;
+  total: number;
+  paid: number;
+  payment_method_code: PaymentMethodCode;
+  bank_name: string;
+  payment_reference: string;
+}
+
+export interface SalesTransactionQueryParams {
+  fromDate?: string;
+  toDate?: string;
   customerId?: string;
-  customerName?: string;
-  cashierId: string;
-  subTotal: number;
-  taxTotal: number;
-  discountTotal: number;
-  grandTotal: number;
-  paymentMethod: string;
-  amountPaid: number;
-  changeAmount: number;
-  status: string;
-  postedAt: string;
-  items?: POSLineItem[];
+  operatorId?: string;
 }
 
-export interface POSPayload {
-  customerId?: string;
-  paymentMethod: 'CASH' | 'CARD' | 'MOBILE_MONEY' | string;
-  amountPaid: number;
-  items: {
-    stockItemId: string;
-    quantity: number;
-    unitPrice: number;
-    discount?: number;
-  }[];
-}
-
-export interface SinglePOSResponse {
-  sale_receipt_201: POSHeader;
-}
-
-export interface POSListResponse {
-  sales: POSHeader[];
-  recordCount?: number;
-}
+export type GetSalesTransactionsResponse = ApiResponse<SalesTransaction[]>;

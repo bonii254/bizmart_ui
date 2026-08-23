@@ -140,9 +140,6 @@ const Navdata = () => {
       link: "/customers",
     },
 
-    // ----------------------------------------------------
-    // REPORTS & ANALYTICS
-    // ----------------------------------------------------
     {
       id: "reports",
       label: "Reports",
@@ -153,9 +150,115 @@ const Navdata = () => {
         handleToggle("reports");
       },
       subItems: [
-        { id: "eod-reports", label: "End of Day (Z-Reports)", link: "/reports/eod" },
-        { id: "sales-reports", label: "Sales Analytics", link: "/reports/sales" },
-        { id: "inventory-reports", label: "Inventory Valuation", link: "/reports/inventory" },
+        {
+          id: "sales-transactions",
+          label: "Sales Transactions",
+          link: "/reports/sales-transactions",
+          parentId: "reports",
+        },
+        {
+          id: "stocktake-transactions",
+          label: "Stock Take Transactions",
+          link: "/reports/stocktake-transactions",
+          parentId: "reports",
+        },
+        {
+          id: "inventory-transactions",
+          label: "Inventory Movements",
+          link: "/reports/inventory-transactions",
+          parentId: "reports",
+        },
+        {
+          id: "cash-transactions",
+          label: "Cash Transactions",
+          link: "/reports/cash-transactions",
+          parentId: "reports",
+        },
+        {
+          id: "store-item-summary",
+          label: "Store Item Summary",
+          link: "/reports/store-item-summary",
+          parentId: "reports",
+        },
+
+        {
+          id: "periodic-inventory-summary",
+          label: "Periodic Inventory Summary",
+          link: "/reports/periodic-inventory-summary",
+          parentId: "reports",
+        },
+        {
+          id: "sales-per-item",
+          label: "Sales per Item",
+          link: "/reports/sales-per-item",
+          parentId: "reports",
+        },
+        {
+          id: "sales-per-customer",
+          label: "Sales per Customer",
+          link: "/reports/sales-per-customer",
+          parentId: "reports",
+        },
+        {
+          id: "customer-statement",
+          label: "Customer Statement",
+          link: "/reports/customer-statement",
+          parentId: "reports",
+        },
+        {
+          id: "supplier-statement",
+          label: "Supplier Statement",
+          link: "/reports/supplier-statement",
+          parentId: "reports",
+        },
+        {
+          id: "stocktake-variance",
+          label: "Stock Take Variance",
+          link: "/reports/stocktake-variance",
+          parentId: "reports",
+        },
+        {
+          id: "inventory-valuation",
+          label: "Inventory Valuation",
+          link: "/reports/inventory-valuation",
+          parentId: "reports",
+        },
+        {
+          id: "inventory-statement-monthly",
+          label: "Monthly Inventory Statement",
+          link: "/reports/inventory-statement-monthly",
+          parentId: "reports",
+        },
+        {
+          id: "daily-till-summary",
+          label: "Daily Till Summary",
+          link: "/reports/daily-till-summary",
+          parentId: "reports",
+        },
+        {
+          id: "sales-payment-summary",
+          label: "Sales Payment Summary",
+          link: "/reports/sales-payment-summary",
+          parentId: "reports",
+        },
+        {
+          id: "operator-sales-summary",
+          label: "Operator Sales Summary",
+          link: "/reports/operator-sales-summary",
+          parentId: "reports",
+        },
+        {
+          id: "sales-gross-profit",
+          label: "Sales Gross Profit",
+          link: "/reports/sales-gross-profit",
+          parentId: "reports",
+        },
+        {
+          id: "negative-stock",
+          label: "Negative Stock Audit",
+          link: "/reports/negative-stock",
+          parentId: "reports",
+        },
       ],
     },
 

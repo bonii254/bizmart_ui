@@ -18,82 +18,152 @@ import {
 import { useStockTake } from "../../Components/Hooks/useStocktake";
 import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
-import { CreateStockTakeLinePayload } from "../../types/stocktake";
-import { ItemWarehouseStock } from "../../types/warehouseStock";
+import { useStockItems } from "../../Components/Hooks/useStockItems";
+
+import { CreateStockTakeRequest, StockTakeLineRequest } from "../../types/stocktake";
+import { Warehouse } from "../../types/warehouse";
+import { StockItem } from "../../types/stockitem";
+import { getLoggedinUser } from "../../helpers/api_helper";
+
 import TablePagination from "../TablePagination";
+
+interface StockTakeAuditLine extends StockTakeLineRequest {
+  itemCode: string;
+  itemDescription: string;
+  stockUom: string;
+  systemQuantity: number;
+}
 
 const NewStockTake: React.FC = () => {
   const navigate = useNavigate();
 
-  // Component States
   const [newWarehouseId, setNewWarehouseId] = useState<string>("");
+  const { data: user } = getLoggedinUser();
+  const operatorId = user?.operatorId || user?.id || "";
+
   const [searchInput, setSearchInput] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  
-  // High-density pagination
+
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(25);
 
-  const [countFormLines, setCountFormLines] = useState<
-    (CreateStockTakeLinePayload & { stock_code?: string; description?: string; uom?: string })[]
-  >([]);
+  const [countFormLines, setCountFormLines] = useState<StockTakeAuditLine[]>([]);
 
-  // Hook Integrations
   const { createStockTakeRecord, isCreating } = useStockTake();
-  const { stockItems: liveWarehouseStock, isLoading: isStockLoading } = useItemWarehouseStock(newWarehouseId || undefined);
-  const { data: warehouseData } = useWarehouses();
 
-  const warehouseList = useMemo(() => warehouseData || [], [warehouseData]);
+  // 1. Memoize hook parameters to prevent object reference changes on every render
+  const warehouseStockParams = useMemo(
+    () => ({ warehouseId: newWarehouseId || undefined }),
+    [newWarehouseId]
+  );
+
+  const { stockItems: rawStockItems, isLoading: isStockLoading } =
+    useItemWarehouseStock(warehouseStockParams);
+  const { data: warehouseData } = useWarehouses();
+  const { data: stockCatalogData } = useStockItems();
+
+  const warehouseList: Warehouse[] = useMemo(() => {
+    if (Array.isArray(warehouseData)) return warehouseData;
+    if (warehouseData && Array.isArray((warehouseData as any).data)) return (warehouseData as any).data;
+    if (warehouseData && Array.isArray((warehouseData as any).warehouses)) return (warehouseData as any).warehouses;
+    return [];
+  }, [warehouseData]);
+
+  const stockCatalogMap = useMemo(() => {
+    const map = new Map<string, StockItem>();
+    const catalog = Array.isArray(stockCatalogData)
+      ? stockCatalogData
+      : (stockCatalogData as any)?.data || [];
+
+    if (Array.isArray(catalog)) {
+      catalog.forEach((item: any) => {
+        const id = item.itemId || item.id || item.item_id;
+        const code = item.itemCode || item.code || item.item_code;
+        if (id) map.set(String(id), item);
+        if (code) map.set(String(code), item);
+      });
+    }
+    return map;
+  }, [stockCatalogData]);
 
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchTerm(searchInput);
-      setPageIndex(0); 
+      setPageIndex(0);
     }, 300);
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // Auto-populate counting form when target warehouse changes
+  // 2. Derive stable primitive signature for rawStockItems to prevent infinite loops
+  const stockItemsSignature = useMemo(() => {
+    if (!rawStockItems || !Array.isArray(rawStockItems)) return "";
+    return rawStockItems
+      .map(
+        (s: any) =>
+          `${s.itemId || s.id || s.item_id}_${s.quantityOnHand ?? s.quantity_on_hand ?? 0}`
+      )
+      .join("|");
+  }, [rawStockItems]);
+
+  // 3. Populate audit form lines safely when stock item data changes
   useEffect(() => {
-    if (liveWarehouseStock && liveWarehouseStock.length > 0) {
-      const initialLines = liveWarehouseStock.map((stock: ItemWarehouseStock) => ({
-        item_id: stock.itemId,
-        expected_quantity: String(stock.quantityOnHand || 0),
-        counted_quantity: String(stock.quantityOnHand || 0),
-        stock_code: stock.itemCode || "N/A",
-        description: stock.itemDescription || "N/A",
-        uom: "EA",
-      }));
+    if (!newWarehouseId) {
+      setCountFormLines([]);
+      return;
+    }
+
+    if (rawStockItems && Array.isArray(rawStockItems) && rawStockItems.length > 0) {
+      const initialLines: StockTakeAuditLine[] = rawStockItems.map((stock: any) => {
+        const itemId = String(stock.itemId || stock.id || stock.item_id || "");
+        const itemCode = stock.itemCode || stock.code || stock.item_code || "N/A";
+        const itemDescription =
+          stock.itemDescription || stock.description || stock.item_description || "N/A";
+
+        const catalogItem = stockCatalogMap.get(itemId) || stockCatalogMap.get(itemCode);
+        const sysQty = Number(stock.quantityOnHand ?? stock.quantity_on_hand ?? stock.quantity ?? 0);
+        const cost = Number(stock.averageCost ?? stock.average_cost ?? stock.unitCost ?? 0);
+
+        return {
+          itemId,
+          itemCode,
+          itemDescription,
+          stockUom: catalogItem?.stockUom || stock.uom || stock.stockUom || "EA",
+          systemQuantity: sysQty,
+          countedQuantity: sysQty,
+          unitCost: cost,
+        };
+      });
+
       setCountFormLines(initialLines);
       setPageIndex(0);
     } else {
       setCountFormLines([]);
     }
-  }, [liveWarehouseStock]);
+  }, [stockItemsSignature, newWarehouseId, stockCatalogMap]);
 
-  // Filter Master List
   const filteredCountLines = useMemo(() => {
     if (!searchTerm) return countFormLines;
     const lower = searchTerm.toLowerCase();
     return countFormLines.filter(
       (line) =>
-        line.stock_code?.toLowerCase().includes(lower) ||
-        line.description?.toLowerCase().includes(lower)
+        line.itemCode.toLowerCase().includes(lower) ||
+        line.itemDescription.toLowerCase().includes(lower)
     );
   }, [countFormLines, searchTerm]);
 
-  // Slice Filtered List for Pagination View
   const paginatedCountLines = useMemo(() => {
     const start = pageIndex * pageSize;
     return filteredCountLines.slice(start, start + pageSize);
   }, [filteredCountLines, pageIndex, pageSize]);
 
-  // Table Instance for TablePagination
   const pageCount = Math.ceil(filteredCountLines.length / pageSize) || 1;
   const tableInstance = {
     getState: () => ({ pagination: { pageIndex, pageSize } }),
-    setPageSize: (size: number) => { setPageSize(size); setPageIndex(0); },
+    setPageSize: (size: number) => {
+      setPageSize(size);
+      setPageIndex(0);
+    },
     previousPage: () => setPageIndex((prev) => Math.max(prev - 1, 0)),
     nextPage: () => setPageIndex((prev) => Math.min(prev + 1, pageCount - 1)),
     getCanPreviousPage: () => pageIndex > 0,
@@ -104,42 +174,56 @@ const NewStockTake: React.FC = () => {
   };
 
   const handleCountQtyChange = (itemId: string, val: string) => {
+    const numVal = val === "" ? 0 : Number(val);
     setCountFormLines((prev) =>
       prev.map((line) =>
-        line.item_id === itemId ? { ...line, counted_quantity: val } : line
+        line.itemId === itemId ? { ...line, countedQuantity: numVal } : line
       )
     );
   };
 
   const handleCreateStockTake = async () => {
     if (!newWarehouseId) return;
+
+    const payload: CreateStockTakeRequest = {
+      warehouseId: newWarehouseId,
+      operatorId: operatorId,
+      lines: countFormLines.map((line) => {
+        const qty = parseFloat(String(line.countedQuantity));
+        const cost = parseFloat(String(line.unitCost));
+        return {
+          itemId: line.itemId,
+          countedQuantity: Number.isNaN(qty) ? 0 : qty,
+          unitCost: Number.isNaN(cost) ? 0 : cost,
+        };
+      }),
+    };
+
     try {
-      await createStockTakeRecord({
-        warehouse_id: newWarehouseId,
-        lines: countFormLines.map((line) => ({
-          item_id: line.item_id,
-          counted_quantity: line.counted_quantity,
-          expected_quantity: line.expected_quantity,
-        })),
-      });
-      navigate('/inventory/stock-take');
-    } catch (err) {}
+      await createStockTakeRecord(payload);
+      navigate("/inventory/stock-take");
+    } catch (err) {
+      // Handled by notification handler in hook
+    }
   };
 
   document.title = "New Stock Take | Inventory";
 
   return (
-    /* Standard Velzon Page Content Wrapper with Safe Structural Padding */
     <div className="page-content position-relative">
       <Container fluid className="p-0">
         <Row>
           <Col lg={12}>
             <Card className="shadow-sm border-0 mb-0">
-              {/* Compact Header Bar */}
               <CardHeader className="border-bottom py-2 px-3 bg-white">
                 <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div className="d-flex align-items-center gap-2">
-                    <Button color="light" size="sm" className="btn-icon waves-effect py-0 px-1" onClick={() => navigate('/inventory/stock-take')}>
+                    <Button
+                      color="light"
+                      size="sm"
+                      className="btn-icon waves-effect py-0 px-1"
+                      onClick={() => navigate("/inventory/stock-take")}
+                    >
                       <i className="ri-arrow-left-line fs-13"></i>
                     </Button>
                     <div>
@@ -147,23 +231,36 @@ const NewStockTake: React.FC = () => {
                         New Stock Take Audit Session
                       </h6>
                       <small className="text-muted fs-10">
-                        Perform physical count and compute variance live
+                        Perform physical count and submit audit lines
                       </small>
                     </div>
                   </div>
 
                   <div className="d-flex align-items-center gap-1.5">
-                    <Button color="light" size="sm" className="fs-11 py-1 px-2" onClick={() => navigate('/inventory/stock-take')}>
+                    <Button
+                      color="light"
+                      size="sm"
+                      className="fs-11 py-1 px-2"
+                      onClick={() => navigate("/inventory/stock-take")}
+                    >
                       Cancel
                     </Button>
                     <Button
                       color="primary"
                       size="sm"
                       className="fs-11 fw-medium py-1 px-2.5"
-                      disabled={!newWarehouseId || countFormLines.length === 0 || isCreating}
+                      disabled={
+                        !newWarehouseId ||
+                        countFormLines.length === 0 ||
+                        isCreating
+                      }
                       onClick={handleCreateStockTake}
                     >
-                      {isCreating ? <Spinner size="sm" className="me-1" /> : <i className="ri-save-line me-1"></i>}
+                      {isCreating ? (
+                        <Spinner size="sm" className="me-1" />
+                      ) : (
+                        <i className="ri-save-line me-1"></i>
+                      )}
                       Save Stock Audit
                     </Button>
                   </div>
@@ -171,7 +268,6 @@ const NewStockTake: React.FC = () => {
               </CardHeader>
 
               <CardBody className="p-2.5">
-                {/* Compact Control Row */}
                 <Row className="g-2 mb-2">
                   <Col md={3} sm={12}>
                     <Label className="form-label fs-11 fw-medium text-muted mb-0.5">
@@ -187,11 +283,16 @@ const NewStockTake: React.FC = () => {
                       }}
                     >
                       <option value="">-- Select Warehouse --</option>
-                      {warehouseList.map((wh: any) => (
-                        <option key={wh.warehouseId} value={wh.warehouseId}>
-                          {wh.warehouseName} ({wh.warehouseCode})
-                        </option>
-                      ))}
+                      {warehouseList.map((wh: any) => {
+                        const whId = wh.warehouseId || wh.id || wh.warehouse_id;
+                        const whName = wh.warehouseName || wh.name || wh.warehouse_name;
+                        const whCode = wh.warehouseCode || wh.code || wh.warehouse_code;
+                        return (
+                          <option key={whId} value={whId}>
+                            {whName} ({whCode})
+                          </option>
+                        );
+                      })}
                     </Input>
                   </Col>
 
@@ -201,7 +302,7 @@ const NewStockTake: React.FC = () => {
                         <Input
                           type="text"
                           className="form-control form-control-sm fs-11 ps-4 py-1"
-                          placeholder="Search item code or description in selected warehouse..."
+                          placeholder="Search stock code or description..."
                           value={searchInput}
                           onChange={(e) => setSearchInput(e.target.value)}
                         />
@@ -211,42 +312,74 @@ const NewStockTake: React.FC = () => {
                   )}
                 </Row>
 
-                {/* Ultra-Dense Item Counting Grid */}
                 {newWarehouseId ? (
                   isStockLoading ? (
                     <div className="text-center py-4">
                       <Spinner size="sm" color="primary" className="me-2" />
-                      <span className="text-muted fs-11">Loading warehouse stock balances...</span>
+                      <span className="text-muted fs-11">
+                        Loading warehouse stock balances...
+                      </span>
                     </div>
                   ) : countFormLines.length > 0 ? (
                     <>
                       <div className="table-responsive border rounded mb-2">
-                        <Table hover responsive size="sm" className="align-middle mb-0 custom-datatable table-sm">
-                          <thead className="table-light text-muted text-uppercase fs-9 border-bottom sticky-top" style={{ zIndex: 1 }}>
+                        <Table
+                          hover
+                          responsive
+                          size="sm"
+                          className="align-middle mb-0 custom-datatable table-sm"
+                        >
+                          <thead
+                            className="table-light text-muted text-uppercase fs-9 border-bottom sticky-top"
+                            style={{ zIndex: 1 }}
+                          >
                             <tr>
-                              <th style={{ width: "16%" }} className="ps-3 py-1.5">Stock Code</th>
-                              <th style={{ width: "40%" }} className="py-1.5">Description</th>
-                              <th style={{ width: "8%" }} className="py-1.5">UOM</th>
-                              <th style={{ width: "12%" }} className="text-end py-1.5">System Qty</th>
-                              <th style={{ width: "12%" }} className="text-end py-1.5">Counted Qty</th>
-                              <th style={{ width: "12%" }} className="text-end pe-3 py-1.5">Variance</th>
+                              <th style={{ width: "16%" }} className="ps-3 py-1.5">
+                                Stock Code
+                              </th>
+                              <th style={{ width: "36%" }} className="py-1.5">
+                                Description
+                              </th>
+                              <th style={{ width: "8%" }} className="py-1.5">
+                                UOM
+                              </th>
+                              <th style={{ width: "12%" }} className="text-end py-1.5">
+                                System Qty
+                              </th>
+                              <th style={{ width: "14%" }} className="text-end py-1.5">
+                                Counted Qty
+                              </th>
+                              <th
+                                style={{ width: "14%" }}
+                                className="text-end pe-3 py-1.5"
+                              >
+                                Variance
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="fs-11 font-monospace">
                             {paginatedCountLines.map((line) => {
-                              const exp = Number(line.expected_quantity || 0);
-                              const cnt = Number(line.counted_quantity || 0);
+                              const exp = line.systemQuantity;
+                              const cnt = line.countedQuantity;
                               const variance = cnt - exp;
 
                               return (
-                                <tr key={line.item_id}>
-                                  <td className="py-1 ps-3 fw-semibold text-primary">{line.stock_code}</td>
-                                  <td className="py-1 font-sans-serif text-truncate" style={{ maxWidth: "340px" }}>
-                                    {line.description}
+                                <tr key={line.itemId}>
+                                  <td className="py-1 ps-3 fw-semibold text-primary">
+                                    {line.itemCode}
+                                  </td>
+                                  <td
+                                    className="py-1 font-sans-serif text-truncate"
+                                    style={{ maxWidth: "340px" }}
+                                  >
+                                    {line.itemDescription}
                                   </td>
                                   <td className="py-1">
-                                    <Badge color="light" className="text-secondary border fs-9 fw-normal px-1 py-0">
-                                      {line.uom}
+                                    <Badge
+                                      color="light"
+                                      className="text-secondary border fs-9 fw-normal px-1 py-0"
+                                    >
+                                      {line.stockUom}
                                     </Badge>
                                   </td>
                                   <td className="py-1 text-end fw-semibold text-dark">
@@ -257,14 +390,26 @@ const NewStockTake: React.FC = () => {
                                       type="number"
                                       bsSize="sm"
                                       className="form-control-sm text-end font-monospace fs-11 py-0 px-1 border-primary-subtle"
-                                      style={{ maxWidth: "100px", marginLeft: "auto" }}
-                                      value={line.counted_quantity}
-                                      onChange={(e) => handleCountQtyChange(line.item_id, e.target.value)}
+                                      style={{
+                                        maxWidth: "100px",
+                                        marginLeft: "auto",
+                                      }}
+                                      value={line.countedQuantity}
+                                      onChange={(e) =>
+                                        handleCountQtyChange(
+                                          line.itemId,
+                                          e.target.value
+                                        )
+                                      }
                                     />
                                   </td>
                                   <td
                                     className={`py-1 text-end pe-3 fw-semibold ${
-                                      variance < 0 ? "text-danger" : variance > 0 ? "text-success" : "text-muted"
+                                      variance < 0
+                                        ? "text-danger"
+                                        : variance > 0
+                                        ? "text-success"
+                                        : "text-muted"
                                     }`}
                                   >
                                     {variance > 0 ? `+${variance}` : variance}
@@ -299,4 +444,4 @@ const NewStockTake: React.FC = () => {
   );
 };
 
-export default NewStockTake;
+export default NewStockTake; 

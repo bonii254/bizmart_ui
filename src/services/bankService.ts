@@ -3,31 +3,29 @@ import {
   Bank, 
   BankPayload, 
   UpdateBankRequest, 
-  BankListResponse 
+  ApiResponse 
 } from "../types/bank";
 
 const api = new APIClient();
 
 export const BankService = {
-  getBanks: async (page = 1, perPage = 100): Promise<BankListResponse> => {
-    return await api.get(`/banks`, { params: { page, per_page: perPage } });
+  getBanks: async (): Promise<ApiResponse<Bank[]>> => {
+    return await api.get(`/api/banks`);
   },
 
-  getBankById: async (id: string): Promise<Bank> => {
-    return await api.get(`/banks/${id}`);
+  getBankById: async (id: string): Promise<ApiResponse<Bank>> => {
+    return await api.get(`/api/banks/${id}`);
   },
 
-  createBank: async (payload: BankPayload): Promise<Bank> => {
-    const response = await api.create(`/banks`, payload);
-    return response.bank ?? response;
+  createBank: async (payload: BankPayload): Promise<ApiResponse<string>> => {
+    return await api.create(`/api/banks`, payload);
   },
 
-  updateBank: async (id: string, payload: UpdateBankRequest): Promise<Bank> => {
-    const response = await api.update(`/banks/${id}`, payload);
-    return response.bank ?? response;
+  updateBank: async (id: string, payload: UpdateBankRequest): Promise<ApiResponse<string>> => {
+    return await api.create(`/api/banks/${id}/update`, payload);
   },
 
-  deleteBank: async (id: string): Promise<{ message: string }> => {
-    return await api.delete(`/banks/${id}`);
+  deleteBank: async (id: string): Promise<ApiResponse<string>> => {
+    return await api.create(`/api/banks/${id}/delete`, {});
   }
 };

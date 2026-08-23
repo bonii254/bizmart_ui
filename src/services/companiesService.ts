@@ -23,11 +23,11 @@ export const CompanyService = {
     id: string,
     payload: UpdateCompanyRequest,
   ): Promise<Company> => {
-    const response = await api.update(`${BASE_URL}/${id}`, payload);
+    const response = await api.create(`${BASE_URL}/${id}`, payload);
     return response.data;
   },
 
   deleteCompany: async (id: string): Promise<{ message: string }> => {
-    return await api.delete(`${BASE_URL}/${id}`);
+    return await api.create(`${BASE_URL}/${id}`, "");
   },
 };
