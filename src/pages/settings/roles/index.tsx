@@ -120,20 +120,26 @@ const RoleManagement: React.FC = () => {
         setGlobalError(null);
 
         const payload: CreateRolePayload = {
-          roleCode: values.roleCode,
-          roleName: values.roleName,
+          ...values,
           description: values.description ? values.description : "",
-          isActive: values.isActive,
         };
 
         if (isEditMode && currentRoleId) {
-          await updateRole({ 
-          roleId: currentRoleId, 
-          data: payload as UpdateRolePayload 
-        });
-      } else {
-        await createRole(payload);
-      }
+          const patchedData: UpdateRolePayload = {};
+
+          // Compare submitted values strictly against initial values to build patch diff
+          (Object.keys(payload) as Array<keyof CreateRolePayload>).forEach((key) => {
+            if (payload[key] !== formik.initialValues[key]) {
+              patchedData[key] = payload[key] as any;
+            }
+          });
+
+          if (Object.keys(patchedData).length > 0) {
+            await updateRole({ roleId: currentRoleId, data: patchedData });
+          }
+        } else {
+          await createRole(payload);
+        }
         setModalOpen(false);
       } catch (error: unknown) {
         handleBackendErrors(error, formik.setErrors, setGlobalError);
