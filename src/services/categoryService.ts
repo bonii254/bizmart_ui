@@ -32,12 +32,12 @@ export const CategoryService = {
   },
 
   updateCategory: async (id: string, payload: UpdateCategoryRequest): Promise<Category> => {
-    const response: SingleCategoryResponse = await api.update(`${BASE_URL}/${id}`, payload);
+    const response: SingleCategoryResponse = await api.create(`${BASE_URL}/${id}/update`, payload);
     return response.data;
   },
 
   deleteCategory: async (id: string): Promise<{ message: string }> => {
-    const response: { message: string } = await api.delete(`${BASE_URL}/${id}`);
+    const response: { message: string } = await api.create(`${BASE_URL}/${id}/delete`, "");
     return response;
   }
 };

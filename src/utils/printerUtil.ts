@@ -31,7 +31,7 @@ export const printGRNReceipt = async (
       receiptNo: receiptData.documentNumber,
       date: new Date(receiptData.postedAt).toLocaleString("en-KE"),
       cashier: operatorName,
-      customerName: `SUPPLIER: ${supplierName}`,
+      customerName: ` ${supplierName}`,
       items: lines.map((l) => {
         const isAltUom = l.selectedUom === l.altUom;
         const printQty = isAltUom ? l.enteredQty * l.conversionFactor : l.enteredQty;

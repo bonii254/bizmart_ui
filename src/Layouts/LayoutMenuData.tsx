@@ -8,7 +8,7 @@ const Navdata = () => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const roleAccess: Record<string, string[]> = {
-    ATTENDANT: [
+    NEWROLE: [
       "pos",
       "dashboard",
       "sales",
@@ -16,7 +16,7 @@ const Navdata = () => {
       "crm",
       "reports"
     ],
-    QAE: [
+    NEW: [
       "dashboard",
       "inventory",
       "purchasing",
@@ -37,7 +37,7 @@ const Navdata = () => {
 
   const dashboardItems = [
     // ----------------------------------------------------
-    // FRONT-OF-HOUSE (POS TERMINAL)
+    //  (POS TERMINAL)
     // ----------------------------------------------------
     {
       id: "dashboard",

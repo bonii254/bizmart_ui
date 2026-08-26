@@ -185,9 +185,9 @@ export const generateESCPOSText = (data: ReceiptData): string => {
 
   // Header Section
   receipt += `${BOLD_ON}${DOUBLE_HEIGHT}`;
-  receipt += center((data.companyName ?? "FRESHA ENTERPRISES").toUpperCase());
+  receipt += center((data.companyName ?? "REFRESHMENT SHOP").toUpperCase());
   receipt += NORMAL_TEXT;
-  receipt += center(data.storeName ?? "MAIN WAREHOUSE");
+  receipt += center(data.storeName ?? "REFRESHMENT SHOP");
   receipt += `${"-".repeat(LINE_WIDTH)}\n`;
 
   // Receipt Meta
