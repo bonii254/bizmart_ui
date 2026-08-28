@@ -26,8 +26,9 @@ import {
 import { useCategories } from "../../Components/Hooks/useCategory";
 import { useCustomers } from "../../Components/Hooks/useCustomers";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
-import { useCompanies } from "../../Components/Hooks/useCompanies"
+import { useCompanies } from "../../Components/Hooks/useCompanies";
 import { useBanks } from "../../Components/Hooks/useBanks";
+import { Bank } from "../../types/bank";
 import { 
   usePrinters, 
   usePrintReceiptMutation 
@@ -75,11 +76,11 @@ export const PointOfSale: React.FC = () => {
   const [selectedPrinter, setSelectedPrinter] = useState<string>("");
   const [warehouseId, setWarehouseId] = useState<string>("");
   const [bankId, setBankId] = useState<string>("");
-  const [companyName, setCompanyName] = useState<string>("")
+  const [companyName, setCompanyName] = useState<string>("");
   const [customerId, setCustomerId] = useState<string>("");
 
   const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
-  const { data: banksData, isLoading: isBanksLoading } = useBanks();
+  const { data: banksData = [] } = useBanks();
   const { data: companiesData } = useCompanies();
   const { data: stockItems = [], isLoading: isStockLoading } = useStockItems();
 
@@ -138,19 +139,49 @@ export const PointOfSale: React.FC = () => {
   }, [customersList, customerId]);
 
   useEffect(() => {
-    if (companiesList.length > 0 ){
+    if (companiesList.length > 0) {
       const firstCompany = companiesList[0];
       setCompanyName(firstCompany.companyName);
     }
-  }, [companiesList, companyName])
-  
+  }, [companiesList, companyName]);
 
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodCode>("CASH");
+  const [amountTendered, setAmountTendered] = useState<string>("");
+  const [paymentReference, setPaymentReference] = useState<string>("");
+  const [cart, setCart] = useState<CartLineItem[]>([]);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  // Automatically determine bankId based on paymentMethod selection and bankName matching
   useEffect(() => {
-    if (banksList.length > 0 && !bankId) {
-      const firstBank = banksList[0];
-      setBankId(String(firstBank.bankId));
+    if (!banksList || banksList.length === 0) return;
+
+    let matchedBank: Bank | undefined;
+
+    if (paymentMethod === "CASH") {
+      matchedBank = banksList.find((b: Bank) =>
+        (b.bankName ?? "").toUpperCase().includes("CASH")
+      );
+    } else if (paymentMethod === "MOBILE") {
+      matchedBank = banksList.find((b: Bank) =>
+        (b.bankName ?? "").toUpperCase().includes("MOBILE") ||
+        (b.bankName ?? "").toUpperCase().includes("MPESA") ||
+        (b.bankName ?? "").toUpperCase().includes("M-PESA")
+      );
+    } else if (paymentMethod === "CARD") {
+      matchedBank = banksList.find((b: Bank) =>
+        (b.bankName ?? "").toUpperCase().includes("CARD") ||
+        (!(b.bankName ?? "").toUpperCase().includes("CASH") && !(b.bankName ?? "").toUpperCase().includes("MOBILE"))
+      );
     }
-  }, [banksList, bankId]);
+
+    const targetBank = matchedBank || banksList[0];
+    if (targetBank) {
+      setBankId(String(targetBank.bankId));
+    }
+  }, [banksList, paymentMethod]);
 
   useEffect(() => {
     if (printersList.length > 0 && !selectedPrinter) { 
@@ -170,14 +201,6 @@ export const PointOfSale: React.FC = () => {
   const selectedCustomer = useMemo(() => {
     return customersList.find((c: any) => String(c.customerId) === String(customerId));
   }, [customersList, customerId]);
-
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodCode>("CASH");
-  const [amountTendered, setAmountTendered] = useState<string>("");
-  const [cart, setCart] = useState<CartLineItem[]>([]);
-  const [catalogSearch, setCatalogSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
 
   const cartMap = useMemo(() => {
     const map = new Map<string, CartLineItem>();
@@ -307,6 +330,7 @@ export const PointOfSale: React.FC = () => {
   const handleClearCart = () => {
     setCart([]);
     setAmountTendered("");
+    setPaymentReference("");
   };
 
   const handleSubmitSale = async (e: React.FormEvent) => {
@@ -337,14 +361,19 @@ export const PointOfSale: React.FC = () => {
       return;
     }
 
+    if ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()) {
+      toast.error("Please enter the payment reference code.");
+      return;
+    }
+
     const payload: CreateSalesReceiptPayload = {
       warehouseId,
       customerId,
       operatorId,
-      paidAmount: paymentMethod === "CASH" ? cartTotals.grandTotal : 0,
+      paidAmount: cartTotals.grandTotal,
       paymentMethodCode: paymentMethod,
       bankId,
-      paymentReference: paymentMethod === "CASH" ? "CASH" : `REF-${Date.now()}`,
+      paymentReference: paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
       lines: cart.map((item) => ({
         itemId: item.itemId,
         quantity: Number(item.quantity),
@@ -430,7 +459,7 @@ export const PointOfSale: React.FC = () => {
                             POS Terminal
                           </h5>
                           
-                          <div className="flex-grow-1" style={{ maxWidth: "170px" }}>
+                          <div className="flex-grow-1" style={{ maxWidth: "220px" }}>
                             {isWarehousesLoading ? (
                               <Spinner size="sm" color="primary" />
                             ) : (
@@ -453,30 +482,7 @@ export const PointOfSale: React.FC = () => {
                             )}
                           </div>
 
-                          <div className="flex-grow-1" style={{ maxWidth: "170px" }}>
-                            { isBanksLoading ? (
-                              <Spinner size="sm" color="primary" />
-                            ) : (
-                              <Input
-                                type="select"
-                                className="form-select form-select-sm fs-12"
-                                value={bankId}
-                                onChange={(e) => setBankId(e.target.value)}
-                              >
-                                <option value="" disabled>Select Bank</option>
-                                {banksList.map((bk: any) => {
-                                  const id = String(bk.bankId);
-                                  return (
-                                    <option key={id} value={id}>
-                                      {bk.bankName}
-                                    </option>
-                                  );
-                                })}
-                              </Input>
-                            )}
-                          </div>
-
-                          <div className="flex-grow-1" style={{ maxWidth: "180px" }}>
+                          <div className="flex-grow-1" style={{ maxWidth: "220px" }}>
                             {isPrintersLoading ? (
                               <Spinner size="sm" color="secondary" />
                             ) : (
@@ -775,6 +781,24 @@ export const PointOfSale: React.FC = () => {
                       </div>
                     )}
 
+                    {(paymentMethod === "MOBILE" || paymentMethod === "CARD") && (
+                      <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="fs-11 fw-medium text-muted">
+                            {paymentMethod === "MOBILE" ? "M-Pesa / Mobile Ref Code" : "Card Reference Code"}
+                          </span>
+                        </div>
+                        <Input
+                          type="text"
+                          placeholder={paymentMethod === "MOBILE" ? "e.g. QHX123456" : "e.g. CARD-REF-1001"}
+                          bsSize="sm"
+                          className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold shadow-none"
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(e.target.value)}
+                        />
+                      </div>
+                    )}
+
                     <div className="mb-2 px-1 fs-11 text-muted">
                       <div className="d-flex justify-content-between">
                         <span>Subtotal:</span>
@@ -807,9 +831,9 @@ export const PointOfSale: React.FC = () => {
                       type="submit"
                       className="w-100 border-0 rounded py-2 shadow-sm d-flex justify-content-between align-items-center px-3"
                       style={{
-                        backgroundColor: (isPosting || isPrinting || cart.length === 0 || isInsufficientCash) ? "#a3b4cc" : BRAND_PURPLE,
+                        backgroundColor: (isPosting || isPrinting || cart.length === 0 || isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim())) ? "#a3b4cc" : BRAND_PURPLE,
                       }}
-                      disabled={isPosting || isPrinting || cart.length === 0 || isInsufficientCash}
+                      disabled={isPosting || isPrinting || cart.length === 0 || isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim())}
                     >
                       <span className="fs-13 fw-semibold text-white">
                         {isPosting ? "Posting Order..." : isPrinting ? "Printing..." : "Charge & Print"}
