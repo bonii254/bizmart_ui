@@ -63,3 +63,70 @@ export interface InventoryTransactionsResponse {
   message: string;
   data: InventoryTransaction[];
 }
+
+export interface SalesPerItemReportResponse {
+  sold_at?: string;
+  soldAt?: string;
+  invoice_number?: string;
+  invoiceNumber?: string;
+  customer_name?: string;
+  customerName?: string;
+  item_code?: string;
+  itemCode?: string;
+  description?: string;
+  stock_uom?: string;
+  stockUom?: string;
+  quantity: number;
+  unit_price?: number;
+  unitPrice?: number;
+  line_total?: number;
+  lineTotal?: number;
+
+  itemId?: string;
+  sellingPrice?: number;
+  productClassDescription?: string;
+}
+
+export interface SalesPerItemReportResponse {
+  success: boolean;
+  message: string;
+  data: SalesPerItemReportResponse[];
+}
+
+export interface SalesPerItemQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  itemId?: string;
+}
+
+export interface GroupedDataRecord {
+  [stockCode: string]: {
+    description: string;
+    transactions: SalesPerItemReportResponse[];
+    totalQty: number;
+    totalValue: number;
+  };
+}
+
+export interface SummaryClassAccumulator {
+  description: string;
+  totalQty: number;
+  totalValue: number;
+  items: {
+    [stockCode: string]: {
+      description: string;
+      totalQty: number;
+      totalValue: number;
+    };
+  };
+}
+
+export interface SummaryTableRow {
+  key: string;
+  stockCode: string;
+  description: string;
+  totalQty: number;
+  totalValue: number;
+  isProductClass: boolean;
+  children?: SummaryTableRow[];
+}

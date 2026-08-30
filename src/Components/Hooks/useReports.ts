@@ -4,7 +4,9 @@ import {
   StockTakeBrowseQueryParams, 
   StockTakeTransaction,
   InventoryTransactionQueryParams,
-  InventoryTransaction
+  InventoryTransaction,
+  SalesPerItemQueryParams,
+  SalesPerItemReportResponse
 } from "../../types/reports";
 
 export const useStockTakeTransactions = (params?: StockTakeBrowseQueryParams) => {
@@ -23,6 +25,27 @@ export const useInventoryTransactions = (params?: InventoryTransactionQueryParam
     queryFn: async () => {
       const res = await StockTakeBrowseService.getInventoryTransactions(params);
       return res.data ?? [];
+    },
+  });
+};
+
+export const useSalesPerItemReport = (params?: SalesPerItemQueryParams) => {
+  return useQuery<SalesPerItemReportResponse[]>({
+    queryKey: ["sales-per-item-report", params],
+    queryFn: async () => {
+      const rawList = await StockTakeBrowseService.getSalesPerItemReport(params);
+
+      return rawList.data.map((item: any) => ({
+        ...item,
+        soldAt: item.soldAt || item.sold_at,
+        invoiceNumber: item.invoiceNumber || item.invoice_number,
+        customerName: item.customerName || item.customer_name,
+        itemCode: item.itemCode || item.item_code,
+        stockUom: item.stockUom || item.stock_uom,
+        unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.sellingPrice ?? 0),
+        quantity: Number(item.quantity ?? 0),
+        lineTotal: Number(item.lineTotal ?? item.line_total ?? 0),
+      }));
     },
   });
 };
