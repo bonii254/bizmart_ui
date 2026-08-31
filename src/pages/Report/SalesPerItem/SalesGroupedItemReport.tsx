@@ -50,7 +50,7 @@ const SalesGroupedItemReport: React.FC<Props> = ({ data = [], loading = false })
           transactions: [],
           totalQty: 0,
           totalValue: 0,
-        };
+        }; 
       }
       
       const qty = item.quantity || 0;

@@ -86,7 +86,7 @@ const StockItemManagement: React.FC = () => {
   const [currentStockItemId, setCurrentStockItemId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<string>("");
 
-  // Extract categories safely using updated Category type { id, name }
+  // Extract categories safely
   const categoriesList: Category[] = useMemo(() => {
     if (!categoryData) return [];
     if (Array.isArray(categoryData)) return categoryData;
@@ -96,6 +96,19 @@ const StockItemManagement: React.FC = () => {
       []
     );
   }, [categoryData]);
+
+  // Map of categoryId -> Category Name for fast lookup
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    categoriesList.forEach((cat: any) => {
+      const id = cat.categoryId;
+      const name = cat.categoryName ;
+      if (id && name) {
+        map.set(id, name);
+      }
+    });
+    return map;
+  }, [categoriesList]);
 
   // Filter items based on Category selection & client-side search term
   const filteredStockItems = useMemo(() => {
@@ -107,17 +120,23 @@ const StockItemManagement: React.FC = () => {
 
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
-      list = list.filter(
-        (item) =>
+      list = list.filter((item) => {
+        const catName =
+          (item.categoryId ? categoryMap.get(item.categoryId) : "") ||
+          item.categoryName ||
+          item.category?.name ||
+          "";
+
+        return (
           item.itemCode?.toLowerCase().includes(lowerSearch) ||
           item.description?.toLowerCase().includes(lowerSearch) ||
-          item.categoryName?.toLowerCase().includes(lowerSearch) ||
-          item.category?.name?.toLowerCase().includes(lowerSearch)
-      );
+          catName.toLowerCase().includes(lowerSearch)
+        );
+      });
     }
 
     return list;
-  }, [stockItems, selectedCategoryId, searchTerm]);
+  }, [stockItems, selectedCategoryId, searchTerm, categoryMap]);
 
   const paginatedRows = useMemo(() => {
     const start = pageIndex * pageSize;
@@ -256,11 +275,15 @@ const StockItemManagement: React.FC = () => {
                       }}
                     >
                       <option value="">All Categories</option>
-                      {categoriesList.map((cat) => (
-                        <option key={cat.categoryId} value={cat.categoryId}>
-                          {cat.categoryName}
-                        </option>
-                      ))}
+                      {categoriesList.map((cat: any) => {
+                        const id = cat.categoryId || cat.id;
+                        const name = cat.categoryName || cat.name || cat.description;
+                        return (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        );
+                      })}
                     </Input>
                   </Col>
 
@@ -316,7 +339,7 @@ const StockItemManagement: React.FC = () => {
                         <th className="py-2">Description</th>
                         <th className="py-2 text-nowrap">Selling Price</th>
                         <th className="py-2 text-nowrap">UOM</th>
-                        <th className="py-2 text-nowrap">alternateUom</th>
+                        <th className="py-2 text-nowrap">Alternate UOM</th>
                         <th className="py-2 text-nowrap">Category</th>
                         <th className="py-2 text-nowrap">Status</th>
                         <th className="text-end pe-3 py-2 text-nowrap">Actions</th>
@@ -325,15 +348,20 @@ const StockItemManagement: React.FC = () => {
                     <tbody className="fs-12">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-4">
+                          <td colSpan={8} className="text-center py-4">
                             <Spinner size="sm" color="primary" />
                           </td>
                         </tr>
                       ) : paginatedRows.length > 0 ? (
                         paginatedRows.map((item: StockItem) => {
                           const activeId = item.itemId || item.id || "";
+                          
+                          // Resolve Category Name: via categoryMap, item properties, or fallbacks
                           const categoryDisplayName =
-                            item.categoryName || item.category?.name || "-";
+                            (item.categoryId ? categoryMap.get(item.categoryId) : "") ||
+                            item.categoryName ||
+                            item.category?.name ||
+                            "-";
 
                           return (
                             <tr key={activeId} className="align-middle">
@@ -364,10 +392,14 @@ const StockItemManagement: React.FC = () => {
                                 </Badge>
                               </td>
                               <td className="py-2 text-nowrap">
-                                <Badge color="light" className="text-muted border fs-10 fw-normal px-1.5 py-0.5">
-                                    Alt: {item.alternateUom}
-                                  </Badge>    
-                                </td>
+                                {item.alternateUom ? (
+                                  <Badge color="light" className="text-muted border fs-10 fw-normal px-1.5 py-0.5">
+                                    Alt: {item.alternateUom} ({item.alternateConversionFactor || 1})
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted fs-11">-</span>
+                                )}
+                              </td>
                               <td className="py-2 text-nowrap">
                                 {categoryDisplayName !== "-" ? (
                                   <span className="badge bg-info-subtle text-info border fs-10 fw-medium px-1.5 py-0.5">
@@ -418,7 +450,7 @@ const StockItemManagement: React.FC = () => {
                         })
                       ) : (
                         <tr>
-                          <td colSpan={7} className="text-center py-4 text-muted fs-12">
+                          <td colSpan={8} className="text-center py-4 text-muted fs-12">
                             No master stock items found matching your filters.
                           </td>
                         </tr>
@@ -436,6 +468,7 @@ const StockItemManagement: React.FC = () => {
         </Row>
       </Container>
 
+      {/* Modal Form */}
       <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)} centered size="lg">
         <ModalHeader className="bg-light p-3 border-bottom-dashed" toggle={() => setModalOpen(false)}>
           {isEditMode ? "Update Stock Item" : "Register New Stock Item"}
@@ -509,9 +542,7 @@ const StockItemManagement: React.FC = () => {
 
               <Col md={4} sm={12}>
                 <FormGroup>
-                  <Label className="form-label fs-12 fw-medium">
-                    Category <span className="text-danger">*</span>
-                  </Label>
+                  <Label className="form-label fs-12 fw-medium">Category</Label>
                   <Input
                     type="select"
                     bsSize="sm"
@@ -519,11 +550,15 @@ const StockItemManagement: React.FC = () => {
                     invalid={!!(formik.touched.categoryId && formik.errors.categoryId)}
                   >
                     <option value="">-- Select Category --</option>
-                    {categoriesList.map((cat) => (
-                      <option key={cat.categoryId} value={cat.categoryId}>
-                        {cat.categoryName}
-                      </option>
-                    ))}
+                    {categoriesList.map((cat: any) => {
+                      const id = cat.categoryId || cat.id;
+                      const name = cat.categoryName || cat.name || cat.description;
+                      return (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      );
+                    })}
                   </Input>
                   <FormFeedback>{formik.errors.categoryId}</FormFeedback>
                 </FormGroup>
@@ -588,6 +623,7 @@ const StockItemManagement: React.FC = () => {
         </Form>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
       <Modal isOpen={deleteModal} toggle={() => setDeleteModal(false)} centered>
         <ModalBody className="p-4 text-center">
           <i className="ri-error-warning-line display-4 text-warning"></i>

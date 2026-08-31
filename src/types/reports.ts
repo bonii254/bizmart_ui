@@ -130,3 +130,53 @@ export interface SummaryTableRow {
   isProductClass: boolean;
   children?: SummaryTableRow[];
 }
+
+export interface SalesPerCustomerItem {
+  soldAt: string;
+  invoiceNumber: string;
+  customerCode: string;
+  customerName: string;
+  itemCode: string;
+  description: string;
+  stockUom: string;
+  quantity: number;
+  unitPrice?: number;
+  lineTotal: number;
+  saleType?: string;
+}
+
+export interface SalesPerCustomerReportResponse {
+  success: boolean;
+  message: string;
+  data: SalesPerCustomerItem[];
+}
+
+export interface SalesPerCustomerQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  customerId?: string;
+}
+
+export interface CustomerSummaryAccumulator {
+  customerCode: string;
+  customerName: string;
+  totalQty: number;
+  totalValue: number;
+  items: {
+    [stockCode: string]: {
+      description: string;
+      totalQty: number;
+      totalValue: number;
+    };
+  };
+}
+
+export interface CustomerSummaryTableRow {
+  key: string;
+  customerCodeOrItem: string;
+  customerNameOrDescription: string;
+  totalQty: number;
+  totalValue: number;
+  isCustomerGroup: boolean;
+  children?: CustomerSummaryTableRow[];
+}

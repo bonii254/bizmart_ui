@@ -18,6 +18,7 @@ import AuditLogs from "../pages/AuditLogs/AuditLogs";
 import StockTakeReport from "../pages/Report/StockTakeReport";
 import InventoryTransactions from "../pages/Report/InventoryTransactions"
 import SalesPerItem from "../pages/Report/SalesPerItem/SalesPerItem"
+import SalesPerCustomer from "../pages/Report/SalesPerCustomer/SalesPerCustomer"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -79,6 +80,8 @@ const authProtectedRoutes = [
   { path: "/reports/stocktake-transactions", component: <StockTakeReport /> },
   { path: "/reports/inventory-transactions", component: <InventoryTransactions /> },
   { path: "/reports/sales-per-item", component: <SalesPerItem />},
+  { path: "/reports/sales-per-customer", component: <SalesPerCustomer /> },
+
 
   { path: "/pages-profile", component: <SimplePage /> },
   { path: "/pages-profile-settings", component: <Settings /> },

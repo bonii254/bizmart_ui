@@ -5,7 +5,9 @@ import {
   InventoryTransactionQueryParams,
   InventoryTransactionsResponse,
   SalesPerItemQueryParams,
-  SalesPerItemReportResponse
+  SalesPerItemReportResponse,
+  SalesPerCustomerQueryParams,
+  SalesPerCustomerReportResponse
 } from "../types/reports";
 
 const api = new APIClient();
@@ -62,5 +64,37 @@ export const StockTakeBrowseService = {
       message: "No data available",
       data: [],
     } as SalesPerItemReportResponse;
+  },
+
+  getSalesPerCustomerReport: async (
+    params?: SalesPerCustomerQueryParams
+  ): Promise<SalesPerCustomerReportResponse> => {
+    const response = await api.get(
+      `/api/reports/sales-per-customer`, params
+    );
+    const result = response.data;
+
+    if (Array.isArray(result)) {
+      return {
+        success: true,
+        message: "Sales per customer report retrieved successfully.",
+        data: result,
+      };
+    }
+
+    if (result && Array.isArray(result.data)) {
+      return {
+        ...result,
+        success: result.success ?? true,
+        message: result.message ?? "Sales per customer report retrieved successfully.",
+        data: result.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: "No data available",
+      data: [],
+    };
   }
 };
