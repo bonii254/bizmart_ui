@@ -180,3 +180,54 @@ export interface CustomerSummaryTableRow {
   isCustomerGroup: boolean;
   children?: CustomerSummaryTableRow[];
 }
+
+export interface PeriodicInventorySummaryQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  warehouseId?: string;
+  itemId?: string;
+}
+
+export interface PeriodicInventorySummaryItem {
+  period_month: string;
+  periodMonth?: string;
+  warehouse_code: string;
+  warehouseCode?: string;
+  item_code: string;
+  itemCode?: string;
+  description: string;
+  stock_uom: string;
+  stockUom?: string;
+  opening_balance: number;
+  openingBalance?: number;
+  receipts: number;
+  sales: number;
+  expenses: number;
+  adjustments: number;
+  closing_balance: number;
+  closingBalance?: number;
+}
+
+export interface PeriodicInventorySummaryResponse {
+  success: boolean;
+  message: string;
+  data: PeriodicInventorySummaryItem[];
+}
+
+export interface StoreItemSummary {
+  itemId: string;
+  itemCode: string;
+  description: string;
+  stockUom: string;
+  sellingPrice: number;
+  quantityOnHand: number;
+  averageCost: number;
+  inventoryValue: number;
+}
+
+export interface StoreItemSummaryResponse {
+  success: boolean;
+  message: string;
+  data: StoreItemSummary[];
+}
+

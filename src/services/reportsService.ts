@@ -7,7 +7,10 @@ import {
   SalesPerItemQueryParams,
   SalesPerItemReportResponse,
   SalesPerCustomerQueryParams,
-  SalesPerCustomerReportResponse
+  SalesPerCustomerReportResponse,
+  PeriodicInventorySummaryQueryParams,
+  PeriodicInventorySummaryResponse,
+  StoreItemSummaryResponse,
 } from "../types/reports";
 
 const api = new APIClient();
@@ -96,5 +99,56 @@ export const StockTakeBrowseService = {
       message: "No data available",
       data: [],
     };
-  }
+  },
+
+  getPeriodicInventorySummary: async (
+    params?: PeriodicInventorySummaryQueryParams
+  ): Promise<PeriodicInventorySummaryResponse> => {
+    const response = await api.get(
+      `/api/reports/periodic-inventory-summary`, params
+    );
+    const result = response.data;
+
+    if (Array.isArray(result)) {
+      return {
+        success: true,
+        message: "Periodic inventory summary retrieved successfully.",
+        data: result,
+      };
+    }
+
+    if (result && Array.isArray(result.data)) {
+      return {
+        ...result,
+        success: result.success ?? true,
+        message: result.message ?? "Periodic inventory summary retrieved successfully.",
+        data: result.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: "No data available",
+      data: [],
+    };
+  },
+
+  getStoreItemSummary: async (): Promise<StoreItemSummaryResponse> => {
+    const response = await api.get(`/api/browses/store-item-summary`);
+
+      const body = Array.isArray(response)
+        ? { success: true, message: "", data: response }
+        : response?.status !== undefined
+          ? response.data
+          : response;
+    
+      if (Array.isArray(body)) {
+        return {
+          success: true,
+          message: "Store item summary retrieved successfully.",
+          data: body,
+        };
+      }
+      return body as StoreItemSummaryResponse;
+  },
 };
