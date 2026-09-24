@@ -11,6 +11,8 @@ import {
   PeriodicInventorySummaryQueryParams,
   PeriodicInventorySummaryResponse,
   StoreItemSummaryResponse,
+  SalesGrossProfitQueryParams,
+  SalesGrossProfitResponse,
 } from "../types/reports";
 
 const api = new APIClient();
@@ -150,5 +152,38 @@ export const StockTakeBrowseService = {
         };
       }
       return body as StoreItemSummaryResponse;
+  },
+
+  getSalesGrossProfitReport: async (
+    params?: SalesGrossProfitQueryParams
+  ): Promise<SalesGrossProfitResponse> => {
+    const response = await api.get(
+      `/api/reports/sales-gross-profit`,
+      params
+    );
+    const result = response.data;
+
+    if (Array.isArray(result)) {
+      return {
+        success: true,
+        message: "Sales gross profit report retrieved successfully.",
+        data: result,
+      };
+    }
+
+    if (result && Array.isArray(result.data)) {
+      return {
+        ...result,
+        success: result.success ?? true,
+        message: result.message ?? "Sales gross profit report retrieved successfully.",
+        data: result.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: "No data available",
+      data: [],
+    };
   },
 };

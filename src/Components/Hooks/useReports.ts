@@ -12,6 +12,8 @@ import {
   PeriodicInventorySummaryQueryParams,
   PeriodicInventorySummaryItem,
   StoreItemSummaryResponse,
+  SalesGrossProfitQueryParams,
+  SalesGrossProfitItem,
   StoreItemSummary
 } from "../../types/reports";
 
@@ -120,6 +122,18 @@ export const useStoreItemSummary = () => {
         averageCost: Number(item.averageCost ?? item.average_cost ?? 0),
         inventoryValue: Number(item.inventoryValue ?? item.inventory_value ?? 0),
       }));
+    },
+  });
+};
+
+export const useSalesGrossProfitReport = (
+  params?: SalesGrossProfitQueryParams
+) => {
+  return useQuery<SalesGrossProfitItem[]>({
+    queryKey: ["sales-gross-profit-report", params],
+    queryFn: async () => {
+      const res = await StockTakeBrowseService.getSalesGrossProfitReport(params);
+      return res.data ?? [];
     },
   });
 };

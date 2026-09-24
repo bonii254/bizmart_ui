@@ -231,3 +231,38 @@ export interface StoreItemSummaryResponse {
   data: StoreItemSummary[];
 }
 
+export interface CashTransactionsQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  bankId?: string;
+  operatorId?: string;
+}
+
+export type CashTransactionType = "cash_in" | "cash_out" | (string & {});
+
+
+export interface SalesGrossProfitQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  itemId?: string;
+  warehouseId?: string;
+}
+
+export interface SalesGrossProfitItem {
+  sold_at: string;
+  invoice_number: string;
+  warehouse_code: string;
+  item_code: string;
+  description: string;
+  quantity: number;
+  sales_value: number;
+  cost_value: number;
+  gross_profit: number;
+  gross_margin_percent: number;
+}
+
+export interface SalesGrossProfitResponse {
+  success: boolean;
+  message: string;
+  data: SalesGrossProfitItem[];
+}
