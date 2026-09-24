@@ -71,10 +71,12 @@ const StockItemManagement: React.FC = () => {
   const { data: stockItems, isLoading } = useStockItems();
   const { data: categoryData } = useCategories("", true);
 
+  // Destructure mutations from the custom hook
   const {
     createStockItem,
     updateStockItem,
     deleteStockItem,
+    patchPriceCode,
     isCreating,
     isUpdating,
     isDeleting,
@@ -102,7 +104,7 @@ const StockItemManagement: React.FC = () => {
     const map = new Map<string, string>();
     categoriesList.forEach((cat: any) => {
       const id = cat.categoryId;
-      const name = cat.categoryName ;
+      const name = cat.categoryName;
       if (id && name) {
         map.set(id, name);
       }
@@ -201,7 +203,22 @@ const StockItemManagement: React.FC = () => {
             }
           });
 
-          await updateStockItem({ itemId: currentStockItemId, data: patchedData });
+          const changedKeys = Object.keys(patchedData) as Array<keyof UpdateStockItemRequest>;
+
+          // Check if ONLY sellingPrice was modified
+          const isOnlySellingPriceChanged =
+            changedKeys.length === 1 && changedKeys[0] === "sellingPrice";
+
+          if (isOnlySellingPriceChanged) {
+            // Invokes patchPriceCode from useStockItemMutation
+            await patchPriceCode({
+              itemId: currentStockItemId,
+              priceCode: "A",
+              sellingPrice: Number(payload.sellingPrice),
+            });
+          } else if (changedKeys.length > 0) {
+            await updateStockItem({ itemId: currentStockItemId, data: patchedData });
+          }
         } else {
           await createStockItem(payload);
         }
@@ -355,8 +372,7 @@ const StockItemManagement: React.FC = () => {
                       ) : paginatedRows.length > 0 ? (
                         paginatedRows.map((item: StockItem) => {
                           const activeId = item.itemId || item.id || "";
-                          
-                          // Resolve Category Name: via categoryMap, item properties, or fallbacks
+
                           const categoryDisplayName =
                             (item.categoryId ? categoryMap.get(item.categoryId) : "") ||
                             item.categoryName ||
@@ -610,7 +626,12 @@ const StockItemManagement: React.FC = () => {
             <Button color="link" size="sm" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" color="primary" size="sm" disabled={isCreating || isUpdating}>
+            <Button
+              type="submit"
+              color="primary"
+              size="sm"
+              disabled={isCreating || isUpdating}
+            >
               {isCreating || isUpdating ? (
                 <Spinner size="sm" />
               ) : isEditMode ? (

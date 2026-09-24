@@ -4,7 +4,8 @@ import {
   StockItem, 
   StockItemPayload, 
   UpdateStockItemRequest, 
-  StockItemQueryParams 
+  StockItemQueryParams,
+  PatchPriceCodeRequest
 } from "../../types/stockitem";
 
 export const useStockItems = (params?: StockItemQueryParams) => {
@@ -50,6 +51,14 @@ export const useStockItemMutation = () => {
     },
   });
 
+  const patchPriceCodeMutation = useMutation({
+    mutationFn: (data: PatchPriceCodeRequest) => 
+      StockItemService.patchPriceCode(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stockItems"] });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (itemId: string) => 
       StockItemService.deleteMasterStockItem(itemId),
@@ -62,6 +71,7 @@ export const useStockItemMutation = () => {
     createStockItem: createMutation.mutateAsync,
     updateStockItem: updateMutation.mutateAsync,
     deleteStockItem: deleteMutation.mutateAsync,
+    patchPriceCode: patchPriceCodeMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

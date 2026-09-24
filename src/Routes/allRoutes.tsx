@@ -21,6 +21,7 @@ import SalesPerItem from "../pages/Report/SalesPerItem/SalesPerItem"
 import SalesPerCustomer from "../pages/Report/SalesPerCustomer/SalesPerCustomer"
 import MonthlyPeriodicReport from "../pages/Report/MonthlyPeriodicReport"
 import StoreItemSummaryReport from "../pages/Report/StoreItemSummary"
+import SalesGrossProfit from "../pages/Report/Profit/SalesGrossProfit"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -85,6 +86,7 @@ const authProtectedRoutes = [
   { path: "/reports/sales-per-customer", component: <SalesPerCustomer /> },
   { path: "/reports/periodic-inventory-summary", component: <MonthlyPeriodicReport /> },
   { path: "/reports/store-item-summary", component: <StoreItemSummaryReport /> },
+  { path: "/reports/sales-gross-profit", component: <SalesGrossProfit /> },
 
 
   { path: "/pages-profile", component: <SimplePage /> },

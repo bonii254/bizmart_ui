@@ -52,6 +52,13 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+export interface PatchPriceCodeRequest {
+  itemId: string;
+  sellingPrice: number;
+  priceCode: string;
+}
+
 export type StockCatalogResponse = ApiResponse<StockItem[]>;
 export type StockItemSingleResponse = ApiResponse<StockItem>;
-export type CreateStockItemResponse = ApiResponse<string>; 
+export type CreateStockItemResponse = ApiResponse<string>;
+export type PatchPriceCodeResponse = ApiResponse<string>;

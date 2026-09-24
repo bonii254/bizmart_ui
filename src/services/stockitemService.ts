@@ -4,6 +4,7 @@ import {
   StockItemPayload,
   UpdateStockItemRequest,
   StockItemQueryParams,
+  PatchPriceCodeRequest,
   ApiResponse,
 } from "../types/stockitem";
 
@@ -46,5 +47,13 @@ export const StockItemService = {
 
   deleteMasterStockItem: async (itemId: string): Promise<{ message: string }> => {
     return await api.delete(`${BASE_URL}/${itemId}`);
+  },
+
+  patchPriceCode: async (payload: PatchPriceCodeRequest): Promise<string> => {
+    const response: ApiResponse<string> = await api.create(
+      "/api/pricing/item-prices",
+      payload
+    );
+    return response.message;
   },
 };
