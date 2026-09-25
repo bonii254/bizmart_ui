@@ -16,12 +16,13 @@ import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 
 import StockTakeReport from "../pages/Report/StockTakeReport";
-import InventoryTransactions from "../pages/Report/InventoryTransactions"
 import SalesPerItem from "../pages/Report/SalesPerItem/SalesPerItem"
 import SalesPerCustomer from "../pages/Report/SalesPerCustomer/SalesPerCustomer"
 import MonthlyPeriodicReport from "../pages/Report/MonthlyPeriodicReport"
 import StoreItemSummaryReport from "../pages/Report/StoreItemSummary"
 import SalesGrossProfit from "../pages/Report/Profit/SalesGrossProfit"
+import SalesTransactionsReport from "../pages/Report/SalesTransactionsReport"
+import InventoryTransactionsReport from "../pages/Report/InventoryTransactions/InventoryTransactionsReport"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -76,17 +77,19 @@ const authProtectedRoutes = [
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/banks", component: <BankManagement/> },
   { path: "/cash-withdrawal", component: <CashWithdrawal /> },
-  { path: "/reports/sales-transactions", component: <SalesHistory />},
+  { path: "/reports/sales-transactions", component: <SalesTransactionsReport />},
   { path: "/settings", component: <SettingsHub /> },
   { path: "/audit-logs", component: <AuditLogs /> },
 
   { path: "/reports/stocktake-transactions", component: <StockTakeReport /> },
-  { path: "/reports/inventory-transactions", component: <InventoryTransactions /> },
+  { path: "/reports/inventory-transactions", component: <InventoryTransactionsReport /> },
   { path: "/reports/sales-per-item", component: <SalesPerItem />},
   { path: "/reports/sales-per-customer", component: <SalesPerCustomer /> },
   { path: "/reports/periodic-inventory-summary", component: <MonthlyPeriodicReport /> },
   { path: "/reports/store-item-summary", component: <StoreItemSummaryReport /> },
   { path: "/reports/sales-gross-profit", component: <SalesGrossProfit /> },
+
+
 
 
   { path: "/pages-profile", component: <SimplePage /> },
