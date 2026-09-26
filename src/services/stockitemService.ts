@@ -38,8 +38,8 @@ export const StockItemService = {
     itemId: string,
     payload: UpdateStockItemRequest
   ): Promise<StockItem> => {
-    const response: ApiResponse<StockItem> = await api.update(
-      `${BASE_URL}/${itemId}`,
+    const response: ApiResponse<StockItem> = await api.create(
+      `${BASE_URL}/${itemId}/update`,
       payload
     );
     return response.data;
