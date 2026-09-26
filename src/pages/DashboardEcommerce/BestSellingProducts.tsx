@@ -1,148 +1,272 @@
-import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-    Card, CardBody, CardHeader, Col, Row, Badge, 
-    UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem 
+import React, { useState, useMemo } from 'react';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Col,
+  UncontrolledDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
+  Input,
+  InputGroup,
+  InputGroupText,
+  Spinner,
 } from 'reactstrap';
-import CountUp from 'react-countup';
+import dayjs from 'dayjs';
 
-// Mock Data - This matches your SQLAlchemy Loan models
-const loanData = [
-    { id: 1, employee: "John Doe", type: "Car Loan", principal: 1500000, tenure: 24, rate: 12.5, status: "APPROVED", date: "10 Feb 2026" },
-    { id: 2, employee: "Jane Smith", type: "Salary Advance", principal: 45000, tenure: 1, rate: 5.0, status: "PENDING", date: "14 Feb 2026" },
-    { id: 3, employee: "Michael Brown", type: "Personal Loan", principal: 300000, tenure: 12, rate: 10.0, status: "PENDING", date: "05 Jan 2026" },
-    { id: 4, employee: "Alice Wang", type: "Education Loan", principal: 120000, tenure: 6, rate: 8.0, status: "REJECTED", date: "20 Dec 2025" },
-    { id: 5, employee: "Robert Wilson", type: "Personal Loan", principal: 500000, tenure: 18, rate: 10.0, status: "PENDING", date: "15 Nov 2025" },
-];
+// POS Hooks and Types
+import { useSalesTransactions } from '../../Components/Hooks/usePOS';
+import { SalesTransaction, SalesTransactionQueryParams } from '../../types/POS';
 
-const RecentLoanActivity = () => {
+const RecentSalesTransactions: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
 
-    const pendingStats = useMemo(() => {
-        const pendingItems = loanData.filter(l => l.status === "PENDING");
-        
-        let totalPrincipal = 0;
-        let totalInterest = 0;
+  const queryParams = useMemo<SalesTransactionQueryParams>(() => ({}), []);
 
-        pendingItems.forEach(loan => {
-            totalPrincipal += loan.principal;
-            totalInterest += (loan.principal * loan.rate * loan.tenure) / 1200;
-        });
+  const { data: responseData, isLoading, isFetching, refetch } = useSalesTransactions(queryParams);
 
-        return {
-            count: pendingItems.length,
-            principal: totalPrincipal,
-            interest: totalInterest,
-            total: totalPrincipal + totalInterest
-        };
-    }, []);
+  // Parse raw API response array
+  const rawTransactions = useMemo<SalesTransaction[]>(() => {
+    const raw = responseData as any;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.data)) return raw.data;
+    return [];
+  }, [responseData]);
 
-    // 2. Helper for Status Colors
-    const getStatusColor = (status: string) => {
-        switch(status) {
-            case "APPROVED": return "success";
-            case "PENDING": return "warning";
-            case "REJECTED": return "danger";
-            case "CLOSED": return "info";
-            default: return "primary";
+  // Filter and limit view strictly to top 5 latest transactions
+  const latestTransactions = useMemo(() => {
+    return rawTransactions
+      .filter((item) => {
+        const matchesSearch =
+          !searchQuery ||
+          item.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.warehouse_code?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const total = item.total || 0;
+        const paid = item.paid || 0;
+        let matchesStatus = true;
+
+        if (selectedStatus === 'PAID') {
+          matchesStatus = paid >= total;
+        } else if (selectedStatus === 'PARTIAL') {
+          matchesStatus = paid > 0 && paid < total;
+        } else if (selectedStatus === 'UNPAID') {
+          matchesStatus = paid === 0;
         }
+
+        return matchesSearch && matchesStatus;
+      })
+      .slice(0, 10);
+  }, [rawTransactions, searchQuery, selectedStatus]);
+
+  const getStatusBadge = (item: SalesTransaction) => {
+    const total = item.total || 0;
+    const paid = item.paid || 0;
+
+    if (paid >= total) {
+      return {
+        label: 'PAID',
+        badgeStyle: 'bg-success-subtle text-success border border-success-subtle',
+      };
+    }
+    if (paid > 0 && paid < total) {
+      return {
+        label: 'PARTIAL',
+        badgeStyle: 'bg-warning-subtle text-warning border border-warning-subtle',
+      };
+    }
+    return {
+      label: 'UNPAID',
+      badgeStyle: 'bg-danger-subtle text-danger border border-danger-subtle',
     };
+  };
 
-    return (
-        <React.Fragment>
-            <Col xl={12}>
-                {/* --- TOP SUMMARY SECTION --- */}
-                <Row className="mb-4">
-                    <Col md={3}>
-                        <div className="p-3 border border-dashed rounded bg-warning-subtle border-warning">
-                            <p className="text-uppercase fw-semibold fs-12 text-warning mb-1">Pending Requests</p>
-                            <h4 className="mb-0"><CountUp end={pendingStats.count} /></h4>
-                        </div>
-                    </Col>
-                    <Col md={3}>
-                        <div className="p-3 border border-dashed rounded bg-light">
-                            <p className="text-uppercase fw-semibold fs-12 text-muted mb-1">Pending Principal</p>
-                            <h4 className="mb-0">Kes <CountUp end={pendingStats.principal} decimals={2} separator="," /></h4>
-                        </div>
-                    </Col>
-                    <Col md={3}>
-                        <div className="p-3 border border-dashed rounded bg-light">
-                            <p className="text-uppercase fw-semibold fs-12 text-muted mb-1">Expected Interest</p>
-                            <h4 className="mb-0 text-success">Kes <CountUp end={pendingStats.interest} decimals={2} separator="," /></h4>
-                        </div>
-                    </Col>
-                    <Col md={3}>
-                        <div className="p-3 border border-dashed rounded bg-primary-subtle border-primary">
-                            <p className="text-uppercase fw-semibold fs-12 text-primary mb-1">Total Payable</p>
-                            <h4 className="mb-0 text-primary">Kes <CountUp end={pendingStats.total} decimals={2} separator="," /></h4>
-                        </div>
-                    </Col>
-                </Row>
+  const formatCurrency = (val: number) =>
+    (val || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
-                {/* --- ACTIVITY TABLE SECTION --- */}
-                <Card>
-                    <CardHeader className="align-items-center d-flex">
-                        <h4 className="card-title mb-0 flex-grow-1">Loan Management Activity</h4>
-                        <div className="flex-shrink-0">
-                             <UncontrolledDropdown className="card-header-dropdown">
-                                <DropdownToggle tag="a" className="text-reset" role="button">
-                                    <span className="text-muted">Sort: Recent <i className="mdi mdi-chevron-down ms-1"></i></span>
-                                </DropdownToggle>
-                                <DropdownMenu className="dropdown-menu-end">
-                                    <DropdownItem>Newest First</DropdownItem>
-                                    <DropdownItem>Highest Amount</DropdownItem>
-                                </DropdownMenu>
-                            </UncontrolledDropdown>
-                        </div>
-                    </CardHeader>
+  return (
+    <Col xl={12}>
+      <Card className="card-height-100 border-0 shadow-sm">
+        {/* Velzon Header Toolbar */}
+        <CardHeader className="align-items-center d-flex py-2 px-3 bg-transparent border-bottom">
+          <div className="flex-grow-1">
+            <h5 className="card-title mb-0 fs-14 fw-semibold">
+              Recent Sales
+            </h5>
+            <span className="text-muted fs-11">
+              Latest 10 sales transactions
+            </span>
+          </div>
 
-                    <CardBody>
-                        <div className="table-responsive table-card">
-                            <table className="table table-hover table-centered align-middle table-nowrap mb-0">
-                                <thead className="table-light">
-                                    <tr>
-                                        <th>Employee & Date</th>
-                                        <th>Loan Type</th>
-                                        <th>Principal (Kes)</th>
-                                        <th>Term</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loanData.map((loan, key) => (
-                                        <tr key={key}>
-                                            <td>
-                                                <div className="d-flex align-items-center">
-                                                    <div className="avatar-xs bg-light rounded p-1 me-2">
-                                                        <i className={`ri-bank-card-line text-${getStatusColor(loan.status)} fs-16`}></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 className="fs-13 my-0">{loan.employee}</h5>
-                                                        <small className="text-muted">{loan.date}</small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{loan.type}</td>
-                                            <td className="fw-medium">{loan.principal.toLocaleString()}</td>
-                                            <td>{loan.tenure} Months</td>
-                                            <td>
-                                                <Badge color={getStatusColor(loan.status)} className="badge-soft-dark">
-                                                    {loan.status}
-                                                </Badge>
-                                            </td>
-                                            <td>
-                                                <Link to={`/loan/${loan.id}`} className="btn btn-sm btn-soft-primary">View</Link>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardBody>
-                </Card>
-            </Col>
-        </React.Fragment>
-    );
+          <div className="flex-shrink-0 d-flex align-items-center gap-2">
+            {/* Quick Search */}
+            <InputGroup className="input-group-sm" style={{ width: '160px' }}>
+              <InputGroupText className="bg-light border-end-0 py-1 px-2">
+                <i className="ri-search-line text-muted fs-12"></i>
+              </InputGroupText>
+              <Input
+                type="text"
+                placeholder="Search invoice..."
+                className="bg-light border-start-0 fs-12 py-1"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </InputGroup>
+
+            {/* Status Filter */}
+            <UncontrolledDropdown>
+              <DropdownToggle
+                tag="button"
+                className="btn btn-sm btn-soft-secondary d-flex align-items-center gap-1 py-1 px-2 fs-12"
+              >
+                <i className="ri-filter-3-line"></i>
+                <span>{selectedStatus === 'ALL' ? 'Status' : selectedStatus}</span>
+                <i className="ri-arrow-down-s-line"></i>
+              </DropdownToggle>
+              <DropdownMenu end className="dropdown-menu-end shadow-sm fs-12">
+                <DropdownItem onClick={() => setSelectedStatus('ALL')}>
+                  All Statuses
+                </DropdownItem>
+                <DropdownItem onClick={() => setSelectedStatus('PAID')}>
+                  Paid
+                </DropdownItem>
+                <DropdownItem onClick={() => setSelectedStatus('PARTIAL')}>
+                  Partial
+                </DropdownItem>
+                <DropdownItem onClick={() => setSelectedStatus('UNPAID')}>
+                  Unpaid
+                </DropdownItem>
+              </DropdownMenu>
+            </UncontrolledDropdown>
+
+            {/* Refresh Button */}
+            <button
+              type="button"
+              className="btn btn-sm btn-soft-primary btn-icon py-1"
+              onClick={() => refetch()}
+              title="Refresh Data"
+              disabled={isFetching}
+            >
+              <i className={`ri-refresh-line fs-12 ${isFetching ? 'spin' : ''}`}></i>
+            </button>
+          </div>
+        </CardHeader>
+
+        {/* High-Density Compact Table */}
+        <CardBody className="p-0">
+          <div className="table-responsive">
+            <table className="table table-hover table-sm table-nowrap align-middle mb-0">
+              <thead className="table-light fs-11 text-muted text-uppercase">
+                <tr>
+                  <th scope="col" className="ps-3 py-2">
+                    Invoice
+                  </th>
+                  <th scope="col" className="py-2">
+                    Warehouse
+                  </th>
+                  <th scope="col" className="py-2">
+                    Date & Time
+                  </th>
+                  <th scope="col" className="py-2 text-end">
+                    Total Amount
+                  </th>
+                  <th scope="col" className="py-2 text-end">
+                    Paid Amount
+                  </th>
+                  <th scope="col" className="pe-3 py-2 text-center">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="fs-12">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4 text-muted">
+                      <Spinner size="sm" color="primary" className="me-2" />
+                      Loading transactions...
+                    </td>
+                  </tr>
+                ) : latestTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4 text-muted">
+                      No matching records found.
+                    </td>
+                  </tr>
+                ) : (
+                  latestTransactions.map((tx) => {
+                    const status = getStatusBadge(tx);
+                    return (
+                      <tr key={tx.invoice_id || tx.invoice_number}>
+                        {/* Invoice & Warehouse Stacked */}
+                        <td className="ps-3 py-2">
+                          <div className="d-flex align-items-center">
+                            <div className="avatar-xs bg-light rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0 text-primary fw-bold fs-11">
+                              <i className="ri-receipt-line"></i>
+                            </div>
+                            <div>
+                              <h6 className="fs-12 mb-0 fw-semibold text-dark">
+                                {tx.invoice_number || 'N/A'}
+                              </h6>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2">
+                          <span className="fs-12 text-muted">
+                            {tx.warehouse_code || 'N/A'}
+                          </span>
+                        </td>
+
+                        {/* Date & Time */}
+                        <td className="py-2 text-muted fs-11">
+                          {tx.sold_at && dayjs(tx.sold_at).isValid()
+                            ? dayjs(tx.sold_at).format('DD/MM/YYYY HH:mm')
+                            : 'N/A'}
+                        </td>
+
+                        {/* Total Amount */}
+                        <td className="py-2 text-end fw-semibold text-dark">
+                          <span className="fs-11 text-muted me-1">Ksh</span>
+                          {formatCurrency(tx.total)}
+                        </td>
+
+                        {/* Paid Amount */}
+                        <td className="py-2 text-end">
+                          <span className="fs-11 text-muted me-1">Ksh</span>
+                          <span
+                            className={
+                              tx.paid >= tx.total
+                                ? 'text-success fw-medium'
+                                : 'text-danger fw-medium'
+                            }
+                          >
+                            {formatCurrency(tx.paid)}
+                          </span>
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="pe-3 py-2 text-center">
+                          <span
+                            className={`badge ${status.badgeStyle} px-2 py-1 fs-10 rounded-pill`}
+                          >
+                            {status.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardBody>
+      </Card>
+    </Col>
+  );
 };
 
-export default RecentLoanActivity;
+export default RecentSalesTransactions;

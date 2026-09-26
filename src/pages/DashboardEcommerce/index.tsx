@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { Col, Container, Row } from "reactstrap";
 import Widget from "./Widgets";
+import BestSellingProducts from "./BestSellingProducts";
 import RecentActivity from "./RecentActivity";
+import Revenue from "./Revenue";
+import SalesByLocations from "./SalesByLocations";
 
 const DashboardEcommerce = () => {
-  document.title = "Retail managment - Dashboard";
+  document.title = "Dashboard | Velzon - React Admin & Dashboard Template";
 
   const [rightColumn, setRightColumn] = useState<boolean>(false);
   const toggleRightColumn = () => {
@@ -21,7 +24,16 @@ const DashboardEcommerce = () => {
               <div className="h-100">
                 <Row>
                   <Widget />
-                </Row>   
+                </Row>
+                <Row>
+                  <Col xl={8}>
+                    <Revenue />
+                  </Col>
+                  <SalesByLocations />
+                </Row>
+                <Row>
+                  <BestSellingProducts />
+                </Row>
               </div>
             </Col>
             <RecentActivity rightColumn={rightColumn} hideRightColumn={toggleRightColumn} />
