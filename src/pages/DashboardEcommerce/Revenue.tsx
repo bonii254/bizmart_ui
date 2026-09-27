@@ -4,37 +4,29 @@ import CountUp from "react-countup";
 import Chart from "react-apexcharts";
 import dayjs from "dayjs";
 import { useSalesGrossProfitReport } from "../../Components/Hooks/useReports";
-import {
-  SalesGrossProfitItem,
-  SalesGrossProfitQueryParams,
-} from "../../types/reports";
+import { SalesGrossProfitItem } from "../../types/reports";
 
 type PeriodType = "month" | "halfyear" | "year" | "all";
 
-// Helper utility to enforce exactly 2 decimal places in financial calculations
 const roundToTwoDecimals = (val: number): number => {
   return Math.round((val + Number.EPSILON) * 100) / 100;
 };
 
 const Revenue: React.FC = () => {
-  // 1. Default period set to "all"
   const [period, setPeriod] = useState<PeriodType>("all");
 
-  // 2. Force ApexCharts to recalculate dimensions after DOM layout settles
+  // Force ApexCharts to recalculate dimensions on resize / breakpoint transition
   useEffect(() => {
     const timer = setTimeout(() => {
       window.dispatchEvent(new Event("resize"));
-    }, 100);
-
+    }, 150);
     return () => clearTimeout(timer);
-  }, []);
+  }, [period]);
 
-  // 3. Compute dynamic period date boundaries
   const { queryParams, startMonth, endMonth } = useMemo(() => {
     const now = dayjs();
 
     if (period === "month") {
-      // 1M: Strictly current month
       const start = now.startOf("month");
       const end = now.endOf("month");
       return {
@@ -48,7 +40,6 @@ const Revenue: React.FC = () => {
     }
 
     if (period === "halfyear") {
-      // 6M: Last 6 months ending in current month
       const start = now.subtract(5, "month").startOf("month");
       const end = now.endOf("month");
       return {
@@ -62,7 +53,6 @@ const Revenue: React.FC = () => {
     }
 
     if (period === "year") {
-      // 1Y: Rolling 12 months
       const start = now.subtract(11, "month").startOf("month");
       const end = now.endOf("month");
       return {
@@ -75,7 +65,6 @@ const Revenue: React.FC = () => {
       };
     }
 
-    // Default "ALL" period fetches full unconstrained dataset range
     return {
       queryParams: { fromDate: "", toDate: "" },
       startMonth: null,
@@ -83,10 +72,8 @@ const Revenue: React.FC = () => {
     };
   }, [period]);
 
-  // 4. Fetch report data using custom React Query hook
   const { data, isLoading, isError } = useSalesGrossProfitReport(queryParams);
 
-  // Safely extract report items array across possible response wrappers
   const reportItems = useMemo<SalesGrossProfitItem[]>(() => {
     if (Array.isArray(data)) return data;
     const raw = data as any;
@@ -94,7 +81,6 @@ const Revenue: React.FC = () => {
     return [];
   }, [data]);
 
-  // 5. Secondary client-side guard filter for strict range adherence
   const filteredData = useMemo(() => {
     if (!reportItems.length) return [];
     if (period === "all" || !queryParams.fromDate || !queryParams.toDate) {
@@ -115,7 +101,6 @@ const Revenue: React.FC = () => {
     });
   }, [reportItems, period, queryParams]);
 
-  // 6. Grand summations for summary KPI cards
   const totals = useMemo(() => {
     const rawTotals = filteredData.reduce(
       (acc, item) => {
@@ -138,13 +123,11 @@ const Revenue: React.FC = () => {
     };
   }, [filteredData]);
 
-  // Overall Gross Margin %
   const grossMarginPercent = useMemo(() => {
     if (totals.totalSales === 0) return 0.0;
     return roundToTwoDecimals((totals.totalProfit / totals.totalSales) * 100);
   }, [totals]);
 
-  // 7. Aggregate transactions into dynamic monthly sequence
   const { chartSeries, categories } = useMemo(() => {
     const monthlyAggregates: Record<
       string,
@@ -154,7 +137,6 @@ const Revenue: React.FC = () => {
     let actualStartMonth = startMonth;
     let actualEndMonth = endMonth;
 
-    // Determine boundaries dynamically for "ALL" selection
     if (period === "all" && filteredData.length > 0) {
       let minDate = dayjs(filteredData[0].sold_at);
       let maxDate = dayjs(filteredData[0].sold_at);
@@ -172,7 +154,6 @@ const Revenue: React.FC = () => {
       actualEndMonth = maxDate.startOf("month");
     }
 
-    // Step 7a: Pre-fill zero baselines for all months in the calculated sequence
     if (
       actualStartMonth &&
       actualEndMonth &&
@@ -190,7 +171,6 @@ const Revenue: React.FC = () => {
       }
     }
 
-    // Step 7b: Accumulate sales, cost, and profit into corresponding month keys
     filteredData.forEach((item: SalesGrossProfitItem) => {
       if (!item.sold_at) return;
       const date = dayjs(item.sold_at);
@@ -213,7 +193,6 @@ const Revenue: React.FC = () => {
 
     const sortedKeys = Object.keys(monthlyAggregates).sort();
 
-    // Step 7c: Format category labels using explicit "YYYY-MM-01" to avoid timezone date shifts
     const formattedCategories = sortedKeys.map((key) =>
       dayjs(`${key}-01`).format("MMM YY")
     );
@@ -250,10 +229,9 @@ const Revenue: React.FC = () => {
     };
   }, [filteredData, period, startMonth, endMonth]);
 
-  // 8. ApexCharts options with defensive null/undefined formatters
   const chartOptions: ApexCharts.ApexOptions = {
     chart: {
-      height: 350,
+      height: 320,
       type: "line",
       toolbar: { show: false },
       zoom: { enabled: false },
@@ -265,32 +243,30 @@ const Revenue: React.FC = () => {
     },
     plotOptions: {
       bar: {
-        columnWidth: "45%",
+        columnWidth: "40%",
         borderRadius: 4,
       },
     },
     fill: {
       opacity: [0.85, 0.85, 1],
     },
-    colors: ["#3b82f6", "#ef4444", "#10b981"],
+    colors: ["#3577f1", "#f06548", "#0ab39c"],
     labels: categories,
     xaxis: {
       type: "category",
       categories: categories,
-      labels: {
-        style: { colors: "#878a99" },
-      },
+      labels: { style: { colors: "#878a99", fontSize: "11px" } },
     },
     yaxis: {
       labels: {
         formatter: (val?: number) => {
           if (val === undefined || val === null || isNaN(val)) return "0.00";
           return val.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
           });
         },
-        style: { colors: "#878a99" },
+        style: { colors: "#878a99", fontSize: "11px" },
       },
     },
     tooltip: {
@@ -298,8 +274,8 @@ const Revenue: React.FC = () => {
       intersect: false,
       y: {
         formatter: (val?: number) => {
-          if (val === undefined || val === null || isNaN(val)) return "Kes 0.00";
-          return `Kes ${val.toLocaleString(undefined, {
+          if (val === undefined || val === null || isNaN(val)) return "Ksh 0.00";
+          return `Ksh ${val.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`;
@@ -309,170 +285,149 @@ const Revenue: React.FC = () => {
     legend: {
       position: "top",
       horizontalAlign: "right",
+      fontSize: "12px",
     },
     grid: {
       borderColor: "#f1f1f1",
+      padding: { left: 10, right: 10 },
     },
-    responsive: [
-      {
-        breakpoint: 600,
-        options: {
-          legend: {
-            position: "bottom",
-            horizontalAlign: "center",
-          },
-        },
-      },
-    ],
   };
 
   return (
-    <React.Fragment>
-      <Card className="card-height-100 overflow-hidden mb-0">
-        {/* Card Header & Period Filter Actions */}
-        <CardHeader className="border-0 align-items-center d-flex flex-wrap gap-2">
-          <h4 className="card-title mb-0 flex-grow-1 text-truncate">
-            Sales & Gross Profit Analysis
-          </h4>
-          <div className="d-flex gap-1 flex-wrap">
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                period === "all" ? "btn-primary" : "btn-soft-secondary"
-              }`}
-              onClick={() => setPeriod("all")}
-            >
-              ALL
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                period === "month" ? "btn-primary" : "btn-soft-secondary"
-              }`}
-              onClick={() => setPeriod("month")}
-            >
-              1M
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                period === "halfyear" ? "btn-primary" : "btn-soft-secondary"
-              }`}
-              onClick={() => setPeriod("halfyear")}
-            >
-              6M
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${
-                period === "year" ? "btn-primary" : "btn-soft-secondary"
-              }`}
-              onClick={() => setPeriod("year")}
-            >
-              1Y
-            </button>
+    <Card className="card-height-100 border-0 shadow-sm d-flex flex-column mb-0 w-100">
+      <CardHeader className="border-0 align-items-center d-flex flex-wrap gap-2 py-3">
+        <h4 className="card-title mb-0 flex-grow-1 text-truncate fs-15 fw-semibold">
+          Sales & Gross Profit Analysis
+        </h4>
+        <div className="d-flex gap-1 flex-wrap">
+          <button
+            type="button"
+            className={`btn btn-xs px-2 py-1 ${
+              period === "all" ? "btn-primary" : "btn-soft-secondary text-dark"
+            }`}
+            onClick={() => setPeriod("all")}
+          >
+            ALL
+          </button>
+          <button
+            type="button"
+            className={`btn btn-xs px-2 py-1 ${
+              period === "month" ? "btn-primary" : "btn-soft-secondary text-dark"
+            }`}
+            onClick={() => setPeriod("month")}
+          >
+            1M
+          </button>
+          <button
+            type="button"
+            className={`btn btn-xs px-2 py-1 ${
+              period === "halfyear" ? "btn-primary" : "btn-soft-secondary text-dark"
+            }`}
+            onClick={() => setPeriod("halfyear")}
+          >
+            6M
+          </button>
+          <button
+            type="button"
+            className={`btn btn-xs px-2 py-1 ${
+              period === "year" ? "btn-primary" : "btn-soft-secondary text-dark"
+            }`}
+            onClick={() => setPeriod("year")}
+          >
+            1Y
+          </button>
+        </div>
+      </CardHeader>
+
+      <CardHeader className="p-0 border-0 bg-light-subtle">
+        <Row className="g-0 text-center">
+          <Col xs={6} sm={3}>
+            <div className="p-2 p-sm-3 border border-dashed border-start-0 border-top-0">
+              <h5 className="mb-1 text-primary text-truncate fs-14 fs-sm-15">
+                Ksh{" "}
+                <CountUp
+                  start={0}
+                  end={totals.totalSales}
+                  decimals={2}
+                  separator=","
+                  duration={1.2}
+                />
+              </h5>
+              <p className="text-muted mb-0 text-truncate fs-11">Total Sales</p>
+            </div>
+          </Col>
+          <Col xs={6} sm={3}>
+            <div className="p-2 p-sm-3 border border-dashed border-start-0 border-top-0">
+              <h5 className="mb-1 text-danger text-truncate fs-14 fs-sm-15">
+                Ksh{" "}
+                <CountUp
+                  start={0}
+                  end={totals.totalCost}
+                  decimals={2}
+                  separator=","
+                  duration={1.2}
+                />
+              </h5>
+              <p className="text-muted mb-0 text-truncate fs-11">Total Cost</p>
+            </div>
+          </Col>
+          <Col xs={6} sm={3}>
+            <div className="p-2 p-sm-3 border border-dashed border-start-0 border-top-0">
+              <h5 className="mb-1 text-success text-truncate fs-14 fs-sm-15">
+                Ksh{" "}
+                <CountUp
+                  start={0}
+                  end={totals.totalProfit}
+                  decimals={2}
+                  separator=","
+                  duration={1.2}
+                />
+              </h5>
+              <p className="text-muted mb-0 text-truncate fs-11">Gross Profit</p>
+            </div>
+          </Col>
+          <Col xs={6} sm={3}>
+            <div className="p-2 p-sm-3 border border-dashed border-start-0 border-end-0 border-top-0">
+              <h5 className="mb-1 text-info text-truncate fs-14 fs-sm-15">
+                <CountUp
+                  start={0}
+                  end={grossMarginPercent}
+                  decimals={2}
+                  duration={1.2}
+                  suffix="%"
+                />
+              </h5>
+              <p className="text-muted mb-0 text-truncate fs-11">Gross Margin %</p>
+            </div>
+          </Col>
+        </Row>
+      </CardHeader>
+
+      <CardBody className="p-0 pb-2 flex-grow-1 d-flex align-items-center position-relative min-w-0">
+        {isLoading ? (
+          <div
+            className="d-flex justify-content-center align-items-center w-100"
+            style={{ height: "310px" }}
+          >
+            <Spinner color="primary" />
           </div>
-        </CardHeader>
-
-        {/* Header Summary KPI Badges */}
-        <CardHeader className="p-0 border-0 bg-light-subtle">
-          <Row className="g-0 text-center">
-            <Col xs={6} sm={3}>
-              <div className="p-3 border border-dashed border-start-0">
-                <h5 className="mb-1 text-primary text-truncate">
-                  Kes{" "}
-                  <CountUp
-                    start={0}
-                    end={totals.totalSales}
-                    decimals={2}
-                    decimal="."
-                    separator=","
-                    duration={1.2}
-                  />
-                </h5>
-                <p className="text-muted mb-0 text-truncate">Total Sales</p>
-              </div>
-            </Col>
-            <Col xs={6} sm={3}>
-              <div className="p-3 border border-dashed border-start-0">
-                <h5 className="mb-1 text-danger text-truncate">
-                  Kes{" "}
-                  <CountUp
-                    start={0}
-                    end={totals.totalCost}
-                    decimals={2}
-                    decimal="."
-                    separator=","
-                    duration={1.2}
-                  />
-                </h5>
-                <p className="text-muted mb-0 text-truncate">Total Cost</p>
-              </div>
-            </Col>
-            <Col xs={6} sm={3}>
-              <div className="p-3 border border-dashed border-start-0">
-                <h5 className="mb-1 text-success text-truncate">
-                  Kes{" "}
-                  <CountUp
-                    start={0}
-                    end={totals.totalProfit}
-                    decimals={2}
-                    decimal="."
-                    separator=","
-                    duration={1.2}
-                  />
-                </h5>
-                <p className="text-muted mb-0 text-truncate">Gross Profit</p>
-              </div>
-            </Col>
-            <Col xs={6} sm={3}>
-              <div className="p-3 border border-dashed border-start-0 border-end-0">
-                <h5 className="mb-1 text-info text-truncate">
-                  <CountUp
-                    start={0}
-                    end={grossMarginPercent}
-                    decimals={2}
-                    decimal="."
-                    duration={1.2}
-                    suffix="%"
-                  />
-                </h5>
-                <p className="text-muted mb-0 text-truncate">Gross Margin %</p>
-              </div>
-            </Col>
-          </Row>
-        </CardHeader>
-
-        {/* Chart Canvas Area */}
-        <CardBody className="p-0 pb-2 overflow-hidden">
-          {isLoading ? (
-            <div
-              className="d-flex justify-content-center align-items-center"
-              style={{ minHeight: "350px" }}
-            >
-              <Spinner color="primary" />
-            </div>
-          ) : isError ? (
-            <div className="text-center text-danger p-4">
-              Failed to load sales report data.
-            </div>
-          ) : (
-            <div
-              className="w-100 overflow-hidden dir-ltr"
-              style={{ minHeight: "350px", minWidth: 0, position: "relative" }}
-            >
-              <Chart
-                options={chartOptions}
-                series={chartSeries}
-                type="line"
-                height={350}
-                width="100%"
-              />
-            </div>
-          )}
-        </CardBody>
-      </Card>
-    </React.Fragment>
+        ) : isError ? (
+          <div className="text-center text-danger p-4 w-100">
+            Failed to load sales report data.
+          </div>
+        ) : (
+          <div className="w-100 overflow-hidden dir-ltr position-relative" style={{ minWidth: 0 }}>
+            <Chart
+              options={chartOptions}
+              series={chartSeries}
+              type="line"
+              height={310}
+              width="100%"
+            />
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 };
 

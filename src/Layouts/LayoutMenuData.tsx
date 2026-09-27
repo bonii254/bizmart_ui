@@ -106,7 +106,6 @@ const Navdata = () => {
       subItems: [
         { id: "grn", label: "Goods Received Note", link: "/grn" },
         { id: "suppliers", label: "Suppliers Directory", link: "/suppliers" },
-        { id: "purchase-orders", label: "Purchase Orders", link: "/purchase-orders" },
       ],
     },
 
@@ -123,10 +122,8 @@ const Navdata = () => {
         handleToggle("finance");
       },
       subItems: [
-        { id: "cash-withdrawal", label: "Cash Withdrawals", link: "/cash-withdrawal" },
-        { id: "cash-drawer", label: "Cash Drawer Logs", link: "/finance/drawer-logs" },
+        { id: "cash-movement", label: "Cash Movements", link: "/cash-movement" },
         { id: "banks", label: "Bank Accounts", link: "/banks" },
-        { id: "expenses", label: "Operating Expenses", link: "/finance/expenses" },
       ],
     },
 

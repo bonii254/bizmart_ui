@@ -123,25 +123,26 @@ const Widgets: React.FC = () => {
   return (
     <React.Fragment>
       {dynamicWidgets.map((item) => (
-        <Col xl={3} md={6} key={item.id}>
-          <Card className="card-animate border-0 shadow-sm">
-            <CardBody>
-              <div className="d-flex align-items-center">
+        /* xl=3, lg=3, md=3 keeps all 4 widgets on 1 row down to medium/10" laptop viewports */
+        <Col xl={3} lg={3} md={3} sm={6} xs={12} key={item.id} className="mb-2 mb-md-0">
+          <Card className="card-animate border-0 shadow-sm h-100 mb-0">
+            <CardBody className="p-2 p-xl-3">
+              <div className="d-flex align-items-center justify-content-between gap-1">
                 <div className="flex-grow-1 overflow-hidden">
-                  <p className="text-uppercase fw-medium text-muted text-truncate mb-0">
+                  <p className="text-uppercase fw-medium text-muted text-truncate mb-0 fs-11">
                     {item.label}
                   </p>
                 </div>
-                <div className="flex-shrink-0">
-                  <h5 className={`fs-14 mb-0 text-${item.badgeClass}`}>
-                    {item.badge && <i className={`fs-13 align-middle me-1 ${item.badge}`}></i>}
+                <div className="flex-shrink-0 ms-1">
+                  <h5 className={`fs-11 mb-0 text-${item.badgeClass} text-nowrap`}>
+                    {item.badge && <i className={`fs-12 align-middle me-1 ${item.badge}`}></i>}
                     {item.percentage}
                   </h5>
                 </div>
               </div>
-              <div className="d-flex align-items-end justify-content-between mt-4">
-                <div>
-                  <h4 className="fs-20 fw-semibold ff-secondary mb-0">
+              <div className="d-flex align-items-end justify-content-between mt-3 gap-1">
+                <div className="overflow-hidden">
+                  <h4 className="fs-15 fs-xl-18 fw-semibold ff-secondary mb-0 text-truncate">
                     {isLoading ? (
                       <Spinner size="sm" color={item.cardColor} />
                     ) : (
@@ -157,8 +158,8 @@ const Widgets: React.FC = () => {
                     )}
                   </h4>
                 </div>
-                <div className="avatar-sm flex-shrink-0">
-                  <span className={`avatar-title rounded fs-3 bg-${item.bgcolor}-subtle`}>
+                <div className="avatar-xs flex-shrink-0">
+                  <span className={`avatar-title rounded fs-4 bg-${item.bgcolor}-subtle`}>
                     <i className={`text-${item.cardColor} ${item.icon}`}></i>
                   </span>
                 </div>

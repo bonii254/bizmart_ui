@@ -10,10 +10,10 @@ import NewStockTake from "../pages/Inventory/NewStockTake";
 import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
 import BankManagement from "../pages/Bank/BankManagement";
-import CashWithdrawal from "../pages/Withdraw/CashWithdrawal";
 import PointOfSale from "../pages/POS/PointOfSale";
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
+import CashMovement from "../pages/Transactions/cashMovement";
 
 import StockTakeReport from "../pages/Report/StockTakeReport";
 import SalesPerItem from "../pages/Report/SalesPerItem/SalesPerItem"
@@ -76,7 +76,7 @@ const authProtectedRoutes = [
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/banks", component: <BankManagement/> },
-  { path: "/cash-withdrawal", component: <CashWithdrawal /> },
+  { path: "/cash-movement", component: <CashMovement /> },
   { path: "/reports/sales-transactions", component: <SalesTransactionsReport />},
   { path: "/settings", component: <SettingsHub /> },
   { path: "/audit-logs", component: <AuditLogs /> },

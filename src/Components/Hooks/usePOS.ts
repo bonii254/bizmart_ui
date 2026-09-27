@@ -34,6 +34,8 @@ export const usePOSMutation = () => {
       queryClient.invalidateQueries({ queryKey: ["pos-sales"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-products"] }); 
       queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseItems"] });
       toast.success("Sale completed successfully");
     },
     onError: (error: any) => {

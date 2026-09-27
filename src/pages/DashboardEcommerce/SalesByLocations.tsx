@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Card, CardBody, CardHeader, Col, Spinner } from "reactstrap";
+import { Card, CardBody, CardHeader, Spinner } from "reactstrap";
 import dayjs from "dayjs";
 
 import { useSalesPerItemReport } from "../../Components/Hooks/useReports";
@@ -51,7 +51,6 @@ const COLOR_PALETTE = [
 ];
 
 const SalesByCategory: React.FC = () => {
-  // 1. Calculate Last 30 Days Date Range
   const { fromDate, toDate } = useMemo(() => {
     const today = dayjs();
     const thirtyDaysAgo = today.subtract(30, "day");
@@ -61,23 +60,14 @@ const SalesByCategory: React.FC = () => {
     };
   }, []);
 
-  // 2. Fetch Data from API Hooks
   const { data: rawReportData = [], isLoading: loadingReport } =
-    useSalesPerItemReport({
-      fromDate,
-      toDate,
-    });
+    useSalesPerItemReport({ fromDate, toDate });
 
-  const { data: stockItemsData, isLoading: loadingStockItems } =
-    useStockItems();
-  const { data: categoryData, isLoading: loadingCategories } = useCategories(
-    "",
-    true
-  );
+  const { data: stockItemsData, isLoading: loadingStockItems } = useStockItems();
+  const { data: categoryData, isLoading: loadingCategories } = useCategories("", true);
 
   const isLoading = loadingReport || loadingStockItems || loadingCategories;
 
-  // 3. Normalize Report Items Array
   const reportItems = useMemo<SalesItemWithCategory[]>(() => {
     const raw = rawReportData as any;
     if (Array.isArray(raw)) return raw;
@@ -85,7 +75,6 @@ const SalesByCategory: React.FC = () => {
     return [];
   }, [rawReportData]);
 
-  // 4. Build Stock Items Lookup Map
   const stockItemMap = useMemo(() => {
     const map = new Map<string, StockItem>();
     if (!stockItemsData) return map;
@@ -102,7 +91,6 @@ const SalesByCategory: React.FC = () => {
     return map;
   }, [stockItemsData]);
 
-  // 5. Build Category Lookup Map
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
     if (!categoryData) return map;
@@ -119,19 +107,15 @@ const SalesByCategory: React.FC = () => {
     return map;
   }, [categoryData]);
 
-  // 6. Aggregate Sales by Category
   const { categoryList, grandTotalValue, grandTotalQty } = useMemo(() => {
-    const aggregates: Record<string, { totalValue: number; totalQty: number }> =
-      {};
+    const aggregates: Record<string, { totalValue: number; totalQty: number }> = {};
     let overallValue = 0;
     let overallQty = 0;
 
     reportItems.forEach((rawItem) => {
       const item = rawItem;
-      const stockCode =
-        item.item_code || item.itemCode || item.itemId || "UNKNOWN";
+      const stockCode = item.item_code || item.itemCode || item.itemId || "UNKNOWN";
 
-      // Resolve Stock Item & Category
       const matchedStockItem = stockItemMap.get(stockCode);
       const matchedCategoryId =
         matchedStockItem?.categoryId ||
@@ -177,7 +161,6 @@ const SalesByCategory: React.FC = () => {
       overallQty += qty;
     });
 
-    // Transform into sorted list with percentages and color assignments
     const sortedList: CategorySalesSummary[] = Object.entries(aggregates)
       .map(([name, data], index) => {
         const percentage =
@@ -210,124 +193,102 @@ const SalesByCategory: React.FC = () => {
   };
 
   return (
-    <React.Fragment>
-      <Col xl={4}>
-        <Card className="card-height-100">
-          <CardHeader className="align-items-center d-flex">
-            <h4 className="card-title mb-0 flex-grow-1">Sales by Category</h4>
-            <div className="flex-shrink-0">
-              <span className="badge bg-soft-info text-info fs-11">
-                Last 30 Days
-              </span>
+    <Card className="card-height-100 border-0 shadow-sm d-flex flex-column mb-0 w-100">
+      <CardHeader className="align-items-center d-flex py-3">
+        <h4 className="card-title mb-0 flex-grow-1 text-truncate fs-15 fw-semibold">
+          Sales by Category
+        </h4>
+        <div className="flex-shrink-0 ms-2">
+          <span className="badge bg-info-subtle text-info fs-11">
+            Last 30 Days
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardBody className="d-flex flex-column justify-content-between p-3 flex-grow-1">
+        {isLoading ? (
+          <div
+            className="d-flex justify-content-center align-items-center flex-grow-1"
+            style={{ minHeight: "280px" }}
+          >
+            <Spinner color="primary" />
+          </div>
+        ) : (
+          <>
+            {/* Top Revenue Summary Box */}
+            <div className="text-center bg-light rounded-3 p-2 p-sm-3 mb-3">
+              <h3 className="fw-bold text-primary mb-1 fs-16 fs-sm-18 text-truncate">
+                Ksh {formatCurrency(grandTotalValue)}
+              </h3>
+              <p className="text-muted text-uppercase fw-semibold mb-0 fs-10 fs-sm-11 text-truncate">
+                Total Revenue ({grandTotalQty.toLocaleString()} Units Sold)
+              </p>
             </div>
-          </CardHeader>
 
-          <CardBody>
-            {isLoading ? (
-              <div
-                className="d-flex justify-content-center align-items-center"
-                style={{ height: "460px" }}
-              >
-                <Spinner color="primary" />
-              </div>
-            ) : (
-              <>
-                {/* COMPACT TOP SUMMARY BLOCK */}
-                <div
-                  className="text-center bg-light rounded-3 d-flex flex-column justify-content-center py-2 px-3 mb-3"
-                  style={{ height: "80px" }}
-                >
-                  <h3 className="fw-bold text-primary mb-1 fs-20">
-                    Ksh {formatCurrency(grandTotalValue)}
-                  </h3>
-                  <p className="text-muted text-uppercase fw-semibold mb-0 fs-11">
-                    Total Revenue ({grandTotalQty.toLocaleString()} Units Sold)
-                  </p>
+            {/* Scrollable Category List with flex shrinking */}
+            <div
+              style={{
+                maxHeight: "270px",
+                overflowY: "auto",
+                paddingRight: "4px",
+                minHeight: "0px",
+              }}
+              className="custom-scrollbar flex-grow-1"
+            >
+              {categoryList.length === 0 ? (
+                <div className="text-center text-muted py-4 fs-13">
+                  No sales recorded in the last 30 days.
                 </div>
-
-                {/* EXPANDED SCROLLABLE CATEGORIES LIST */}
-                <div
-                  style={{
-                    height: "370px",
-                    overflowY: "auto",
-                    paddingRight: "6px",
-                    overflowX: "hidden",
-                  }}
-                  className="custom-scrollbar"
-                >
-                  {categoryList.length === 0 ? (
-                    <div className="text-center text-muted py-4">
-                      No sales recorded in the last 30 days.
-                    </div>
-                  ) : (
-                    categoryList.map((cat, index) => (
-                      <div
-                        key={index}
-                        className="mb-2.5 category-row"
-                        style={{ transition: "all 0.2s ease" }}
+              ) : (
+                categoryList.map((cat, index) => (
+                  <div key={index} className="mb-3 category-row">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <h6
+                        className="fs-12 fs-sm-13 mb-0 text-truncate fw-medium"
+                        style={{ maxWidth: "50%" }}
+                        title={cat.name}
                       >
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <h6
-                            className="fs-13 mb-0 text-truncate"
-                            style={{ maxWidth: "58%" }}
-                          >
-                            {cat.name}
-                          </h6>
-                          <span className="fs-12 text-muted fw-medium">
-                            Ksh {formatCurrency(cat.totalValue)}{" "}
-                            <span className="ms-1 text-dark fw-semibold">
-                              ({cat.percentage}%)
-                            </span>
-                          </span>
-                        </div>
-                        <div
-                          className="progress progress-sm"
-                          style={{ height: "6px" }}
-                        >
-                          <div
-                            className={`progress-bar bg-${cat.color}`}
-                            role="progressbar"
-                            style={{
-                              width: `${cat.percentage}%`,
-                              borderRadius: "10px",
-                              cursor: "pointer",
-                            }}
-                            title={`${cat.name}: Ksh ${formatCurrency(
-                              cat.totalValue
-                            )} (${cat.totalQty} units)`}
-                          ></div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
-          </CardBody>
-        </Card>
-      </Col>
+                        {cat.name}
+                      </h6>
+                      <span className="fs-11 fs-sm-12 text-muted fw-medium text-nowrap ms-2">
+                        Ksh {formatCurrency(cat.totalValue)}{" "}
+                        <span className="ms-1 text-dark fw-semibold">
+                          ({cat.percentage}%)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="progress progress-sm" style={{ height: "6px" }}>
+                      <div
+                        className={`progress-bar bg-${cat.color}`}
+                        role="progressbar"
+                        style={{
+                          width: `${cat.percentage}%`,
+                          borderRadius: "10px",
+                        }}
+                        title={`${cat.name}: Ksh ${formatCurrency(cat.totalValue)} (${cat.totalQty} units)`}
+                      ></div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </CardBody>
 
-      <style>
-        {`
-          .custom-scrollbar::-webkit-scrollbar {
-              width: 4px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-              background: #f1f1f1;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: #ccc;
-              border-radius: 10px;
-          }
-          .category-row:hover {
-              transform: translateX(3px);
-          }
-          .mb-2\\.5 {
-              margin-bottom: 0.65rem !important;
-          }
-        `}
-      </style>
-    </React.Fragment>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #ccc;
+          border-radius: 10px;
+        }
+      `}</style>
+    </Card>
   );
 };
 
