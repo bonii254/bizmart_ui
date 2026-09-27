@@ -29,3 +29,47 @@ export interface CashTransactionQueryParams {
   pageNumber?: number;
   pageSize?: number;
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface CustomerStatementItem {
+  posted_at: string;
+  transaction_type: 'sale' | 'payment' | string;
+  document_number: string;
+  debit: number;
+  credit: number;
+  running_balance: number;
+}
+
+export type CustomerStatementReportResponse = ApiResponse<CustomerStatementItem[]>;
+
+export interface CustomerStatementQueryParams {
+  customerId?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface SupplierStatementItem {
+  posted_at: string;
+  transaction_type: string; 
+  document_number: string;
+  debit: number;
+  credit: number;
+  running_balance: number;
+}
+
+export interface SupplierStatementQueryParams {
+  supplierId: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface SupplierStatementResponse {
+  success: boolean;
+  message: string;
+  data: SupplierStatementItem[];
+}

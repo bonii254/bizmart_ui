@@ -24,6 +24,8 @@ import SalesGrossProfit from "../pages/Report/Profit/SalesGrossProfit"
 import SalesTransactionsReport from "../pages/Report/SalesTransactionsReport"
 import InventoryTransactionsReport from "../pages/Report/InventoryTransactions/InventoryTransactionsReport"
 import CashTransactionsReport from "../pages/Report/CashTransactions/CashTransactionsReport"
+import CustomerStatementReport from "../pages/Report/CustomerStatement/CustomerStatementReport"
+import SupplierStatementReport from "../pages/Report/SupplierStatement/SupplierStatementReport"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -90,6 +92,9 @@ const authProtectedRoutes = [
   { path: "/reports/store-item-summary", component: <StoreItemSummaryReport /> },
   { path: "/reports/sales-gross-profit", component: <SalesGrossProfit /> },
   { path: "/reports/cash-transactions", component: <CashTransactionsReport /> },
+  { path: "/reports/customer-statement", component: <CustomerStatementReport /> },
+  { path: "/reports/supplier-statement", component: <SupplierStatementReport /> },
+
 
 
   { path: "/pages-profile", component: <SimplePage /> },
