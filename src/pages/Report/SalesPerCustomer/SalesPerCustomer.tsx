@@ -281,7 +281,7 @@ const SalesPerCustomer: React.FC = () => {
                 loading={isDataLoading}
                 icon={<ReloadOutlined />}
               >
-                {isDataLoading ? 'Loading...' : 'Load Report'}
+                {isDataLoading ? 'Loading...' : 'Load'}
               </Button>
             </Col>
 
@@ -292,7 +292,7 @@ const SalesPerCustomer: React.FC = () => {
                 icon={<FileExcelOutlined />}
                 disabled={reportData.length === 0}
               >
-                Export to Excel
+                Excel
               </Button>
             </Col>
           </Row>

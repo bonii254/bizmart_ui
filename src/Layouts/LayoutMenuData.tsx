@@ -161,7 +161,7 @@ const Navdata = () => {
         },
         {
           id: "inventory-transactions",
-          label: "Inventory Movements",
+          label: "Inventory Transactions",
           link: "/reports/inventory-transactions",
           parentId: "reports",
         },

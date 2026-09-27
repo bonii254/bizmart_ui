@@ -23,7 +23,7 @@ import { useSalesTransactions } from '../../Components/Hooks/usePOS';
 import { SalesTransactionQueryParams, SalesTransaction } from '../../types/POS';
 import SalesTransactionsTable from './SalesTransactionsTable';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const SalesTransactionsReport: React.FC = () => {
@@ -104,10 +104,10 @@ const SalesTransactionsReport: React.FC = () => {
       const ws = XLSX.utils.json_to_sheet(exportData);
 
       ws['!cols'] = [
-        { wch: 18 }, { wch: 15 }, { wch: 12 }, 
-        { wch: 22 }, { wch: 16 }, { wch: 16 }, 
-        { wch: 14 }, { wch: 22 }, { wch: 18 }, 
-        { wch: 18 }, { wch: 16 }, { wch: 14 }
+        { wch: 18 }, { wch: 15 }, { wch: 12 },
+        { wch: 22 }, { wch: 16 }, { wch: 16 },
+        { wch: 14 }, { wch: 22 }, { wch: 18 },
+        { wch: 18 }, { wch: 16 }, { wch: 14 },
       ];
 
       XLSX.utils.book_append_sheet(wb, ws, 'Sales Transactions');
@@ -132,65 +132,95 @@ const SalesTransactionsReport: React.FC = () => {
   ];
 
   return (
-    <div className="page-content">
-      <Container fluid>
-        <Card>
-          <Title level={4} style={{ marginBottom: '20px' }}>
-            <ShoppingOutlined /> Sales Transactions Report
-          </Title>
-
-          {/* Control Bar */}
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} align="middle">
-            <Col xs={24} sm={12} md={8} lg={7}>
-              <RangePicker
-                style={{ width: '100%' }}
-                value={dateRange}
-                onChange={(dates) => setDateRange(dates)}
-                format="YYYY-MM-DD"
-                presets={rangePresets}
-                allowClear
-              />
+    <div className="page-content position-relative" style={{ zIndex: 1 }}>
+      <Container fluid className="px-2 px-md-3">
+        {/* Velzon-Safe Page Header & Control Card */}
+        <Card
+          size="small"
+          className="shadow-sm border-0 mb-3"
+          bodyStyle={{ padding: '12px 16px' }}
+        >
+          <Row gutter={[12, 12]} align="middle" justify="space-between">
+            {/* Title Section */}
+            <Col xs={24} lg={8}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 6,
+                    backgroundColor: '#e6f7ff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <ShoppingOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
+                </div>
+                <div>
+                  <Title level={5} style={{ margin: 0, lineHeight: 1.2 }}>
+                    Sales Transactions Report
+                  </Title>
+                </div>
+              </div>
             </Col>
 
-            <Col>
-              <Button
-                type="primary"
-                onClick={() => refetch()}
-                loading={isFetching}
-                icon={<ReloadOutlined />}
-              >
-                {isFetching ? 'Loading...' : 'Load Report'}
-              </Button>
-            </Col>
+            {/* Controls Bar */}
+            <Col xs={24} lg={16}>
+              <Row gutter={[8, 8]} justify="end" align="middle">
+                <Col xs={24} sm={13} md={12} lg={12} xl={11}>
+                  <RangePicker
+                    style={{ width: '100%' }}
+                    value={dateRange}
+                    onChange={(dates) => setDateRange(dates)}
+                    format="YYYY-MM-DD"
+                    presets={rangePresets}
+                    allowClear
+                    getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+                  />
+                </Col>
 
-            <Col>
-              <Button
-                type="primary"
-                onClick={handleExportToExcel}
-                loading={isLoading}
-                icon={<FileExcelOutlined />}
-                disabled={filteredTransactions.length === 0}
-              >
-                Export Excel ({filteredTransactions.length})
-              </Button>
+                <Col xs={12} sm={5} md={6} lg={5} xl={4}>
+                  <Button
+                    type="primary"
+                    block
+                    onClick={() => refetch()}
+                    loading={isFetching}
+                    icon={<ReloadOutlined />}
+                  >
+                    {isFetching ? 'Loading' : 'Load'}
+                  </Button>
+                </Col>
+
+                <Col xs={12} sm={6} md={6} lg={5} xl={4}>
+                  <Button
+                    type="default"
+                    block
+                    onClick={handleExportToExcel}
+                    loading={isLoading}
+                    icon={<FileExcelOutlined style={{ color: '#52c41a' }} />}
+                    disabled={filteredTransactions.length === 0}
+                  >
+                    Export ({filteredTransactions.length})
+                  </Button>
+                </Col>
+              </Row>
             </Col>
           </Row>
-
-          {/* Table Container */}
-          <div style={{ overflowX: 'auto' }}>
-            {isLoading ? (
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <Spin size="large" />
-              </div>
-            ) : (
-              <SalesTransactionsTable
-                data={rawTransactions}
-                loading={isFetching}
-                onFilteredDataChange={handleFilteredDataChange}
-              />
-            )}
-          </div>
         </Card>
+
+        {/* Table Content Section */}
+        {isLoading ? (
+          <Card size="small" className="shadow-sm border-0" style={{ textAlign: 'center', padding: '40px' }}>
+            <Spin size="large" tip="Fetching Sales Transactions..." />
+          </Card>
+        ) : (
+          <SalesTransactionsTable
+            data={rawTransactions}
+            loading={isFetching}
+            onFilteredDataChange={handleFilteredDataChange}
+          />
+        )}
       </Container>
       <ToastContainer closeButton={false} limit={1} />
     </div>

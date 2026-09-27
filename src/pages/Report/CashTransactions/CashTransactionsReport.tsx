@@ -14,24 +14,22 @@ import {
 import {
   ReloadOutlined,
   FileExcelOutlined,
-  InboxOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import dayjs, { Dayjs } from 'dayjs';
 
+import { useCashTransactions } from '../../../Components/Hooks/useReport2';
 import { 
-  useInventoryTransactions 
-} from '../../../Components/Hooks/useReports';
-import { 
-  InventoryTransactionQueryParams, 
-  InventoryTransaction 
-} from '../../../types/reports'; 
-import InventoryTransactionsTable from './InventoryTransactionsTable';
+  CashTransactionQueryParams, 
+  CashTransaction 
+} from '../../../types/reports2'; 
+import CashTransactionsTable from './CashTransactionsTable';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
-const InventoryTransactionsReport: React.FC = () => {
+const CashTransactionsReport: React.FC = () => {
   // Default Date Range: Start of current month to end of current month
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>([
     dayjs().startOf('month'),
@@ -39,10 +37,10 @@ const InventoryTransactionsReport: React.FC = () => {
   ]);
 
   // Holds active client-side filtered dataset from table
-  const [filteredTransactions, setFilteredTransactions] = useState<InventoryTransaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<CashTransaction[]>([]);
 
   // Construct query payload for backend endpoint
-  const queryParams = useMemo<InventoryTransactionQueryParams>(() => {
+  const queryParams = useMemo<CashTransactionQueryParams>(() => {
     const fromDate = dateRange && dateRange[0] ? dateRange[0].format('YYYY-MM-DD') : undefined;
     const toDate = dateRange && dateRange[1] ? dateRange[1].format('YYYY-MM-DD') : undefined;
 
@@ -54,53 +52,49 @@ const InventoryTransactionsReport: React.FC = () => {
 
   const { 
     data: responseData, isLoading, isFetching, refetch 
-  } = useInventoryTransactions(queryParams);
+  } = useCashTransactions(queryParams);
 
   // Safely extract dataset array
-  const rawTransactions = useMemo<InventoryTransaction[]>(() => {
-  const raw = responseData as any; // Cast to 'any' to bypass 'never' type checking
+  const rawTransactions = useMemo<CashTransaction[]>(() => {
+    const raw = responseData as any; // Cast to 'any' to bypass 'never' type checking
 
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray(raw.data)) return raw.data;
-  if (Array.isArray(raw.data?.data)) return raw.data.data;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw.data)) return raw.data;
+    if (Array.isArray(raw.data?.data)) return raw.data.data;
 
-  return [];
-}, [responseData]);
+    return [];
+  }, [responseData]);
+
   // Keep filtered list updated for export operations
-  const handleFilteredDataChange = useCallback((data: InventoryTransaction[]) => {
+  const handleFilteredDataChange = useCallback((data: CashTransaction[]) => {
     setFilteredTransactions(data);
   }, []);
 
   // Export Filtered Dataset to Excel
   const handleExportToExcel = () => {
     if (!filteredTransactions || filteredTransactions.length === 0) {
-      message.warning('No inventory transaction data available to export');
+      message.warning('No cash transaction data available to export');
       return;
     }
 
     try {
-      const exportData = filteredTransactions.map((item: InventoryTransaction) => {
+      const exportData = filteredTransactions.map((item: CashTransaction) => {
         const postedAtFormatted =
           item.posted_at && dayjs(item.posted_at).isValid()
             ? dayjs(item.posted_at).format('DD/MM/YYYY HH:mm:ss')
             : 'N/A';
 
-        const qty = item.quantity || 0;
-        const unitCost = item.unit_cost || 0;
-        const totalValue = qty * unitCost;
-
         return {
           'Posted At': postedAtFormatted,
-          'Ref Number': item.reference_number || 'N/A',
-          'Transaction Type': (item.transaction_type || 'N/A').toUpperCase(),
-          Warehouse: item.warehouse_code || 'N/A',
-          'Item Code': item.item_code || 'N/A',
-          Description: item.description || 'N/A',
-          UOM: item.stock_uom || 'N/A',
-          Quantity: qty,
-          'Unit Cost (Ksh)': unitCost,
-          'Total Value (Ksh)': totalValue,
+          'Document Number': item.document_number || 'N/A',
+          'Source Doc Number': item.source_document_number || 'N/A',
+          'Transaction Type': (item.transaction_type || 'N/A').toUpperCase().replace('_', ' '),
+          'Payment Method': (item.payment_method_code || 'N/A').toUpperCase(),
+          'Bank': item.bank_name || 'N/A',
+          Operator: item.operator_name || 'N/A',
+          Reference: item.reference || 'N/A',
+          'Amount (Ksh)': item.amount || 0,
         };
       });
 
@@ -108,22 +102,21 @@ const InventoryTransactionsReport: React.FC = () => {
       const ws = XLSX.utils.json_to_sheet(exportData);
 
       ws['!cols'] = [
-        { wch: 20 }, { wch: 16 }, { wch: 18 },
-        { wch: 12 }, { wch: 18 }, { wch: 32 },
-        { wch: 10 }, { wch: 14 }, { wch: 16 },
-        { wch: 18 },
+        { wch: 20 }, { wch: 18 }, { wch: 18 },
+        { wch: 18 }, { wch: 16 }, { wch: 20 },
+        { wch: 20 }, { wch: 22 }, { wch: 16 },
       ];
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Inventory Transactions');
+      XLSX.utils.book_append_sheet(wb, ws, 'Cash Transactions');
 
       const fromStr = dateRange && dateRange[0] ? dateRange[0].format('YYYY-MM-DD') : 'start';
       const toStr = dateRange && dateRange[1] ? dateRange[1].format('YYYY-MM-DD') : 'end';
       const timestamp = dayjs().format('YYYYMMDD_HHmmss');
 
-      XLSX.writeFile(wb, `InventoryTransactions_${fromStr}_to_${toStr}_${timestamp}.xlsx`);
-      message.success('Inventory transactions exported successfully!');
+      XLSX.writeFile(wb, `CashTransactions_${fromStr}_to_${toStr}_${timestamp}.xlsx`);
+      message.success('Cash transactions exported successfully!');
     } catch (error) {
-      message.error('Failed to export inventory transactions to Excel');
+      message.error('Failed to export cash transactions to Excel');
     }
   };
 
@@ -159,11 +152,11 @@ const InventoryTransactionsReport: React.FC = () => {
                     justifyContent: 'center',
                   }}
                 >
-                  <InboxOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
+                  <WalletOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
                 </div>
                 <div>
                   <Title level={5} style={{ margin: 0, lineHeight: 1.2 }}>
-                    Inventory Transactions Report
+                    Cash Transactions Report
                   </Title>
                 </div>
               </div>
@@ -216,10 +209,10 @@ const InventoryTransactionsReport: React.FC = () => {
         {/* Table Content Container */}
         {isLoading ? (
           <Card size="small" className="shadow-sm border-0" style={{ textAlign: 'center', padding: '40px' }}>
-            <Spin size="large" tip="Fetching Inventory Ledger Transactions..." />
+            <Spin size="large" tip="Fetching Cash Transactions..." />
           </Card>
         ) : (
-          <InventoryTransactionsTable
+          <CashTransactionsTable
             data={rawTransactions}
             loading={isFetching}
             onFilteredDataChange={handleFilteredDataChange}
@@ -231,4 +224,4 @@ const InventoryTransactionsReport: React.FC = () => {
   );
 };
 
-export default InventoryTransactionsReport;
+export default CashTransactionsReport;

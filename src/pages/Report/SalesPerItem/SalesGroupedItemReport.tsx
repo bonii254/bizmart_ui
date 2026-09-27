@@ -172,7 +172,6 @@ const SalesGroupedItemReport: React.FC<Props> = ({ data = [], loading = false })
   return (
     <div>
       <Card style={{ marginBottom: 16 }}>
-        <Title level={5}>Filters</Title>
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={6}>
             <Select

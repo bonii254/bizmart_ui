@@ -23,6 +23,7 @@ import StoreItemSummaryReport from "../pages/Report/StoreItemSummary"
 import SalesGrossProfit from "../pages/Report/Profit/SalesGrossProfit"
 import SalesTransactionsReport from "../pages/Report/SalesTransactionsReport"
 import InventoryTransactionsReport from "../pages/Report/InventoryTransactions/InventoryTransactionsReport"
+import CashTransactionsReport from "../pages/Report/CashTransactions/CashTransactionsReport"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -88,8 +89,7 @@ const authProtectedRoutes = [
   { path: "/reports/periodic-inventory-summary", component: <MonthlyPeriodicReport /> },
   { path: "/reports/store-item-summary", component: <StoreItemSummaryReport /> },
   { path: "/reports/sales-gross-profit", component: <SalesGrossProfit /> },
-
-
+  { path: "/reports/cash-transactions", component: <CashTransactionsReport /> },
 
 
   { path: "/pages-profile", component: <SimplePage /> },

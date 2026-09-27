@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { POSService } from "../../services/posService";
-import { CreateSalesReceiptPayload, SalesTransactionQueryParams } from "../../types/POS"; 
+import { 
+  CreateSalesReceiptPayload, 
+  SalesTransactionQueryParams 
+} from "../../types/POS"; 
 import { toast } from "react-toastify";
 
 export const useSales = () => {

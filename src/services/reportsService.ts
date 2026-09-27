@@ -30,10 +30,9 @@ export const StockTakeBrowseService = {
   getInventoryTransactions: async (
     params?: InventoryTransactionQueryParams
   ): Promise<InventoryTransactionsResponse> => {
-    const response = await api.get(
+    return await api.get(
       `/api/browses/inventory-transactions`, params
     );
-    return response.data;
   },
 
   getSalesPerItemReport: async (

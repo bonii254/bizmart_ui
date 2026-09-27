@@ -196,7 +196,7 @@ const SalesPerItem: React.FC = () => {
                 loading={isFetching}
                 icon={<ReloadOutlined />}
               >
-                {isFetching ? "Loading..." : "Load Report"}
+                {isFetching ? "Loading..." : "Load"}
               </Button>
             </Col>
             <Col>
@@ -207,7 +207,7 @@ const SalesPerItem: React.FC = () => {
                 icon={<FileExcelOutlined />}
                 disabled={!reportData || reportData.length === 0}
               >
-                Export to Excel
+                Excel
               </Button>
             </Col>
           </Row>
