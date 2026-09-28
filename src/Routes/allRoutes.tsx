@@ -26,6 +26,11 @@ import InventoryTransactionsReport from "../pages/Report/InventoryTransactions/I
 import CashTransactionsReport from "../pages/Report/CashTransactions/CashTransactionsReport"
 import CustomerStatementReport from "../pages/Report/CustomerStatement/CustomerStatementReport"
 import SupplierStatementReport from "../pages/Report/SupplierStatement/SupplierStatementReport"
+import InventoryValuationReport from "../pages/Report/InventoryValuation/InventoryValuationReport"
+import OperatorSalesSummaryReport from "../pages/Report/OperatorSalesSummary/OperatorSalesSummaryReport"
+import SalesPaymentSummaryReport from "../pages/Report/SalesPaymentSummary/SalesPaymentSummaryReport"
+import DailyTillSummaryReport from "../pages/Report/DailyTillSummary/DailyTillSummaryReport"
+import MonthlyInventoryStatement from "../pages/Report/MonthlyInventoryStatement"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -94,7 +99,11 @@ const authProtectedRoutes = [
   { path: "/reports/cash-transactions", component: <CashTransactionsReport /> },
   { path: "/reports/customer-statement", component: <CustomerStatementReport /> },
   { path: "/reports/supplier-statement", component: <SupplierStatementReport /> },
-
+  { path: "reports/inventory-valuation", component: <InventoryValuationReport /> },
+  { path: "/reports/operator-sales-summary", component: <OperatorSalesSummaryReport /> },
+  { path: "/reports/sales-payment-summary", component: <SalesPaymentSummaryReport /> },
+  { path: "/reports/daily-till-summary", component: <DailyTillSummaryReport /> },
+  { path: "/reports/inventory-statement-monthly", component: <MonthlyInventoryStatement /> },
 
 
   { path: "/pages-profile", component: <SimplePage /> },

@@ -5,7 +5,17 @@ import {
   CustomerStatementReportResponse, 
   CustomerStatementQueryParams,
   SupplierStatementQueryParams, 
-  SupplierStatementResponse
+  SupplierStatementResponse,
+  InventoryValuationQueryParams,
+  InventoryValuationResponse,
+  OperatorSalesSummaryQueryParams,
+  OperatorSalesSummaryResponse,
+  SalesPaymentSummaryQueryParams,
+  SalesPaymentSummaryResponse,
+  DailyTillSummaryQueryParams,
+  DailyTillSummaryResponse,
+  MonthlyInventoryStatementQueryParams,
+  MonthlyInventoryStatementResponse,
 } from '../types/reports2';
 
 const api = new APIClient();
@@ -53,4 +63,55 @@ export const SupplierStatementService = {
       queryParams
     );
   }
+};
+
+export const getInventoryValuation = async (
+  params?: InventoryValuationQueryParams
+): Promise<InventoryValuationResponse> => {
+  return await api.get(
+    '/api/reports/inventory-valuation',
+    params
+  );
+};
+
+export const OperatorSalesSummaryService = {
+  getOperatorSalesSummary: async (
+    params?: OperatorSalesSummaryQueryParams
+  ): Promise<OperatorSalesSummaryResponse> => {
+    return await api.get(
+      '/api/reports/operator-sales-summary',
+      params
+    );
+  }
+};
+
+export const SalesPaymentSummaryService = {
+  getSalesPaymentSummary: async (
+    params?: SalesPaymentSummaryQueryParams
+  ): Promise<SalesPaymentSummaryResponse> => {
+    return await api.get(
+      '/api/reports/sales-payment-summary',
+      params
+    );
+  }
+};
+
+export const DailyTillSummaryService = {
+  getDailyTillSummary: async (
+    params?: DailyTillSummaryQueryParams
+  ): Promise<DailyTillSummaryResponse> => {
+    return await api.get(
+      '/api/reports/daily-till-summary',
+      params
+    );
+  }
+};
+
+export const getMonthlyInventoryStatement = async (
+  params?: MonthlyInventoryStatementQueryParams
+): Promise<MonthlyInventoryStatementResponse> => {
+  return await api.get(
+    '/api/reports/inventory-statement-monthly',
+    params 
+  );
 };
