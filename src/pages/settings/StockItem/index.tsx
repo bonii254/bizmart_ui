@@ -76,6 +76,7 @@ const StockItemManagement: React.FC = () => {
     createStockItem,
     updateStockItem,
     deleteStockItem,
+    patchPriceCode,
     isCreating,
     isUpdating,
     isDeleting,
@@ -183,7 +184,7 @@ const StockItemManagement: React.FC = () => {
       categoryId: Yup.string().nullable().optional(),
       alternateUom: Yup.string().nullable().optional(),
       alternateConversionFactor: Yup.number().nullable().optional(),
-    }), 
+    }),
     onSubmit: async (values) => {
       try {
         setGlobalError(null);
@@ -195,18 +196,29 @@ const StockItemManagement: React.FC = () => {
         };
 
         if (isEditMode && currentStockItemId) {
-          const patchedData: UpdateStockItemRequest = {
-            // Always include itemCode even if unchanged
-            itemCode: payload.itemCode,
-          };
-
+          const patchedData: UpdateStockItemRequest = {};
           (Object.keys(payload) as Array<keyof StockItemPayload>).forEach((key) => {
             if (payload[key] !== formik.initialValues[key]) {
               patchedData[key] = payload[key] as any;
             }
           });
 
-          await updateStockItem({ itemId: currentStockItemId, data: patchedData });
+          const changedKeys = Object.keys(patchedData) as Array<keyof UpdateStockItemRequest>;
+
+          // Check if ONLY sellingPrice was modified
+          const isOnlySellingPriceChanged =
+            changedKeys.length === 1 && changedKeys[0] === "sellingPrice";
+
+          if (isOnlySellingPriceChanged) {
+            // Invokes patchPriceCode from useStockItemMutation
+            await patchPriceCode({
+              itemId: currentStockItemId,
+              priceCode: "A",
+              sellingPrice: Number(payload.sellingPrice),
+            });
+          } else if (changedKeys.length > 0) {
+            await updateStockItem({ itemId: currentStockItemId, data: patchedData });
+          }
         } else {
           await createStockItem(payload);
         }
