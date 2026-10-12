@@ -22,6 +22,8 @@ import WarehouseManagement from "./Warehouse";
 import StockItemManagement from "./StockItem";
 import ItemWarehouseManagement from "./WarehouseStock";
 import PriceCodeManagement from "./pricing";
+import ItemPriceManagement from "./pricing/ItemPriceManagement";
+import ReasonCodeManagement from "./ReasonCode";
 
 interface TabItem {
   id: string;
@@ -84,13 +86,27 @@ const SettingsHub: React.FC = () => {
       },
       {
         id: "7",
+        title: "Item Price Management",
+        menuLabel: "Item Prices",
+        icon: "ri-price-tag-2-line",
+        component: <ItemPriceManagement />,
+      },
+      {
+        id: "8",
+        title: "Reason Code Management",
+        menuLabel: "Reason Codes",
+        icon: "ri-question-line",
+        component: <ReasonCodeManagement />,
+      },
+      {
+        id: "9",
         title: "Stock Item Management",
         menuLabel: "Stock Items",
         icon: "ri-box-3-line",
         component: <StockItemManagement />,
       },
       {
-        id: "8",
+        id: "10",
         title: "Warehouse Stock Management",
         menuLabel: "Warehouse Stock",
         icon: "ri-store-2-line",

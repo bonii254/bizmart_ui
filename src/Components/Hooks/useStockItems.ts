@@ -56,6 +56,7 @@ export const useStockItemMutation = () => {
       StockItemService.patchPriceCode(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stockItems"] });
+      queryClient.invalidateQueries({ queryKey: ["priceCodes"] });
     },
   });
 

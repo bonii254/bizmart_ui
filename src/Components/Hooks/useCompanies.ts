@@ -19,7 +19,8 @@ export const useCompanyMutation = () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
     onError: (error: any) => {
-          toast.error(error.response?.data?.message || "Failed to process company request ");
+          toast.error(
+            error.response?.data?.message || "Failed to process company request ");
         },
   });
 

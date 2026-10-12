@@ -238,11 +238,8 @@ export const SupplierManagement: React.FC = () => {
                 <div>
                   <h4 className="fs-18 fw-bold mb-1 text-dark d-flex align-items-center gap-2">
                     <i className="ri-building-3-line text-primary fs-22"></i>
-                    Supplier Master Directory
+                    Supplier Directory
                   </h4>
-                  <p className="text-muted fs-12 mb-0">
-                    Accounts Payable (AP) Vendor Ledger, Credit Terms
-                  </p>
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <Button
@@ -272,92 +269,6 @@ export const SupplierManagement: React.FC = () => {
                   </Button>
                 </div>
               </div>
-            </Col>
-          </Row>
-
-          {/* KPI Executive Widgets */}
-          <Row className="g-3 mb-3">
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Registered Suppliers
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-dark">
-                        {metrics.total}
-                      </h4>
-                    </div>
-                    <div
-                      className="avatar-sm rounded-3 d-flex align-items-center justify-content-center"
-                      style={{ backgroundColor: CORPORATE_NAVY_SUBTLE }}
-                    >
-                      <i className="ri-store-2-line fs-20" style={{ color: CORPORATE_NAVY }}></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Active Trading Accounts
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-success">
-                        {metrics.active}
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-success-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-checkbox-circle-fill fs-20 text-success"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        On Hold / Blocked
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-danger">
-                        {metrics.inactive}
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-danger-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-error-warning-fill fs-20 text-danger"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Avg AP Payment Window
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-info">
-                        {metrics.avgTerms} Days
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-info-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-calendar-todo-fill fs-20 text-info"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
             </Col>
           </Row>
 

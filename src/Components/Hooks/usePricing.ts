@@ -27,6 +27,7 @@ export const usePriceCodeMutation = () => {
     ) => PriceCodeService.createPriceCode(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceCodes"] });
+      queryClient.invalidateQueries({ queryKey: ["stockItems"] });
       toast.success("Price code created successfully");
     },
     onError: (error: any) => {

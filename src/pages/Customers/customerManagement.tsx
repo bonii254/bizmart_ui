@@ -33,6 +33,7 @@ import {
   useCustomers,
   useCustomerMutation,
 } from "../../Components/Hooks/useCustomers";
+import { usePriceCodes } from "../../Components/Hooks/usePricing"; // Import price code hook
 import {
   Customer,
   CustomerPayload,
@@ -61,8 +62,10 @@ export const CustomerManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
 
-  // TanStack Query & Mutations (Aligned with updated hooks returning Customer[])
+  // TanStack Query & Mutations
   const { data: customers = [], isLoading, refetch } = useCustomers();
+  const { data: priceCodes = [], isLoading: isLoadingPriceCodes } = usePriceCodes();
+  
   const {
     createCustomer,
     updateCustomer,
@@ -175,7 +178,7 @@ export const CustomerManagement: React.FC = () => {
       }
       setIsFormModalOpen(false);
     } catch {
-      // Toast notifications are handled automatically by mutation hooks
+      // Toast notifications handled automatically by mutation hooks
     }
   };
 
@@ -231,7 +234,7 @@ export const CustomerManagement: React.FC = () => {
   return (
     <React.Fragment>
       <div className="page-content">
-        <Container fluid>
+        <Container fluid className="px-3 px-md-4">
           {/* Section Header */}
           <Row className="mb-3">
             <Col xs={12}>
@@ -239,13 +242,10 @@ export const CustomerManagement: React.FC = () => {
                 <div>
                   <h4 className="fs-18 fw-bold mb-1 text-dark d-flex align-items-center gap-2">
                     <i className="ri-user-star-line text-primary fs-22"></i>
-                    Customer Directory & AR Ledger
+                    Customer Directory
                   </h4>
-                  <p className="text-muted fs-12 mb-0">
-                    Accounts Receivable (AR) Client Profiles & Credit Control
-                  </p>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center flex-wrap gap-2">
                   <Button
                     color="light"
                     className="btn-sm border shadow-sm fw-medium fs-12 d-flex align-items-center gap-1"
@@ -275,97 +275,11 @@ export const CustomerManagement: React.FC = () => {
             </Col>
           </Row>
 
-          {/* KPI Executive Widgets */}
-          <Row className="g-3 mb-3">
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Total Clients
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-dark">
-                        {metrics.total}
-                      </h4>
-                    </div>
-                    <div
-                      className="avatar-sm rounded-3 d-flex align-items-center justify-content-center"
-                      style={{ backgroundColor: CORPORATE_NAVY_SUBTLE }}
-                    >
-                      <i className="ri-user-shared-line fs-20" style={{ color: CORPORATE_NAVY }}></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Active Accounts
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-success">
-                        {metrics.active}
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-success-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-checkbox-circle-fill fs-20 text-success"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        On Hold / Suspended
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-22 fw-bold font-monospace text-danger">
-                        {metrics.inactive}
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-danger-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-error-warning-fill fs-20 text-danger"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-
-            <Col xl={3} md={6}>
-              <Card className="card-animate shadow-sm border-0 mb-0 h-100">
-                <CardBody className="p-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <p className="fw-medium text-muted mb-0 fs-11 text-uppercase tracking-wider">
-                        Combined Credit Line
-                      </p>
-                      <h4 className="mt-1 mb-0 fs-20 fw-bold font-monospace text-info">
-                        {formatCurrency(metrics.totalCreditLimit)}
-                      </h4>
-                    </div>
-                    <div className="avatar-sm bg-info-subtle rounded-3 d-flex align-items-center justify-content-center">
-                      <i className="ri-wallet-3-line fs-20 text-info"></i>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Col>
-          </Row>
-
           {/* Main Datatable Card */}
           <Card className="shadow-sm border-0 mb-4">
             <CardHeader className="bg-white border-bottom py-3 px-3">
               <Row className="g-2 align-items-center justify-content-between">
-                <Col lg={4} md={5}>
+                <Col lg={4} md={5} xs={12}>
                   <div className="search-box position-relative">
                     <Input
                       type="text"
@@ -390,7 +304,7 @@ export const CustomerManagement: React.FC = () => {
                   </div>
                 </Col>
 
-                <Col lg={8} md={7}>
+                <Col lg={8} md={7} xs={12}>
                   <div className="d-flex align-items-center gap-2 justify-content-md-end flex-wrap">
                     <Nav pills className="nav-pills-custom nav-custom-light btn-group">
                       <NavItem>
@@ -461,9 +375,9 @@ export const CustomerManagement: React.FC = () => {
                     <tr>
                       <th style={{ width: "12%" }}>Code</th>
                       <th style={{ width: "22%" }}>Customer Name & Tax PIN</th>
-                      <th style={{ width: "20%" }}>Contact Person</th>
-                      <th style={{ width: "14%" }}>Price Code</th>
-                      <th style={{ width: "14%" }}>Credit Limit</th>
+                      <th className="d-none d-md-table-cell" style={{ width: "20%" }}>Contact Person</th>
+                      <th className="d-none d-lg-table-cell" style={{ width: "14%" }}>Price Code</th>
+                      <th className="d-none d-sm-table-cell" style={{ width: "14%" }}>Credit Limit</th>
                       <th style={{ width: "10%" }}>Status</th>
                       <th style={{ width: "8%" }} className="text-end pe-3">
                         Actions
@@ -508,7 +422,8 @@ export const CustomerManagement: React.FC = () => {
 
                           <td>
                             <div
-                              className="fw-bold text-dark fs-12 cursor-pointer"
+                              className="fw-bold text-dark fs-12 cursor-pointer text-truncate"
+                              style={{ maxWidth: "220px" }}
                               onClick={() => handleOpenInspect(cust)}
                             >
                               {cust.customerName}
@@ -518,18 +433,18 @@ export const CustomerManagement: React.FC = () => {
                             </small>
                           </td>
 
-                          <td>
+                          <td className="d-none d-md-table-cell">
                             <div className="fw-bold text-dark fs-12">{cust.contactName}</div>
                             <div className="text-muted fs-11">{cust.phone}</div>
                           </td>
 
-                          <td>
+                          <td className="d-none d-lg-table-cell">
                             <Badge color="light" className="text-dark border fs-11 px-2 py-1 font-monospace">
                               {cust.priceCode || "STANDARD"}
                             </Badge>
                           </td>
 
-                          <td>
+                          <td className="d-none d-sm-table-cell">
                             <Badge color="light" className="text-primary border fs-11 px-2 py-1 font-monospace">
                               {formatCurrency(cust.creditLimit)}
                             </Badge>
@@ -598,7 +513,7 @@ export const CustomerManagement: React.FC = () => {
               </div>
 
               {/* Pagination Footer */}
-              <div className="p-3 border-top border-light-subtle d-flex align-items-center justify-content-between fs-12 text-muted">
+              <div className="p-3 border-top border-light-subtle d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2 fs-12 text-muted">
                 <div>
                   Showing <strong className="text-dark">{paginatedCustomers.length}</strong> of{" "}
                   <strong className="text-dark">{totalCount}</strong> filtered records (Total: {customers.length})
@@ -654,7 +569,7 @@ export const CustomerManagement: React.FC = () => {
         <Form onSubmit={handleFormSubmit}>
           <ModalBody className="p-4">
             <Row className="g-3">
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Customer Code <span className="text-danger">*</span>
@@ -673,7 +588,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Customer / Business Name <span className="text-danger">*</span>
@@ -692,7 +607,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Tax Number / PIN <span className="text-danger">*</span>
@@ -711,29 +626,38 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              {/* Price Code Dropdown Hook Integration */}
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Price Code / Tier <span className="text-danger">*</span>
                   </Label>
                   <Input
-                    type="text"
+                    type="select"
                     bsSize="sm"
                     className="font-monospace fs-12"
-                    placeholder="e.g. STANDARD or VIP"
                     value={formData.priceCode}
                     onChange={(e) =>
                       setFormData({ ...formData, priceCode: e.target.value })
                     }
                     required
-                  />
+                  >
+                    <option value="">
+                      {isLoadingPriceCodes ? "Loading Price Codes..." : "Select Price Code..."}
+                    </option>
+                    {priceCodes.map((pc) => (
+                      <option key={pc.priceCodeValue} value={pc.priceCodeValue}>
+                        {pc.priceCodeValue} {pc.description ? `- ${pc.description}` : ""}
+                      </option>
+                    ))}
+                  </Input>
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
-                    Approved Credit Limit ($) <span className="text-danger">*</span>
+                    Approved Credit Limit <span className="text-danger">*</span>
                   </Label>
                   <Input
                     type="number"
@@ -754,7 +678,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Contact Representative <span className="text-danger">*</span>
@@ -773,7 +697,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Telephone Line <span className="text-danger">*</span>
@@ -792,7 +716,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={6}>
+              <Col md={6} xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Email Address <span className="text-danger">*</span>
@@ -811,7 +735,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={12}>
+              <Col xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Physical / Billing Address <span className="text-danger">*</span>
@@ -830,7 +754,7 @@ export const CustomerManagement: React.FC = () => {
                 </FormGroup>
               </Col>
 
-              <Col md={12}>
+              <Col xs={12}>
                 <FormGroup className="mb-0">
                   <Label className="fs-12 fw-semibold text-dark">
                     Account Status
@@ -888,7 +812,7 @@ export const CustomerManagement: React.FC = () => {
         toggle={() => setIsDrawerOpen(!isDrawerOpen)}
         direction="end"
         className="border-0 shadow"
-        style={{ width: "450px" }}
+        style={{ width: "100%", maxWidth: "450px" }}
       >
         <OffcanvasHeader
           toggle={() => setIsDrawerOpen(false)}
@@ -907,7 +831,7 @@ export const CustomerManagement: React.FC = () => {
                   <Badge color="light" className="text-dark border font-monospace mb-1">
                     {selectedCustomer.customerCode}
                   </Badge>
-                  <h5 className="fs-15 fw-bold text-dark mb-0">
+                  <h5 className="fs-15 fw-bold text-dark mb-0 text-truncate" style={{ maxWidth: "240px" }}>
                     {selectedCustomer.customerName}
                   </h5>
                 </div>
@@ -963,7 +887,7 @@ export const CustomerManagement: React.FC = () => {
                     <i className="ri-mail-send-line text-primary fs-16"></i>
                     <div>
                       <div className="text-muted fs-10">Email</div>
-                      <div className="fw-semibold text-dark">{selectedCustomer.email}</div>
+                      <div className="fw-semibold text-dark text-break">{selectedCustomer.email}</div>
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2 fs-12">
