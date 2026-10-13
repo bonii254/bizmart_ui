@@ -20,8 +20,8 @@ export const PriceCodeService = {
     return await api.create(`/api/pricing/price-codes`, payload);
   },
 
-  getItemPrices: async (itemId: string): Promise<ApiResponse<ItemPrice[]>> => {
-        return await api.get(`/api/pricing/items/${itemId}/prices`);
+  getItemPrices: async (priceCode: string): Promise<ApiResponse<ItemPrice[]>> => {
+        return await api.get(`/api/pricing/items/${priceCode}/prices`);
     },
 
   upsertItemPrice: async (

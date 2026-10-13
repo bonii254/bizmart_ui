@@ -24,7 +24,7 @@ const Navdata = () => {
       "administration"
     ],
     ADM: [
-      "pos", "dashboard", "sales", "inventory", "purchasing", 
+      "pos", "pos/credit-sale", "dashboard", "sales", "inventory", "purchasing", 
       "finance", "crm", "reports", "administration"
     ],
   };
@@ -48,7 +48,7 @@ const Navdata = () => {
 
     {
       id: "pos",
-      label: "Point of Sale (POS)",
+      label: "Point Of Sale (POS)",
       icon: "ri-shopping-cart-2-line",
       link: "/pos",
       badgeColor: "danger",
@@ -90,7 +90,6 @@ const Navdata = () => {
         { id: "stock-take", label: "Stock Take / Audits", link: "/inventory/stock-take" },
       ],
     },
-
     // ----------------------------------------------------
     // PURCHASING & SUPPLY CHAIN
     // ----------------------------------------------------
@@ -106,6 +105,9 @@ const Navdata = () => {
       subItems: [
         { id: "grn", label: "Goods Received Note", link: "/grn" },
         { id: "suppliers", label: "Suppliers Directory", link: "/suppliers" },
+        { id: "supplier-payment", 
+          label: "Supplier Payments", 
+          link: "/suppliers/payment" },
       ],
     },
 

@@ -9,8 +9,10 @@ import StockTakeList from "../pages/Inventory/StockTakeOverview";
 import NewStockTake from "../pages/Inventory/NewStockTake";
 import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
+import SupplierPayment from "../pages/Suppliers/SupplierPayment";
 import BankManagement from "../pages/Bank/BankManagement";
 import PointOfSale from "../pages/POS/PointOfSale";
+import CreditSale from "../pages/POS/CreditSale";
 import SettingsHub from "../pages/settings/index";
 import AuditLogs from "../pages/AuditLogs/AuditLogs";
 import CashMovement from "../pages/Transactions/cashMovement";
@@ -77,12 +79,14 @@ const authProtectedRoutes = [
 
   { path: "/grn", component: <GoodsReceipt/> },
   { path: "/pos", component: <PointOfSale/> },
+  { path: "/pos/credit-sale", component: <CreditSale/> },
   { path: "/sales-history", component: <SalesHistory/>},
   { path: "/inventory/products", component: <StockBalanceOverview/> },
   { path: "/inventory/stock-take", component: <StockTakeList /> },
   { path: "/inventory/stock-take/new", component: <NewStockTake /> },
   { path: "/customers", component: <CustomerManagement/> },
   { path: "/suppliers", component: <SupplierManagement/> },
+  { path: "/suppliers/payment", component: <SupplierPayment /> },
   { path: "/banks", component: <BankManagement/> },
   { path: "/cash-movement", component: <CashMovement /> },
   { path: "/reports/sales-transactions", component: <SalesTransactionsReport />},

@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { SupplierService } from "../../services/supplierService";
-import { SupplierPayload, UpdateSupplierRequest, Supplier } from "../../types/supplier";
+import { 
+  SupplierService, 
+  SupplierPaymentService 
+} from "../../services/supplierService";
+import { 
+  SupplierPayload, 
+  UpdateSupplierRequest, 
+  Supplier,
+  CreateSupplierPaymentRequest 
+} from "../../types/supplier";
 import { toast } from "react-toastify";
 
 export const useSuppliers = () => {
@@ -69,5 +77,30 @@ export const useSupplierMutation = () => {
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+  };
+};
+
+export const useSupplierPaymentMutation = () => {
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateSupplierPaymentRequest) =>
+      SupplierPaymentService.createSupplierPayment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["goods-receipts"] });
+      toast.success("Supplier payment processed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to process supplier payment"
+      );
+    },
+  });
+
+  return {
+    processSupplierPayment: createMutation.mutateAsync,
+    isPosting: createMutation.isPending,
   };
 };

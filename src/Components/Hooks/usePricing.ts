@@ -42,15 +42,15 @@ export const usePriceCodeMutation = () => {
   };
 };
 
-export const useItemPrices = (itemId: string | null) => {
+export const useItemPrices = (priceCode: string | null) => {
     return useQuery<ItemPrice[]>({
-        queryKey: ["itemPrices", itemId],
+        queryKey: ["itemPrices", priceCode],
         queryFn: async () => {
-            if (!itemId) return [];
-            const res = await PriceCodeService.getItemPrices(itemId);
+            if (!priceCode) return [];
+            const res = await PriceCodeService.getItemPrices(priceCode);
             return res.data ?? [];
         },
-        enabled: !!itemId,
+        enabled: !!priceCode,
     });
 };
 
@@ -61,7 +61,9 @@ export const useItemPriceMutation = () => {
         mutationFn: (data: UpsertItemPriceRequest) =>
             PriceCodeService.upsertItemPrice(data),
         onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ["itemPrices", variables.itemId] });
+            queryClient.invalidateQueries(
+              { queryKey: ["itemPrices", variables.priceCode] });
+            queryClient.invalidateQueries({ queryKey: ["stockItems"] });
             toast.success("Item price saved successfully");
         },
         onError: (error: any) => {

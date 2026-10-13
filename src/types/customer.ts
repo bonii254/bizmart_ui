@@ -46,3 +46,26 @@ export interface CustomerListResponse {
   current_page: number;
   per_page: number;
 }
+
+export interface CreateCustomerPaymentRequest {
+  customerId: string;
+  operatorId: string;
+  bankId: string;
+  amount: number;
+  paymentMethodCode: string;
+  reference: string;
+  invoiceId: string;
+}
+
+export interface CustomerPaymentResultData {
+  documentId: string;
+  documentNumber: string;
+  total: number;
+  postedAt: string;
+}
+
+export interface CustomerPaymentResponse {
+  success: boolean;
+  message: string;
+  data: CustomerPaymentResultData;
+}

@@ -19,15 +19,15 @@ import {
 import { toast } from "react-toastify";
 
 import { usePOSMutation } from "../../Components/Hooks/usePOS";
+import { useCreditSalesMutation } from "../../Components/Hooks/useCreditSale";
 import { useStockItems } from "../../Components/Hooks/useStockItems";
-import { 
-  useItemWarehouseStock 
-} from "../../Components/Hooks/useWarehouseStock";
+import { useItemWarehouseStock } from "../../Components/Hooks/useWarehouseStock";
 import { useCategories } from "../../Components/Hooks/useCategory";
 import { useCustomers } from "../../Components/Hooks/useCustomers";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
 import { useCompanies } from "../../Components/Hooks/useCompanies";
 import { useBanks } from "../../Components/Hooks/useBanks";
+import { usePriceCodes, useItemPrices } from "../../Components/Hooks/usePricing";
 import { Bank } from "../../types/bank";
 import { 
   usePrinters, 
@@ -38,10 +38,13 @@ import {
   CreateSalesReceiptPayload, 
   PaymentMethodCode 
 } from "../../types/POS";
+import { CreateCreditSaleRequest } from "../../types/creditSale";
 import { StockItem } from "../../types/stockitem";
 import { ItemWarehouseStock } from "../../types/warehouseStock";
 import { handleBackendErrors } from "../../helpers/form_utils";
 import { getLoggedinUser } from "../../helpers/api_helper";
+
+type SaleMode = "CASH" | "CREDIT";
 
 type CartLineItem = {
   itemId: string;
@@ -64,7 +67,11 @@ const PAYMENT_METHODS: { id: PaymentMethodCode; label: string }[] = [
 ];
 
 export const PointOfSale: React.FC = () => {
-  const { processSale, isPosting } = usePOSMutation();
+  const [saleMode, setSaleMode] = useState<SaleMode>("CASH");
+
+  // Mutations & Printers
+  const { processSale, isPosting: isCashPosting } = usePOSMutation();
+  const { processCreditSale, isPosting: isCreditPosting } = useCreditSalesMutation();
   const { data: printersList = [], isLoading: isPrintersLoading } = usePrinters();
   const { printReceipt, isPrinting } = usePrintReceiptMutation();
 
@@ -79,12 +86,13 @@ export const PointOfSale: React.FC = () => {
   const [companyName, setCompanyName] = useState<string>("");
   const [customerId, setCustomerId] = useState<string>("");
 
+  // Data Hooks
   const { data: warehousesData, isLoading: isWarehousesLoading } = useWarehouses();
   const { data: banksData = [] } = useBanks();
   const { data: companiesData } = useCompanies();
   const { data: stockItems = [], isLoading: isStockLoading } = useStockItems();
+  const { data: priceCodes = [] } = usePriceCodes();
 
-  // Fetch warehouse-specific stock items linked to selected warehouseId
   const { stockItems: warehouseStockItems = [], isLoading: isWarehouseStockLoading } = useItemWarehouseStock({
     warehouseId: warehouseId || undefined,
   });
@@ -92,21 +100,36 @@ export const PointOfSale: React.FC = () => {
   const { data: categoriesData, isLoading: isCategoriesLoading } = useCategories();
   const { data: customersData, isLoading: isCustomersLoading } = useCustomers();
 
-  const warehousesList = useMemo(() => {
-    return Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [];
-  }, [warehousesData]);
+  const warehousesList = useMemo(() => Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [], [warehousesData]);
+  const banksList = useMemo(() => Array.isArray(banksData) ? banksData : banksData || [], [banksData]);
+  const companiesList = useMemo(() => Array.isArray(companiesData) ? companiesData : companiesData || [], [companiesData]);
+  const customersList = useMemo(() => Array.isArray(customersData) ? customersData : customersData ?? [], [customersData]);
 
-  const banksList = useMemo(() => {
-    return Array.isArray(banksData) ? banksData : banksData || [];
-  }, [banksData]);
+  // Customer & Pricing logic for Credit Sales (and shared)
+  const selectedCustomer = useMemo(() => {
+    return customersList.find((c: any) => String(c.customerId) === String(customerId));
+  }, [customersList, customerId]);
 
-  const companiesList = useMemo(() => {
-    return Array.isArray(companiesData) ? companiesData : companiesData || [];
-  }, [companiesData]);
+  const defaultPriceCodeObj = useMemo(() => {
+    return priceCodes.find((p) => p.isDefault) || priceCodes[0];
+  }, [priceCodes]);
 
-  const customersList = useMemo(() => {
-    return Array.isArray(customersData) ? customersData : customersData ?? [];
-  }, [customersData]);
+  const activePriceCode = useMemo(() => {
+    if (saleMode === "CREDIT") {
+      return selectedCustomer?.priceCode || defaultPriceCodeObj?.priceCodeValue || "";
+    }
+    return ""; // Cash mode uses standard POS item pricing
+  }, [saleMode, selectedCustomer, defaultPriceCodeObj]);
+
+  const { data: itemPricesList = [] } = useItemPrices(activePriceCode);
+
+  const itemPriceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    itemPricesList.forEach((ip) => {
+      map.set(String(ip.itemId), ip.sellingPrice);
+    });
+    return map;
+  }, [itemPricesList]);
 
   const categoriesList = useMemo(() => {
     if (!categoriesData) return ["All"];
@@ -126,24 +149,21 @@ export const PointOfSale: React.FC = () => {
 
   useEffect(() => {
     if (warehousesList.length > 0 && !warehouseId) {
-      const firstWh = warehousesList[0];
-      setWarehouseId(String(firstWh.warehouseId));
+      setWarehouseId(String(warehousesList[0].warehouseId));
     }
   }, [warehousesList, warehouseId]);
 
   useEffect(() => {
     if (customersList.length > 0 && !customerId) {
-      const firstCustomer = customersList[0];
-      setCustomerId(String(firstCustomer.customerId));
+      setCustomerId(String(customersList[0].customerId));
     }
   }, [customersList, customerId]);
 
   useEffect(() => {
     if (companiesList.length > 0) {
-      const firstCompany = companiesList[0];
-      setCompanyName(firstCompany.companyName);
+      setCompanyName(companiesList[0].companyName);
     }
-  }, [companiesList, companyName]);
+  }, [companiesList]);
 
   const [customerSearch, setCustomerSearch] = useState("");
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
@@ -154,53 +174,33 @@ export const PointOfSale: React.FC = () => {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Automatically determine bankId based on paymentMethod selection and bankName matching
+  // Bank matching for Cash Sale mode
   useEffect(() => {
-    if (!banksList || banksList.length === 0) return;
+    if (!banksList || banksList.length === 0 || saleMode === "CREDIT") return;
 
     let matchedBank: Bank | undefined;
-
     if (paymentMethod === "CASH") {
-      matchedBank = banksList.find((b: Bank) =>
-        (b.bankName ?? "").toUpperCase().includes("CASH")
-      );
+      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("CASH"));
     } else if (paymentMethod === "MOBILE") {
-      matchedBank = banksList.find((b: Bank) =>
-        (b.bankName ?? "").toUpperCase().includes("MOBILE") ||
-        (b.bankName ?? "").toUpperCase().includes("MPESA") ||
-        (b.bankName ?? "").toUpperCase().includes("M-PESA")
-      );
+      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("MOBILE") || (b.bankName ?? "").toUpperCase().includes("MPESA"));
     } else if (paymentMethod === "CARD") {
-      matchedBank = banksList.find((b: Bank) =>
-        (b.bankName ?? "").toUpperCase().includes("CARD") ||
-        (!(b.bankName ?? "").toUpperCase().includes("CASH") && !(b.bankName ?? "").toUpperCase().includes("MOBILE"))
-      );
+      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("CARD"));
     }
-
     const targetBank = matchedBank || banksList[0];
-    if (targetBank) {
-      setBankId(String(targetBank.bankId));
-    }
-  }, [banksList, paymentMethod]);
+    if (targetBank) setBankId(String(targetBank.bankId));
+  }, [banksList, paymentMethod, saleMode]);
 
   useEffect(() => {
     if (printersList.length > 0 && !selectedPrinter) { 
-      const savedPrinter = localStorage.getItem("pos_preferred_printer");
-      setSelectedPrinter(
-        savedPrinter && printersList.includes(savedPrinter) ? 
-        savedPrinter : printersList[0]
-      );
+      const savedPrinter = localStorage.getItem("sales_terminal_preferred_printer");
+      setSelectedPrinter(savedPrinter && printersList.includes(savedPrinter) ? savedPrinter : printersList[0]);
     }
   }, [printersList, selectedPrinter]);
 
   const handlePrinterChange = (printerName: string) => {
     setSelectedPrinter(printerName);
-    localStorage.setItem("pos_preferred_printer", printerName);
+    localStorage.setItem("sales_terminal_preferred_printer", printerName);
   };
-
-  const selectedCustomer = useMemo(() => {
-    return customersList.find((c: any) => String(c.customerId) === String(customerId));
-  }, [customersList, customerId]);
 
   const cartMap = useMemo(() => {
     const map = new Map<string, CartLineItem>();
@@ -233,19 +233,21 @@ export const PointOfSale: React.FC = () => {
 
   const tenderedValue = parseFloat(amountTendered) || 0;
   const changeAmount = useMemo(() => {
-    if (paymentMethod !== "CASH") return 0;
+    if (saleMode === "CREDIT" || paymentMethod !== "CASH") return 0;
     return tenderedValue >= cartTotals.grandTotal ? tenderedValue - cartTotals.grandTotal : 0;
-  }, [tenderedValue, cartTotals.grandTotal, paymentMethod]);
+  }, [tenderedValue, cartTotals.grandTotal, paymentMethod, saleMode]);
 
-  const isInsufficientCash = paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
+  const isInsufficientCash = saleMode === "CASH" && paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
 
-  // Build a set of Item IDs currently linked to the selected warehouse
+  // Credit Limit Calculations
+  const customerCreditLimit = selectedCustomer?.creditLimit ?? 0;
+  const isExceedingCreditLimit = saleMode === "CREDIT" && cartTotals.grandTotal > customerCreditLimit;
+
   const validWarehouseItemIds = useMemo(() => {
     if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Set<string>();
     return new Set(warehouseStockItems.map((ws: ItemWarehouseStock) => String(ws.itemId)));
   }, [warehouseStockItems]);
 
-  // Map Item IDs to Quantity On Hand for quick lookup
   const stockOnHandMap = useMemo(() => {
     if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Map<string, number>();
     const map = new Map<string, number>();
@@ -255,18 +257,13 @@ export const PointOfSale: React.FC = () => {
     return map;
   }, [warehouseStockItems]);
 
-  // Filter Catalog items by Warehouse Assignment, Active Status, Category, and Search Query
   const filteredCatalogItems = useMemo(() => {
     if (!Array.isArray(stockItems)) return [];
     const query = catalogSearch.toLowerCase();
 
     return stockItems.filter((stock: StockItem) => {
       const itemIdStr = String(stock.itemId);
-      
-      // Filter out items not assigned to the selected warehouse
-      if (warehouseId && !validWarehouseItemIds.has(itemIdStr)) {
-        return false;
-      }
+      if (warehouseId && !validWarehouseItemIds.has(itemIdStr)) return false;
 
       const itemName = stock.description ?? "";
       const itemCode = stock.itemCode ?? "";
@@ -277,14 +274,22 @@ export const PointOfSale: React.FC = () => {
     });
   }, [stockItems, catalogSearch, selectedCategory, warehouseId, validWarehouseItemIds]);
 
+  const getItemEffectivePrice = (item: StockItem) => {
+    const itemIdStr = String(item.itemId);
+    if (saleMode === "CREDIT" && itemPriceMap.has(itemIdStr)) {
+      return itemPriceMap.get(itemIdStr)!;
+    }
+    return Number(item.sellingPrice ?? 0);
+  };
+
   const handleTileTap = (item: StockItem) => {
     const itemId = String(item.itemId);
     const existing = cartMap.get(itemId);
+    const unitPrice = getItemEffectivePrice(item);
 
     if (existing) {
       handleQuantityOrPriceChange(itemId, "quantity", existing.quantity + 1);
     } else {
-      const unitPrice = Number(item.sellingPrice ?? 0);
       const uomCode = item.stockUom ?? "EA";
       const discount = 0;
       const lineTotal = Number((1 * unitPrice - discount).toFixed(2));
@@ -336,18 +341,8 @@ export const PointOfSale: React.FC = () => {
   const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!warehouseId) {
-      toast.error("Please select a valid Warehouse.");
-      return;
-    }
-
-    if (!customerId) {
-      toast.error("Please select a valid Customer.");
-      return;
-    }
-
-    if (!operatorId) {
-      toast.error("Operator session is invalid. Please log in again.");
+    if (!warehouseId || !customerId || !operatorId) {
+      toast.error("Missing required session, warehouse, or customer details.");
       return;
     }
 
@@ -356,75 +351,75 @@ export const PointOfSale: React.FC = () => {
       return;
     }
 
-    if (paymentMethod === "CASH" && tenderedValue < cartTotals.grandTotal) {
-      toast.error("Amount tendered is less than the total sale amount.");
-      return;
+    if (saleMode === "CASH") {
+      if (paymentMethod === "CASH" && tenderedValue < cartTotals.grandTotal) {
+        toast.error("Amount tendered is less than the total sale amount.");
+        return;
+      }
+      if ((paymentMethod === "CASH") && !paymentReference.trim()) {
+        toast.error("Please enter the payment reference code.");
+        return;
+      }
+    } else {
+      if (isExceedingCreditLimit) {
+        toast.error("Sale exceeds customer's credit limit.");
+        return;
+      }
     }
-
-    if ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()) {
-      toast.error("Please enter the payment reference code.");
-      return;
-    }
-
-    const payload: CreateSalesReceiptPayload = {
-      warehouseId,
-      customerId,
-      operatorId,
-      paidAmount: cartTotals.grandTotal,
-      paymentMethodCode: paymentMethod,
-      bankId,
-      paymentReference: paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
-      lines: cart.map((item) => ({
-        itemId: item.itemId,
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        uomCode: item.uomCode,
-      })),
-    };
 
     try {
       let saleResponse: any = null;
-      if (processSale) {
-        saleResponse = await processSale(payload);
+
+      if (saleMode === "CASH") {
+        const cashPayload: CreateSalesReceiptPayload = {
+          warehouseId,
+          customerId,
+          operatorId,
+          paidAmount: cartTotals.grandTotal,
+          paymentMethodCode: paymentMethod,
+          bankId,
+          paymentReference: paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
+          lines: cart.map((i) => ({ itemId: i.itemId, quantity: i.quantity, unitPrice: i.unitPrice, uomCode: i.uomCode })),
+        };
+        saleResponse = await processSale(cashPayload);
+      } else {
+        const creditPayload: CreateCreditSaleRequest = {
+          warehouseId,
+          customerId,
+          operatorId,
+          lines: cart.map((i) => ({ itemId: i.itemId, quantity: i.quantity, unitPrice: i.unitPrice, uomCode: i.uomCode })),
+        };
+        saleResponse = await processCreditSale(creditPayload);
       }
 
       const activeWh = warehousesList.find((w: any) => String(w.warehouseId) === String(warehouseId));
       
       const receiptPayload = {
         companyName: companyName ?? "ENTERPRISES",
-        storeName: activeWh?.warehouseName ?? "POS STORE",
+        storeName: activeWh?.warehouseName ?? "STORE",
         receiptNo: saleResponse?.data?.documentNumber ?? saleResponse?.documentNumber ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         cashier: displayname ?? "CASHIER",
-        customerName: selectedCustomer?.customerName ?? "Walk-in Customer",
-        items: cart.map((i) => ({
-          name: i.description,
-          qty: i.quantity,
-          unitPrice: i.unitPrice,
-          discount: i.discount ?? 0,
-          total: i.lineTotal,
-        })),
+        customerName: selectedCustomer?.customerName ?? "Customer",
+        items: cart.map((i) => ({ name: i.description, qty: i.quantity, unitPrice: i.unitPrice, discount: i.discount ?? 0, total: i.lineTotal })),
         subtotal: cartTotals.subtotal,
         discountTotal: cartTotals.discountTotal,
         taxTotal: 0,
         grandTotal: cartTotals.grandTotal,
-        paymentMethod,
-        amountTendered: paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
+        paymentMethod: saleMode === "CASH" ? paymentMethod : "CREDIT",
+        amountTendered: saleMode === "CASH" && paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
         changeAmount,
       };
 
       if (selectedPrinter) {
         try {
-          await printReceipt({
-            printerName: selectedPrinter,
-            receiptData: receiptPayload,
-          });
+          await printReceipt({ printerName: selectedPrinter, receiptData: receiptPayload });
         } catch (printErr) {
           console.error("Thermal print failure:", printErr);
         }
       }
 
-      toast.success("Transaction completed successfully!");
+      toast.success(saleMode === "CASH" ? "Transaction completed successfully!" : "Credit sale completed successfully!");
       handleClearCart();
     } catch (err: unknown) {
       handleBackendErrors(err, () => {}, setGlobalError);
@@ -432,8 +427,9 @@ export const PointOfSale: React.FC = () => {
   };
 
   const isCatalogLoading = isStockLoading || isWarehouseStockLoading;
+  const isPosting = isCashPosting || isCreditPosting;
 
-  document.title = "Point of Sale | Terminal";
+  document.title = saleMode === "CASH" ? "Point of Sale | Terminal" : "Credit Sale | Terminal";
 
   return (
     <React.Fragment>
@@ -446,20 +442,50 @@ export const PointOfSale: React.FC = () => {
             </Alert>
           )}
 
+          {/* MODE SWITCHER HEADER */}
+          <div className="d-flex justify-content-between align-items-center mb-3 bg-white p-2 px-3 rounded shadow-sm">
+            <div className="d-flex align-items-center gap-2">
+              <span className="fs-13 fw-semibold text-muted">Terminal Mode:</span>
+              <div className="d-flex bg-light p-1 rounded border border-light-subtle">
+                <Button
+                  color={saleMode === "CASH" ? "primary" : "light"}
+                  size="sm"
+                  className={`px-3 py-1 fs-12 fw-semibold ${saleMode === "CASH" ? "text-white shadow-xs" : "text-dark"}`}
+                  style={{ backgroundColor: saleMode === "CASH" ? BRAND_PURPLE : "transparent", border: "none" }}
+                  onClick={() => setSaleMode("CASH")}
+                >
+                  Cash Sale
+                </Button>
+                <Button
+                  color={saleMode === "CREDIT" ? "primary" : "light"}
+                  size="sm"
+                  className={`px-3 py-1 fs-12 fw-semibold ${saleMode === "CREDIT" ? "text-white shadow-xs" : "text-dark"}`}
+                  style={{ backgroundColor: saleMode === "CREDIT" ? BRAND_PURPLE : "transparent", border: "none" }}
+                  onClick={() => setSaleMode("CREDIT")}
+                >
+                  Credit Sale
+                </Button>
+              </div>
+            </div>
+            <Badge color={saleMode === "CASH" ? "success" : "warning"} className="fs-12 px-2.5 py-1">
+              {saleMode === "CASH" ? "💰 Cash Terminal Active" : "📝 Credit Terminal Active"}
+            </Badge>
+          </div>
+
           <Form onSubmit={handleSubmitSale}>
             <Row>
               {/* Product Catalog Column */}
               <Col lg={7} xl={8}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 165px)", display: "flex", flexDirection: "column" }}>
+                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 225px)", display: "flex", flexDirection: "column" }}>
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
                     <Row className="g-3 align-items-center justify-content-between">
                       <Col md={7} sm={12}>
                         <div className="d-flex align-items-center gap-2">
                           <h5 className="card-title mb-0 fs-15 fw-semibold text-dark text-nowrap">
-                            POS Terminal
+                            {saleMode === "CASH" ? "POS Terminal" : "Credit Catalog"}
                           </h5>
                           
-                          <div className="flex-grow-1" style={{ maxWidth: "220px" }}>
+                          <div className="flex-grow-1" style={{ maxWidth: "200px" }}>
                             {isWarehousesLoading ? (
                               <Spinner size="sm" color="primary" />
                             ) : (
@@ -472,17 +498,13 @@ export const PointOfSale: React.FC = () => {
                                 <option value="" disabled>Select Warehouse</option>
                                 {warehousesList.map((wh: any) => {
                                   const id = String(wh.id ?? wh.warehouseId);
-                                  return (
-                                    <option key={id} value={id}>
-                                      {wh.warehouseName}
-                                    </option>
-                                  );
+                                  return <option key={id} value={id}>{wh.warehouseName}</option>;
                                 })}
                               </Input>
                             )}
                           </div>
 
-                          <div className="flex-grow-1" style={{ maxWidth: "220px" }}>
+                          <div className="flex-grow-1" style={{ maxWidth: "200px" }}>
                             {isPrintersLoading ? (
                               <Spinner size="sm" color="secondary" />
                             ) : (
@@ -495,11 +517,7 @@ export const PointOfSale: React.FC = () => {
                                 {printersList.length === 0 ? (
                                   <option value="">No Printers</option>
                                 ) : (
-                                  printersList.map((p) => (
-                                    <option key={p} value={p}>
-                                      🖨️ {p}
-                                    </option>
-                                  ))
+                                  printersList.map((p) => <option key={p} value={p}>🖨️ {p}</option>)
                                 )}
                               </Input>
                             )}
@@ -518,10 +536,7 @@ export const PointOfSale: React.FC = () => {
                           />
                           <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                           {catalogSearch && (
-                            <i
-                              className="ri-close-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer"
-                              onClick={() => setCatalogSearch("")}
-                            ></i>
+                            <i className="ri-close-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer" onClick={() => setCatalogSearch("")}></i>
                           )}
                         </div>
                       </Col>
@@ -529,9 +544,7 @@ export const PointOfSale: React.FC = () => {
                       <Col xs={12} className="pt-1">
                         <div
                           className="d-flex gap-2 pb-1"
-                          onWheel={(e) => {
-                            if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY;
-                          }}
+                          onWheel={(e) => { if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY; }}
                           style={{ overflowX: "auto", overflowY: "hidden", whiteSpace: "nowrap", scrollbarWidth: "none" }}
                         >
                           {isCategoriesLoading ? (
@@ -551,7 +564,6 @@ export const PointOfSale: React.FC = () => {
                                       color: isSelected ? "#ffffff" : "#495057",
                                       border: isSelected ? `1px solid ${BRAND_PURPLE}` : "1px solid #e2e5e8",
                                       fontWeight: isSelected ? "600" : "500",
-                                      lineHeight: "1.2",
                                     }}
                                   >
                                     {cat}
@@ -578,6 +590,7 @@ export const PointOfSale: React.FC = () => {
                           const inCartQty = cartItem ? cartItem.quantity : 0;
                           const isSelected = inCartQty > 0;
                           const qoh = stockOnHandMap.get(itemId) ?? 0;
+                          const effectivePrice = getItemEffectivePrice(item);
 
                           return (
                             <Col key={itemId}>
@@ -586,11 +599,7 @@ export const PointOfSale: React.FC = () => {
                                 className={`card h-100 border cursor-pointer user-select-none transition-all mb-0 rounded-2 position-relative ${
                                   isSelected ? "border-primary shadow-sm" : "border-light-subtle shadow-none hover-shadow-sm"
                                 }`}
-                                style={{
-                                  minHeight: "128px",
-                                  backgroundColor: isSelected ? "rgba(4, 46, 109, 0.05)" : "#ffffff",
-                                  borderColor: isSelected ? BRAND_PURPLE : undefined,
-                                }}
+                                style={{ minHeight: "128px", backgroundColor: isSelected ? "rgba(4, 46, 109, 0.05)" : "#ffffff" }}
                               >
                                 <div className="card-body p-2 d-flex flex-column justify-content-between">
                                   <div className="d-flex align-items-center justify-content-between gap-1 mb-1">
@@ -621,7 +630,7 @@ export const PointOfSale: React.FC = () => {
                                       </div>
                                       <div className="text-end flex-shrink-0">
                                         <span className="fs-12 fw-bold text-primary font-monospace d-block lh-1">
-                                          {formatCurrency(item.sellingPrice)}
+                                          {formatCurrency(effectivePrice)}
                                         </span>
                                       </div>
                                     </div>
@@ -644,10 +653,12 @@ export const PointOfSale: React.FC = () => {
 
               {/* Cart Summary & Order Processing Column */}
               <Col lg={5} xl={4}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 165px)", display: "flex", flexDirection: "column" }}>
+                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 225px)", display: "flex", flexDirection: "column" }}>
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">Current Order</h5>
+                      <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
+                        {saleMode === "CASH" ? "Current Order" : "Credit Order"}
+                      </h5>
                       {cart.length > 0 && (
                         <span className="text-danger fs-12 fw-medium cursor-pointer" onClick={handleClearCart}>
                           Clear All
@@ -691,7 +702,9 @@ export const PointOfSale: React.FC = () => {
                                   }}
                                 >
                                   <span className="fw-medium text-dark d-block">{cust.customerName ?? cust.name}</span>
-                                  <span className="text-muted fs-11">{cust.phone ?? cust.phoneNumber}</span>
+                                  <span className="text-muted fs-11">
+                                    {saleMode === "CREDIT" ? `Limit: ${formatCurrency(cust.creditLimit ?? 0)}` : (cust.phone ?? cust.phoneNumber)}
+                                  </span>
                                 </div>
                               );
                             })
@@ -699,6 +712,20 @@ export const PointOfSale: React.FC = () => {
                         </div>
                       </DropdownMenu>
                     </Dropdown>
+
+                    {/* Credit Limit Badge (Only visible in Credit Mode) */}
+                    {saleMode === "CREDIT" && selectedCustomer && (
+                      <div className="mt-2 p-2 bg-light rounded border border-light-subtle fs-11 d-flex justify-content-between align-items-center">
+                        <div>
+                          <span className="text-muted d-block">Credit Limit:</span>
+                          <span className="fw-bold text-dark">{formatCurrency(customerCreditLimit)}</span>
+                        </div>
+                        <div className="text-end">
+                          <span className="text-muted d-block">Price Code:</span>
+                          <span className="fw-semibold text-primary">{activePriceCode || "Default"}</span>
+                        </div>
+                      </div>
+                    )}
                   </CardHeader>
 
                   <CardBody className="p-2 overflow-y-auto flex-grow-1" style={{ minHeight: 0 }}>
@@ -735,86 +762,79 @@ export const PointOfSale: React.FC = () => {
                               ></i>
                             </div>
                           </div>
-                          
-                          {line.discount > 0 && (
-                            <div className="d-flex justify-content-end align-items-center pt-1 border-top border-light-subtle fs-10 text-muted">
-                              <span className="text-success">Disc: -{formatCurrency(line.discount)}</span>
-                            </div>
-                          )}
                         </div>
                       ))
                     )}
                   </CardBody>
 
                   <div className="p-3 bg-white border-top border-light-subtle flex-shrink-0">
-                    <div className="d-flex gap-2 mb-2">
-                      {PAYMENT_METHODS.map((pm) => (
-                        <div
-                          key={pm.id}
-                          className="flex-grow-1 text-center py-1 rounded cursor-pointer border fw-medium fs-11 transition-all"
-                          onClick={() => setPaymentMethod(pm.id)}
-                          style={{
-                            backgroundColor: paymentMethod === pm.id ? BRAND_PURPLE_SUBTLE : "#fff",
-                            color: paymentMethod === pm.id ? BRAND_PURPLE : "#6c757d",
-                            borderColor: paymentMethod === pm.id ? BRAND_PURPLE : "#dee2e6",
-                          }}
-                        >
-                          {pm.label}
+                    {/* Payment methods section ONLY shown in CASH mode */}
+                    {saleMode === "CASH" && (
+                      <>
+                        <div className="d-flex gap-2 mb-2">
+                          {PAYMENT_METHODS.map((pm) => (
+                            <div
+                              key={pm.id}
+                              className="flex-grow-1 text-center py-1 rounded cursor-pointer border fw-medium fs-11 transition-all"
+                              onClick={() => setPaymentMethod(pm.id)}
+                              style={{
+                                backgroundColor: paymentMethod === pm.id ? BRAND_PURPLE_SUBTLE : "#fff",
+                                color: paymentMethod === pm.id ? BRAND_PURPLE : "#6c757d",
+                                borderColor: paymentMethod === pm.id ? BRAND_PURPLE : "#dee2e6",
+                              }}
+                            >
+                              {pm.label}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
 
-                    {paymentMethod === "CASH" && (
-                      <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span className="fs-11 fw-medium text-muted">Amount Tendered</span>
-                          {isInsufficientCash && <span className="fs-11 text-danger fw-medium">Insufficient</span>}
-                        </div>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
-                          bsSize="sm"
-                          className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold text-end shadow-none mb-1.5"
-                          value={amountTendered}
-                          onChange={(e) => setAmountTendered(e.target.value)}
-                        />
-                      </div>
+                        {paymentMethod === "CASH" && (
+                          <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <span className="fs-11 fw-medium text-muted">Amount Tendered</span>
+                              {isInsufficientCash && <span className="fs-11 text-danger fw-medium">Insufficient</span>}
+                            </div>
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              bsSize="sm"
+                              className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold text-end shadow-none mb-1.5"
+                              value={amountTendered}
+                              onChange={(e) => setAmountTendered(e.target.value)}
+                            />
+                          </div>
+                        )}
+
+                        {(paymentMethod === "MOBILE" || paymentMethod === "CARD") && (
+                          <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <span className="fs-11 fw-medium text-muted">
+                                {paymentMethod === "MOBILE" ? "M-Pesa / Mobile Ref Code" : "Card Reference Code"}
+                              </span>
+                            </div>
+                            <Input
+                              type="text"
+                              placeholder={paymentMethod === "MOBILE" ? "e.g. QHX123456" : "e.g. CARD-REF-1001"}
+                              bsSize="sm"
+                              className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold shadow-none"
+                              value={paymentReference}
+                              onChange={(e) => setPaymentReference(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {(paymentMethod === "MOBILE" || paymentMethod === "CARD") && (
-                      <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span className="fs-11 fw-medium text-muted">
-                            {paymentMethod === "MOBILE" ? "M-Pesa / Mobile Ref Code" : "Card Reference Code"}
-                          </span>
-                        </div>
-                        <Input
-                          type="text"
-                          placeholder={paymentMethod === "MOBILE" ? "e.g. QHX123456" : "e.g. CARD-REF-1001"}
-                          bsSize="sm"
-                          className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold shadow-none"
-                          value={paymentReference}
-                          onChange={(e) => setPaymentReference(e.target.value)}
-                        />
-                      </div>
+                    {/* Credit Limit Alert Banner (Only visible in Credit Mode) */}
+                    {saleMode === "CREDIT" && isExceedingCreditLimit && (
+                      <Alert color="danger" className="py-1 px-2 mb-2 fs-11">
+                        <i className="ri-error-warning-line me-1"></i> Sale exceeds customer's credit limit!
+                      </Alert>
                     )}
-
-                    <div className="mb-2 px-1 fs-11 text-muted">
-                      <div className="d-flex justify-content-between">
-                        <span>Subtotal:</span>
-                        <span>{formatCurrency(cartTotals.subtotal)}</span>
-                      </div>
-                      {cartTotals.discountTotal > 0 && (
-                        <div className="d-flex justify-content-between text-success">
-                          <span>Discount Total:</span>
-                          <span>-{formatCurrency(cartTotals.discountTotal)}</span>
-                        </div>
-                      )}
-                    </div>
 
                     <div className="d-flex justify-content-between align-items-end mb-2 px-1">
                       <div>
-                        {paymentMethod === "CASH" && tenderedValue > 0 && (
+                        {saleMode === "CASH" && paymentMethod === "CASH" && tenderedValue > 0 && (
                           <div className="mb-0">
                             <span className="fs-11 text-muted me-1">Change:</span>
                             <span className="fs-12 fw-bold text-success font-monospace">{formatCurrency(changeAmount)}</span>
@@ -831,12 +851,12 @@ export const PointOfSale: React.FC = () => {
                       type="submit"
                       className="w-100 border-0 rounded py-2 shadow-sm d-flex justify-content-between align-items-center px-3"
                       style={{
-                        backgroundColor: (isPosting || isPrinting || cart.length === 0 || isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim())) ? "#a3b4cc" : BRAND_PURPLE,
+                        backgroundColor: (isPosting || isPrinting || cart.length === 0 || (saleMode === "CASH" && (isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()))) || (saleMode === "CREDIT" && isExceedingCreditLimit)) ? "#a3b4cc" : BRAND_PURPLE,
                       }}
-                      disabled={isPosting || isPrinting || cart.length === 0 || isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim())}
+                      disabled={isPosting || isPrinting || cart.length === 0 || (saleMode === "CASH" && (isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()))) || (saleMode === "CREDIT" && isExceedingCreditLimit)}
                     >
                       <span className="fs-13 fw-semibold text-white">
-                        {isPosting ? "Posting Order..." : isPrinting ? "Printing..." : "Charge & Print"}
+                        {isPosting ? "Posting Order..." : isPrinting ? "Printing..." : saleMode === "CASH" ? "Charge & Print" : "Process Credit Sale"}
                       </span>
                       {!(isPosting || isPrinting) && (
                         <i className="ri-printer-line fs-16 text-white opacity-75"></i>

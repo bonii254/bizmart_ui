@@ -7,12 +7,16 @@ import {
   GetSupplierByIdResponse,
   CreateSupplierResponse,
   UpdateSupplierResponse,
-  DeleteSupplierResponse
+  DeleteSupplierResponse,
+  CreateSupplierPaymentRequest, 
+  SupplierPaymentResultData, 
+  SupplierPaymentResponse,
 } from "../types/supplier";
 
 const api = new APIClient();
 
-const BASE_URL = "/api/suppliers"; 
+const BASE_URL = "/api/suppliers";
+const SUPPLIER_PAYMENT_BASE_URL = "/api/transactions/supplier-payments"; 
 
 export const SupplierService = {
   getSuppliers: async (page = 1, perPage = 100): Promise<Supplier[]> => {
@@ -30,7 +34,10 @@ export const SupplierService = {
     return response.data;
   },
 
-  updateSupplier: async (id: string, payload: UpdateSupplierRequest): Promise<string> => {
+  updateSupplier: async (
+    id: string, 
+    payload: UpdateSupplierRequest
+  ): Promise<string> => {
     const response: UpdateSupplierResponse = await api.create(`${BASE_URL}/${id}/update`, payload);
     return response.data;
   },
@@ -39,4 +46,17 @@ export const SupplierService = {
     const response: DeleteSupplierResponse = await api.create(`${BASE_URL}/${id}/delete`, "");
     return response.data;
   }
+};
+
+
+export const SupplierPaymentService = {
+  createSupplierPayment: async (
+    payload: CreateSupplierPaymentRequest
+  ): Promise<SupplierPaymentResultData> => {
+    const response: SupplierPaymentResponse = await api.create(
+      SUPPLIER_PAYMENT_BASE_URL, 
+      payload
+    );
+    return response.data ?? response;
+  },
 };

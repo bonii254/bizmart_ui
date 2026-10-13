@@ -2,7 +2,7 @@ import { APIClient } from "../helpers/api_helper";
 import { 
   Customer, 
   CustomerPayload, 
-  UpdateCustomerRequest 
+  UpdateCustomerRequest
 } from "../types/customer";
 
 const api = new APIClient();
