@@ -1,6 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CustomerService } from "../../services/customerService";
-import { CustomerPayload, UpdateCustomerRequest } from "../../types/customer";
+import { 
+  CustomerService, 
+  CustomerPaymentService 
+} from "../../services/customerService";
+import { 
+  CustomerPayload, 
+  UpdateCustomerRequest,
+  CreateCustomerPaymentRequest,
+} from "../../types/customer";
 import { toast } from "react-toastify";
 
 export const useCustomers = () => {
@@ -63,5 +70,30 @@ export const useCustomerMutation = () => {
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+  };
+};
+
+export const useCustomerPaymentMutation = () => {
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateCustomerPaymentRequest) =>
+      CustomerPaymentService.createCustomerPayment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customer-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
+      toast.success("Customer payment processed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to process customer payment"
+      );
+    },
+  });
+
+  return {
+    processCustomerPayment: createMutation.mutateAsync,
+    isPosting: createMutation.isPending,
   };
 };

@@ -68,8 +68,16 @@ const Navdata = () => {
         handleToggle("sales");
       },
       subItems: [
-        { id: "sales-history", label: "Sales History", link: "/sales-history" },
-        { id: "refunds", label: "Returns & Refunds", link: "/refunds" },
+        { 
+          id: "customer-payment", 
+          label: "Customer Payments", 
+          link: "/pos/customer-payment" 
+        },
+        { 
+          id: "refunds", 
+          label: "Returns & Refunds", 
+          link: "/refunds"
+        },
       ],
     },
 

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 
 
 import GoodsReceipt from "../pages/GRN/GoodReceivedNote";
+import CustomerPayment from "../pages/POS/CustomerPayment";
 import SalesHistory from "../pages/POS/salesHistory"
 import StockBalanceOverview from "../pages/Inventory";
 import StockTakeList from "../pages/Inventory/StockTakeOverview";
@@ -80,6 +81,7 @@ const authProtectedRoutes = [
   { path: "/grn", component: <GoodsReceipt/> },
   { path: "/pos", component: <PointOfSale/> },
   { path: "/pos/credit-sale", component: <CreditSale/> },
+  { path: "/pos/customer-payment", component: <CustomerPayment /> },
   { path: "/sales-history", component: <SalesHistory/>},
   { path: "/inventory/products", component: <StockBalanceOverview/> },
   { path: "/inventory/stock-take", component: <StockTakeList /> },
