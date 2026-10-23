@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { POSService } from "../../services/posService";
+import { POSService, SalesReturnService } from "../../services/posService";
 import { 
   CreateSalesReceiptPayload, 
-  SalesTransactionQueryParams 
+  SalesTransactionQueryParams,
+  CreateSalesReturnRequest
 } from "../../types/POS"; 
 import { toast } from "react-toastify";
 
@@ -48,6 +49,33 @@ export const usePOSMutation = () => {
 
   return {
     processSale: createMutation.mutateAsync,
+    isPosting: createMutation.isPending,
+  };
+};
+
+export const useSalesReturnMutation = () => {
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateSalesReturnRequest) =>
+      SalesReturnService.createSalesReturn(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales-returns"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-products"] });
+      queryClient.invalidateQueries({ queryKey: ["itemWarehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouseItems"] });
+      toast.success("Sales return processed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to process sales return"
+      );
+    },
+  });
+
+  return {
+    processSalesReturn: createMutation.mutateAsync,
     isPosting: createMutation.isPending,
   };
 };

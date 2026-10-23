@@ -2,6 +2,7 @@ export type CashMovementType = 'Payment' | 'Withdrawal';
 
 export interface CreateCashMovementRequest {
   movementType: CashMovementType;
+  reasonCode: string;
   operatorId: string;
   bankId: string;
   amount: number;

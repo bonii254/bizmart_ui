@@ -24,6 +24,7 @@ import { toast } from "react-toastify";
 
 import { useCashMovementMutation } from "../../Components/Hooks/useTransactions";
 import { useBanks } from "../../Components/Hooks/useBanks";
+import { useReasonCodes } from "../../Components/Hooks/useReasonCode";
 import { getLoggedinUser } from "../../helpers/api_helper";
 import {
   CashMovementType,
@@ -31,13 +32,14 @@ import {
   CashMovementResultData,
 } from "../../types/transactions";
 import { Bank } from "../../types/bank";
+import { ReasonCode } from "../../types/reasonCode";
 
 const BRAND_PRIMARY = "#042e6d";
 
 export const CashMovement: React.FC = () => {
   const { createCashMovement, isPosting } = useCashMovementMutation();
-  // Fetch banks using the strongly typed useBanks hook
   const { data: banksList = [], isLoading: isBanksLoading } = useBanks();
+  const { data: reasonCodesList = [], isLoading: isReasonCodesLoading } = useReasonCodes();
 
   // Extract current logged-in user details
   const { data: user } = getLoggedinUser();
@@ -48,6 +50,7 @@ export const CashMovement: React.FC = () => {
   // Form State
   const [movementType, setMovementType] = useState<CashMovementType>("Payment");
   const [bankId, setBankId] = useState<string>("");
+  const [reasonCode, setReasonCode] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [reference, setPaymentReference] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -67,14 +70,24 @@ export const CashMovement: React.FC = () => {
     }
   }, [banksList, bankId]);
 
+  // Auto-select the first active reason code when loaded
+  useEffect(() => {
+    if (reasonCodesList.length > 0 && !reasonCode) {
+      const activeReasons = reasonCodesList.filter((r: ReasonCode) => r.isActive !== false);
+      const initialReason = activeReasons.length > 0 ? activeReasons[0] : reasonCodesList[0];
+      if (initialReason?.reasonCode) {
+        setReasonCode(initialReason.reasonCode);
+      }
+    }
+  }, [reasonCodesList, reasonCode]);
+
   // Auto-dismiss form error alert after 5 seconds
   useEffect(() => {
     if (formError) {
       const timer = setTimeout(() => {
         setFormError(null);
       }, 5000);
-
-      return () => clearTimeout(timer); // Cleanup timer if component unmounts or formError changes
+      return () => clearTimeout(timer);
     }
   }, [formError]);
 
@@ -102,6 +115,13 @@ export const CashMovement: React.FC = () => {
       return;
     }
 
+    if (!reasonCode) {
+      const msg = "Please select a valid reason code.";
+      setFormError(msg);
+      toast.error(msg);
+      return;
+    }
+
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       const msg = "Please enter a valid amount greater than zero.";
@@ -119,6 +139,7 @@ export const CashMovement: React.FC = () => {
 
     const payload: CreateCashMovementRequest = {
       movementType,
+      reasonCode,
       operatorId,
       bankId,
       amount: parsedAmount,
@@ -145,10 +166,9 @@ export const CashMovement: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          {/* Full-width Layout Container */}
-          <Row>
-            <Col xs={12}>
-              <Card className="shadow-sm border-0 rounded-3">
+          <Row className="justify-content-center">
+            <Col xxl={10} xl={11} xs={12}>
+              <Card className="shadow-sm border-0 rounded-3 mb-4">
                 <CardHeader className="bg-white border-bottom py-3 px-4">
                   <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div>
@@ -159,10 +179,14 @@ export const CashMovement: React.FC = () => {
                         Record and post cash deposits or withdrawals against authorized bank accounts.
                       </p>
                     </div>
-                    <div className="d-flex align-items-center gap-2">
+                    <div>
                       <Badge
-                        color={movementType === "Payment" ? "soft-success" : "soft-danger"}
+                        color={movementType === "Payment" ? "success" : "danger"}
                         className="fs-12 px-3 py-1.5 text-uppercase fw-semibold"
+                        style={{
+                          backgroundColor: movementType === "Payment" ? "#d1e7dd" : "#f8d7da",
+                          color: movementType === "Payment" ? "#0f5132" : "#842029",
+                        }}
                       >
                         <i
                           className={`me-1 align-middle ${
@@ -191,7 +215,7 @@ export const CashMovement: React.FC = () => {
                       <div className="d-flex align-items-center gap-3">
                         <div
                           className="avatar-xs rounded-circle d-flex align-items-center justify-content-center text-white fw-bold fs-12"
-                          style={{ backgroundColor: BRAND_PRIMARY }}
+                          style={{ backgroundColor: BRAND_PRIMARY, width: "36px", height: "36px" }}
                         >
                           {operatorName.charAt(0).toUpperCase()}
                         </div>
@@ -202,18 +226,18 @@ export const CashMovement: React.FC = () => {
                           <h6 className="fs-13 fw-semibold text-dark mb-0">{operatorName}</h6>
                         </div>
                       </div>
-                      <div className="d-flex align-items-center gap-2">
+                      <div>
                         <span className="badge bg-white text-dark border border-light-subtle font-monospace fs-11 px-2.5 py-1">
-                          OPERATOR role: {operatorRole || "N/A"}
+                          Role: {operatorRole || "N/A"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Full-width Horizontal Grid Form Fields */}
+                    {/* Responsive Form Fields Grid */}
                     <Row className="g-3">
                       {/* Movement Type Switcher */}
-                      <Col md={6} xl={3}>
-                        <FormGroup className="mb-0">
+                      <Col lg={6} md={12}>
+                        <FormGroup className="mb-3">
                           <Label className="fs-12 fw-medium text-dark mb-2">
                             Movement Type <span className="text-danger">*</span>
                           </Label>
@@ -221,10 +245,10 @@ export const CashMovement: React.FC = () => {
                             <Col xs={6}>
                               <div
                                 onClick={() => setMovementType("Payment")}
-                                className={`p-2 rounded border text-center cursor-pointer transition-all user-select-none fs-12 ${
+                                className={`p-2.5 rounded border text-center cursor-pointer transition-all user-select-none fs-12 ${
                                   movementType === "Payment"
-                                    ? "border-success bg-success-subtle text-success fw-semibold"
-                                    : "border-light-subtle bg-white text-muted"
+                                    ? "border-success bg-success-subtle text-success fw-semibold shadow-sm"
+                                    : "border-light bg-white text-muted"
                                 }`}
                               >
                                 <i className="ri-arrow-down-circle-line me-1 align-middle"></i>
@@ -234,10 +258,10 @@ export const CashMovement: React.FC = () => {
                             <Col xs={6}>
                               <div
                                 onClick={() => setMovementType("Withdrawal")}
-                                className={`p-2 rounded border text-center cursor-pointer transition-all user-select-none fs-12 ${
+                                className={`p-2.5 rounded border text-center cursor-pointer transition-all user-select-none fs-12 ${
                                   movementType === "Withdrawal"
-                                    ? "border-danger bg-danger-subtle text-danger fw-semibold"
-                                    : "border-light-subtle bg-white text-muted"
+                                    ? "border-danger bg-danger-subtle text-danger fw-semibold shadow-sm"
+                                    : "border-light bg-white text-muted"
                                 }`}
                               >
                                 <i className="ri-arrow-up-circle-line me-1 align-middle"></i>
@@ -249,8 +273,8 @@ export const CashMovement: React.FC = () => {
                       </Col>
 
                       {/* Target Bank Dropdown */}
-                      <Col md={6} xl={3}>
-                        <FormGroup className="mb-0">
+                      <Col lg={6} md={12}>
+                        <FormGroup className="mb-3">
                           <Label htmlFor="bankSelect" className="fs-12 fw-medium text-dark mb-1">
                             Target Bank / Account <span className="text-danger">*</span>
                           </Label>
@@ -274,8 +298,41 @@ export const CashMovement: React.FC = () => {
                                 .filter((bank: Bank) => bank.isActive !== false)
                                 .map((bank: Bank) => (
                                   <option key={bank.bankId} value={bank.bankId}>
-                                    {bank.bankName} (
-                                    [{bank.currencyCode || "KES"}]
+                                    {bank.bankName} - {bank.accountNumber} [{bank.currencyCode || "KES"}]
+                                  </option>
+                                ))}
+                            </Input>
+                          )}
+                        </FormGroup>
+                      </Col>
+
+                      {/* Reason Code Dropdown */}
+                      <Col lg={4} md={12}>
+                        <FormGroup className="mb-3">
+                          <Label htmlFor="reasonCodeSelect" className="fs-12 fw-medium text-dark mb-1">
+                            Reason Code <span className="text-danger">*</span>
+                          </Label>
+                          {isReasonCodesLoading ? (
+                            <div className="d-flex align-items-center gap-2 py-2">
+                              <Spinner size="sm" color="primary" />
+                              <span className="fs-12 text-muted">Loading reasons...</span>
+                            </div>
+                          ) : (
+                            <Input
+                              id="reasonCodeSelect"
+                              type="select"
+                              className="form-select fs-13"
+                              value={reasonCode}
+                              onChange={(e) => setReasonCode(e.target.value)}
+                            >
+                              <option value="" disabled>
+                                -- Select Reason Code --
+                              </option>
+                              {reasonCodesList
+                                .filter((rc: ReasonCode) => rc.isActive !== false)
+                                .map((rc: ReasonCode) => (
+                                  <option key={rc.reasonCode} value={rc.reasonCode}>
+                                    {rc.reasonCode} - {rc.description}
                                   </option>
                                 ))}
                             </Input>
@@ -284,8 +341,8 @@ export const CashMovement: React.FC = () => {
                       </Col>
 
                       {/* Amount Input */}
-                      <Col md={6} xl={3}>
-                        <FormGroup className="mb-0">
+                      <Col lg={4} md={6}>
+                        <FormGroup className="mb-3">
                           <Label htmlFor="amountInput" className="fs-12 fw-medium text-dark mb-1">
                             Transaction Amount <span className="text-danger">*</span>
                           </Label>
@@ -308,18 +365,15 @@ export const CashMovement: React.FC = () => {
                       </Col>
 
                       {/* Reference Code Input */}
-                      <Col md={6} xl={3}>
-                        <FormGroup className="mb-0">
-                          <Label
-                            htmlFor="referenceInput"
-                            className="fs-12 fw-medium text-dark mb-1"
-                          >
+                      <Col lg={4} md={6}>
+                        <FormGroup className="mb-3">
+                          <Label htmlFor="referenceInput" className="fs-12 fw-medium text-dark mb-1">
                             Payment Reference / Receipt No <span className="text-danger">*</span>
                           </Label>
                           <Input
                             id="referenceInput"
                             type="text"
-                            placeholder="e.g. CSH-DEP-10023 or M-Pesa Ref"
+                            placeholder="e.g. CSH-DEP-10023"
                             className="form-control fs-13"
                             value={reference}
                             onChange={(e) => setPaymentReference(e.target.value)}
@@ -400,6 +454,10 @@ export const CashMovement: React.FC = () => {
                       ? `${selectedBank.bankName} (${selectedBank.accountNumber})`
                       : "N/A"}
                   </span>
+                </div>
+                <div className="d-flex justify-content-between py-1.5 border-bottom border-light-subtle">
+                  <span className="text-muted">Reason Code:</span>
+                  <span className="fw-semibold font-monospace text-dark">{reasonCode}</span>
                 </div>
                 <div className="d-flex justify-content-between py-1.5 border-bottom border-light-subtle">
                   <span className="text-muted">Movement Type:</span>

@@ -74,9 +74,9 @@ const Navdata = () => {
           link: "/pos/customer-payment" 
         },
         { 
-          id: "refunds", 
-          label: "Returns & Refunds", 
-          link: "/refunds"
+          id: "sales-return", 
+          label: "Sales Returns", 
+          link: "/pos/sales-return" 
         },
       ],
     },

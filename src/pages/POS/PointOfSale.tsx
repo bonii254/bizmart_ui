@@ -356,10 +356,6 @@ export const PointOfSale: React.FC = () => {
         toast.error("Amount tendered is less than the total sale amount.");
         return;
       }
-      if ((paymentMethod === "CASH") && !paymentReference.trim()) {
-        toast.error("Please enter the payment reference code.");
-        return;
-      }
     } else {
       if (isExceedingCreditLimit) {
         toast.error("Sale exceeds customer's credit limit.");
@@ -376,7 +372,7 @@ export const PointOfSale: React.FC = () => {
           customerId,
           operatorId,
           paidAmount: cartTotals.grandTotal,
-          paymentMethodCode: paymentMethod,
+          paymentMethodCode: "CASH",
           bankId,
           paymentReference: paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
           lines: cart.map((i) => ({ itemId: i.itemId, quantity: i.quantity, unitPrice: i.unitPrice, uomCode: i.uomCode })),

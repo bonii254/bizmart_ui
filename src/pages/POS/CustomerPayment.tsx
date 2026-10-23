@@ -10,7 +10,6 @@ import {
   CardBody,
   CardHeader,
   Container,
-  Badge,
   Dropdown,
   DropdownToggle,
   DropdownMenu,
@@ -20,8 +19,9 @@ import { toast } from "react-toastify";
 
 import { useCustomers, useCustomerPaymentMutation } from "../../Components/Hooks/useCustomers"; 
 import { useBanks } from "../../Components/Hooks/useBanks";
-import { useSalesTransactions } from "../../Components/Hooks/usePOS";
+import { useCustomerInvoices } from "../../Components/Hooks/useReport2";
 import { CreateCustomerPaymentRequest } from "../../types/customer";
+import { CustomerInvoice } from "../../types/reports2";
 import { Bank } from "../../types/bank";
 import { formatCurrency } from "../../utils/qzConfig";
 import { handleBackendErrors } from "../../helpers/form_utils";
@@ -60,15 +60,18 @@ export const CustomerPayment: React.FC = () => {
     return Array.isArray(customersData) ? customersData : customersData ?? [];
   }, [customersData]);
 
-  // Fetch Sales Transactions (Invoices) filtered by customerId
-  const { data: transactionsData, isLoading: isTransactionsLoading } = useSalesTransactions({
-    customerId: customerId || undefined,
-  });
+  // Fetch Customer Invoices filtered by customerId
+  const { data: invoicesData, isLoading: isInvoicesLoading } = useCustomerInvoices(
+    customerId || null
+  );
 
-  const transactionsList = useMemo(() => {
-    if (!transactionsData) return [];
-    return Array.isArray(transactionsData) ? transactionsData : transactionsData.data ?? [];
-  }, [transactionsData]);
+  const invoicesList = useMemo<CustomerInvoice[]>(() => {
+    if (!invoicesData) return [];
+    if (Array.isArray(invoicesData)) return invoicesData;
+    const raw = invoicesData as any;
+    if (Array.isArray(raw.data)) return raw.data;
+    return [];
+  }, [invoicesData]);
 
   // Selected Customer Details
   const selectedCustomer = useMemo(() => {
@@ -76,14 +79,14 @@ export const CustomerPayment: React.FC = () => {
   }, [customersList, customerId]);
 
   // Filtered Invoices based on search input
-  const filteredTransactions = useMemo(() => {
+  const filteredInvoices = useMemo(() => {
     const query = invoiceSearch.toLowerCase();
-    return transactionsList.filter((tx: any) => {
-      const invNum = (tx.invoice_number ?? "").toLowerCase();
-      const whCode = (tx.warehouse_code ?? "").toLowerCase();
+    return invoicesList.filter((inv) => {
+      const invNum = (inv.invoiceNumber ?? "").toLowerCase();
+      const whCode = (inv.warehouseCode ?? "").toLowerCase();
       return invNum.includes(query) || whCode.includes(query);
     });
-  }, [transactionsList, invoiceSearch]);
+  }, [invoicesList, invoiceSearch]);
 
   // Set default customer and bank on load
   useEffect(() => {
@@ -98,6 +101,11 @@ export const CustomerPayment: React.FC = () => {
       if (defaultBank) setBankId(String(defaultBank.bankId));
     }
   }, [banksList, bankId]);
+
+  // Reset selected invoice when customer changes
+  useEffect(() => {
+    setInvoiceId("");
+  }, [customerId]);
 
   useEffect(() => {
     if (globalError) {
@@ -184,12 +192,12 @@ export const CustomerPayment: React.FC = () => {
 
           <Form onSubmit={handleSubmitPayment}>
             <Row className="g-3">
-              {/* Left Column: Customer Invoices & Sales Transactions */}
+              {/* Left Column: Customer Invoices */}
               <Col lg={7} xl={8}>
                 <Card className="card-height-100 border-0 shadow-sm mb-0">
                   <CardHeader className="align-items-center d-flex bg-transparent border-bottom py-3">
                     <div className="flex-grow-1">
-                      <h5 className="card-title mb-0 fs-14 fw-semibold text-dark">Customer Invoices & Ledger</h5>
+                      <h5 className="card-title mb-0 fs-14 fw-semibold text-dark">Customer Invoices</h5>
                     </div>
                     <div className="flex-shrink-0" style={{ width: "220px" }}>
                       <Input
@@ -209,12 +217,12 @@ export const CustomerPayment: React.FC = () => {
                         <i className="ri-user-search-line display-5 text-muted mb-2 opacity-50"></i>
                         <span className="fs-13 fw-medium">Select a customer to view invoices</span>
                       </div>
-                    ) : isTransactionsLoading ? (
+                    ) : isInvoicesLoading ? (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
                         <Spinner size="sm" color="primary" className="mb-2" />
                         <span className="text-muted fs-12">Loading customer invoices...</span>
                       </div>
-                    ) : filteredTransactions.length > 0 ? (
+                    ) : filteredInvoices.length > 0 ? (
                       <div className="table-responsive table-card">
                         <table className="table table-sm table-nowrap table-bordered table-striped align-middle fs-11 mb-0">
                           <thead className="table-light text-muted">
@@ -224,31 +232,31 @@ export const CustomerPayment: React.FC = () => {
                               <th>Invoice #</th>
                               <th>Warehouse</th>
                               <th className="text-end">Total</th>
-                              <th className="text-end">Paid</th>
+                              <th className="text-end">Balance</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredTransactions.map((tx: any) => {
-                              const isSelected = invoiceId === tx.invoice_id;
+                            {filteredInvoices.map((inv) => {
+                              const isSelected = invoiceId === inv.invoiceId;
                               return (
                                 <tr
-                                  key={tx.invoice_id}
+                                  key={inv.invoiceId}
                                   className={`cursor-pointer ${isSelected ? "table-primary" : ""}`}
-                                  onClick={() => setInvoiceId(tx.invoice_id)}
+                                  onClick={() => setInvoiceId(inv.invoiceId)}
                                 >
                                   <td className="text-center">
                                     <Input
                                       type="radio"
                                       name="selectedInvoice"
                                       checked={isSelected}
-                                      onChange={() => setInvoiceId(tx.invoice_id)}
+                                      onChange={() => setInvoiceId(inv.invoiceId)}
                                     />
                                   </td>
-                                  <td>{tx.sold_at ? new Date(tx.sold_at).toLocaleDateString() : "-"}</td>
-                                  <td className="font-monospace fw-semibold text-primary">{tx.invoice_number}</td>
-                                  <td>{tx.warehouse_code}</td>
-                                  <td className="text-end font-monospace">{formatCurrency(tx.total)}</td>
-                                  <td className="text-end font-monospace">{formatCurrency(tx.paid)}</td>
+                                  <td>{inv.soldAt ? new Date(inv.soldAt).toLocaleDateString() : "-"}</td>
+                                  <td className="font-monospace fw-semibold text-primary">{inv.invoiceNumber}</td>
+                                  <td>{inv.warehouseCode}</td>
+                                  <td className="text-end font-monospace">{formatCurrency(inv.invoiceTotal)}</td>
+                                  <td className="text-end font-monospace fw-semibold">{formatCurrency(inv.invoiceBalance)}</td>
                                 </tr>
                               );
                             })}
@@ -258,7 +266,7 @@ export const CustomerPayment: React.FC = () => {
                     ) : (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-muted">
                         <i className="ri-inbox-line display-5 opacity-50 mb-2"></i>
-                        <span className="fs-13 fw-medium">No sales transactions or invoices found</span>
+                        <span className="fs-13 fw-medium">No customer invoices found</span>
                       </div>
                     )}
                   </CardBody>
@@ -315,7 +323,7 @@ export const CustomerPayment: React.FC = () => {
                       </Dropdown>
                     </div>
 
-                    {/* Restricted Payment Methods: CASH or CREDIT */}
+                    {/* Payment Methods */}
                     <div className="mb-3">
                       <label className="form-label fs-12 fw-semibold text-muted mb-1">Payment Method</label>
                       <div className="d-flex gap-2">
@@ -389,14 +397,13 @@ export const CustomerPayment: React.FC = () => {
                       <label className="form-label fs-12 fw-semibold text-muted mb-1">Selected Invoice</label>
                       <Input
                         type="text"
-                        readItem
+                        readOnly
                         placeholder="Click an invoice on the left"
                         bsSize="sm"
                         className="form-control form-control-sm fs-11 font-monospace bg-light"
-                        value={transactionsList.find(
-                            (tx: any) => tx.invoice_id === invoiceId
-                        )?.invoice_number || invoiceId || ""}
-                        onChange={(e) => setInvoiceId(e.target.value)}
+                        value={invoicesList.find(
+                          (inv) => inv.invoiceId === invoiceId
+                        )?.invoiceNumber || invoiceId || ""}
                       />
                     </div>
                   </CardBody>

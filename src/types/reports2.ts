@@ -1,3 +1,4 @@
+import { Supplier } from './supplier';
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -179,4 +180,77 @@ export interface MonthlyInventoryStatementResponse {
   success: boolean;
   message: string;
   data: MonthlyInventoryStatementItem[];
+}
+
+export interface CustomerBalanceData {
+  customerId: string;
+  balance: number;
+  updatedAt: string;
+}
+
+export interface CustomerBalanceResponse {
+  success: boolean;
+  message: string;
+  data: CustomerBalanceData;
+}
+
+export interface GoodsReceiptQueryParams {
+  fromDate?: string; 
+  toDate?: string;  
+  warehouseId?: string;
+  supplierId?: string;
+  operatorId?: string;
+}
+
+export interface GoodsReceiptItem {
+  receipt_id: string;
+  goods_receipt_number: string;
+  received_at: string;
+  warehouse_code: string;
+  supplier_code: string;
+  supplier_name: string;
+  operator_name: string;
+  receipt_total: number;
+  reversed_total: number;
+  outstanding_total: number;
+}
+
+export interface GoodsReceiptListResponse {
+  success: boolean;
+  message: string;
+  data: GoodsReceiptItem[];
+}
+
+export interface CustomerInvoice {
+  invoiceId: string;
+  invoiceNumber: string;
+  warehouseCode: string;
+  soldAt: string;
+  invoiceTotal: number;
+  initialPayment: number;
+  returnedAmount: number;
+  allocatedPayment: number;
+  invoiceBalance: number;
+}
+
+export interface CustomerInvoicesResponse {
+  success: boolean;
+  message: string;
+  data: CustomerInvoice[];
+}
+
+export interface SupplierInvoice {
+  goodsReceiptId: string;
+  goodsReceiptNumber: string;
+  warehouseCode: string;
+  receivedAt: string;
+  invoiceTotal: number;
+  allocatedPayment: number;
+  invoiceBalance: number;
+}
+
+export interface SupplierInvoicesResponse {
+  success: boolean;
+  message: string;
+  data: SupplierInvoice[];
 }

@@ -83,11 +83,13 @@ export const useCustomerPaymentMutation = () => {
       queryClient.invalidateQueries({ queryKey: ["customer-payments"] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-invoices"] });
       toast.success("Customer payment processed successfully");
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Failed to process customer payment"
+        error.response?.data?.Message || "Failed to process customer payment"
       );
     },
   });

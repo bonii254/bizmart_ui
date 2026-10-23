@@ -20,15 +20,11 @@ import { toast } from "react-toastify";
 
 import { useSuppliers } from "../../Components/Hooks/useSuppliers";
 import { useBanks } from "../../Components/Hooks/useBanks";
-import { 
-  useSupplierStatement 
-} from "../../Components/Hooks/useReport2";
-import { 
-  useSupplierPaymentMutation 
-} from "../../Components/Hooks/useSuppliers";
-import { 
-  CreateSupplierPaymentRequest 
-} from "../../types/supplier";
+import { useGoodsReceipts } from "../../Components/Hooks/useReport2";
+import { useSupplierStatement } from "../../Components/Hooks/useReport2";
+import { useSupplierPaymentMutation } from "../../Components/Hooks/useSuppliers";
+import { CreateSupplierPaymentRequest } from "../../types/supplier";
+import { GoodsReceiptItem } from "../../types/reports2";
 import { Bank } from "../../types/bank";
 import { formatCurrency } from "../../utils/qzConfig";
 import { handleBackendErrors } from "../../helpers/form_utils";
@@ -56,11 +52,25 @@ export const SupplierPayment: React.FC = () => {
   const [goodsReceiptId, setGoodsReceiptId] = useState<string>("");
 
   const [supplierSearch, setSupplierSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
 
   // Queries
   const { data: suppliersList = [], isLoading: isSuppliersLoading } = useSuppliers();
   const { data: banksList = [], isLoading: isBanksLoading } = useBanks();
+  
+  // Fetch goods receipts (filtered by selected supplierId)
+  const { data: goodsReceiptsResponse, isLoading: isGrnsLoading } = useGoodsReceipts({
+    supplierId: supplierId || undefined,
+  });
+
+  const goodsReceiptsList = useMemo<GoodsReceiptItem[]>(() => {
+    if (!goodsReceiptsResponse) return [];
+    const raw = goodsReceiptsResponse as any;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw.data)) return raw.data;
+    return [];
+  }, [goodsReceiptsResponse]);
 
   // Supplier Statement & Ledger Info
   const { data: statementData, isLoading: isStatementLoading } = useSupplierStatement({
@@ -69,13 +79,34 @@ export const SupplierPayment: React.FC = () => {
 
   const statementItems = useMemo(() => {
     if (!statementData) return [];
-    return Array.isArray(statementData) ? statementData : statementData.data ?? [];
-  }, [statementData]);
+    const rawList = Array.isArray(statementData) ? statementData : statementData.data ?? [];
+    
+    // Filter items based on table search term
+    const filtered = rawList.filter((item: any) => {
+      if (!searchTerm.trim()) return true;
+      const q = searchTerm.toLowerCase();
+      const docNo = (item.document_number ?? "").toLowerCase();
+      const txnType = (item.transaction_type ?? "").toLowerCase();
+      return docNo.includes(q) || txnType.includes(q);
+    });
+
+    // Sort in descending order (most recent first based on posted_at date or array order)
+    return [...filtered].sort((a: any, b: any) => {
+      const dateA = a.posted_at ? new Date(a.posted_at).getTime() : 0;
+      const dateB = b.posted_at ? new Date(b.posted_at).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [statementData, searchTerm]);
 
   // Selected Supplier Details
   const selectedSupplier = useMemo(() => {
     return suppliersList.find((s) => String(s.supplierId) === String(supplierId));
   }, [suppliersList, supplierId]);
+
+  // Selected Goods Receipt Item
+  const selectedGrnItem = useMemo(() => {
+    return goodsReceiptsList.find((g) => g.receipt_id === goodsReceiptId);
+  }, [goodsReceiptsList, goodsReceiptId]);
 
   // Set default supplier and bank on load
   useEffect(() => {
@@ -90,6 +121,12 @@ export const SupplierPayment: React.FC = () => {
       if (defaultBank) setBankId(String(defaultBank.bankId));
     }
   }, [banksList, bankId]);
+
+  // Reset selected GRN and search term when supplier changes
+  useEffect(() => {
+    setGoodsReceiptId("");
+    setSearchTerm("");
+  }, [supplierId]);
 
   useEffect(() => {
     if (globalError) {
@@ -111,6 +148,7 @@ export const SupplierPayment: React.FC = () => {
     setAmount("");
     setReference("");
     setGoodsReceiptId("");
+    setSearchTerm("");
   };
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
@@ -149,7 +187,7 @@ export const SupplierPayment: React.FC = () => {
       amount: parsedAmount,
       paymentMethodCode,
       reference: reference.trim(),
-      goodsReceiptId: goodsReceiptId.trim() || "00000000-0000-0000-0000-000000000000",
+      goodsReceiptId: goodsReceiptId.trim(),
     };
 
     try {
@@ -186,43 +224,73 @@ export const SupplierPayment: React.FC = () => {
                         <i className="ri-user-search-line display-5 text-muted mb-2 opacity-50"></i>
                         <span className="fs-13 fw-medium">Select a supplier to view history</span>
                       </div>
-                    ) : isStatementLoading ? (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
-                        <Spinner size="sm" color="primary" className="mb-2" />
-                        <span className="text-muted fs-12">Loading supplier statement...</span>
-                      </div>
-                    ) : statementItems.length > 0 ? (
-                      <div className="table-responsive table-card">
-                        <table className="table table-sm table-nowrap table-bordered table-striped align-middle fs-11 mb-0">
-                          <thead className="table-light text-muted">
-                            <tr>
-                              <th>Date</th>
-                              <th>Type</th>
-                              <th>Doc #</th>
-                              <th className="text-start">Debit</th>
-                              <th className="text-start">Credit</th>
-                              <th className="text-start">Balance</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {statementItems.map((item: any, idx: number) => (
-                              <tr key={idx} className="cursor-pointer" onClick={() => item.document_number && setGoodsReceiptId(item.document_number)}>
-                                <td>{item.posted_at ? new Date(item.posted_at).toLocaleDateString() : "-"}</td>
-                                <td><Badge color="subtle-secondary" className="text-dark border">{item.transaction_type}</Badge></td>
-                                <td className="font-monospace text-primary">{item.document_number}</td>
-                                <td className="text-start font-monospace">{formatCurrency(item.debit)}</td>
-                                <td className="text-start font-monospace">{formatCurrency(item.credit)}</td>
-                                <td className="text-start font-monospace fw-semibold">{formatCurrency(item.running_balance)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
                     ) : (
-                      <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-muted">
-                        <i className="ri-inbox-line display-5 opacity-50 mb-2"></i>
-                        <span className="fs-13 fw-medium">No recent statement records found</span>
-                      </div>
+                      <>
+                        {/* Table Header Filter / Search Input */}
+                        <div className="mb-3">
+                          <Input
+                            type="text"
+                            bsSize="sm"
+                            placeholder="Filter by document number or type..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="fs-12 font-monospace bg-light"
+                          />
+                        </div>
+
+                        {isStatementLoading ? (
+                          <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
+                            <Spinner size="sm" color="primary" className="mb-2" />
+                            <span className="text-muted fs-12">Loading supplier statement...</span>
+                          </div>
+                        ) : statementItems.length > 0 ? (
+                          <div className="table-responsive table-card">
+                            <table className="table table-sm table-nowrap table-bordered table-striped align-middle fs-11 mb-0">
+                              <thead className="table-light text-muted">
+                                <tr>
+                                  <th>Date</th>
+                                  <th>Type</th>
+                                  <th>Doc #</th>
+                                  <th className="text-start">Debit</th>
+                                  <th className="text-start">Credit</th>
+                                  <th className="text-start">Balance</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {statementItems.map((item: any, idx: number) => {
+                                  const matchingGrn = goodsReceiptsList.find(
+                                    (g) => g.goods_receipt_number === item.document_number
+                                  );
+                                  return (
+                                    <tr
+                                      key={idx}
+                                      className="cursor-pointer"
+                                      onClick={() => {
+                                        if (matchingGrn) {
+                                          setGoodsReceiptId(matchingGrn.receipt_id);
+                                        }
+                                      }}
+                                      title={matchingGrn ? "Click to link Goods Receipt" : ""}
+                                    >
+                                      <td>{item.posted_at ? new Date(item.posted_at).toLocaleDateString() : "-"}</td>
+                                      <td><Badge color="subtle-secondary" className="text-dark border">{item.transaction_type}</Badge></td>
+                                      <td className="font-monospace text-primary">{item.document_number}</td>
+                                      <td className="text-start font-monospace">{formatCurrency(item.debit)}</td>
+                                      <td className="text-start font-monospace">{formatCurrency(item.credit)}</td>
+                                      <td className="text-start font-monospace fw-semibold">{formatCurrency(item.running_balance)}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-muted">
+                            <i className="ri-inbox-line display-5 opacity-50 mb-2"></i>
+                            <span className="fs-13 fw-medium">No recent statement records found</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </CardBody>
                 </Card>
@@ -347,17 +415,31 @@ export const SupplierPayment: React.FC = () => {
                       />
                     </div>
 
-                    {/* Goods Receipt ID */}
+                    {/* Goods Receipt Selection */}
                     <div className="mb-2">
-                      <label className="form-label fs-12 fw-semibold text-muted mb-1">Goods Receipt ID</label>
-                      <Input
-                        type="text"
-                        placeholder="Optional GUID or Doc Ref"
-                        bsSize="sm"
-                        className="form-control form-control-sm fs-12 font-monospace"
-                        value={goodsReceiptId}
-                        onChange={(e) => setGoodsReceiptId(e.target.value)}
-                      />
+                      <label className="form-label fs-12 fw-semibold text-muted mb-1">
+                        Goods Receipt Note (GRN) <span className="text-muted fw-normal">(Optional)</span>
+                      </label>
+                      {isGrnsLoading ? (
+                        <div className="d-flex align-items-center gap-2 py-1">
+                          <Spinner size="sm" color="primary" />
+                          <span className="fs-11 text-muted">Loading GRNs...</span>
+                        </div>
+                      ) : (
+                        <Input
+                          type="select"
+                          className="form-select form-select-sm fs-12 font-monospace"
+                          value={goodsReceiptId}
+                          onChange={(e) => setGoodsReceiptId(e.target.value)}
+                        >
+                          <option value="">-- None / General Payment --</option>
+                          {goodsReceiptsList.map((grn) => (
+                            <option key={grn.receipt_id} value={grn.receipt_id}>
+                              {grn.goods_receipt_number} ({formatCurrency(grn.outstanding_total)} due)
+                            </option>
+                          ))}
+                        </Input>
+                      )}
                     </div>
                   </CardBody>
 

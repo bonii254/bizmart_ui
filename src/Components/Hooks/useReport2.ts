@@ -7,7 +7,11 @@ import {
     OperatorSalesSummaryService,
     SalesPaymentSummaryService,
     DailyTillSummaryService,
-    getMonthlyInventoryStatement
+    getMonthlyInventoryStatement,
+    CustomerBalanceService,
+    GoodsReceiptService,
+    CustomerInvoicesService,
+    SupplierInvoicesService,
  } from "../../services/reportservice2";
 import { 
     CashTransactionQueryParams,
@@ -17,7 +21,9 @@ import {
     OperatorSalesSummaryQueryParams,
     SalesPaymentSummaryQueryParams,
     DailyTillSummaryQueryParams,
-    MonthlyInventoryStatementQueryParams
+    MonthlyInventoryStatementQueryParams,
+    CustomerBalanceData,
+    GoodsReceiptQueryParams,
 } from "../../types/reports2";
 
 export const useCashTransactions = (params?: CashTransactionQueryParams) => {
@@ -104,5 +110,37 @@ export const useMonthlyInventoryStatement = (
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     ...options,
+  });
+};
+
+export const useCustomerBalance = (customerId?: string | null) => {
+  return useQuery<CustomerBalanceData>({
+    queryKey: ["customer-balance", customerId],
+    queryFn: () => CustomerBalanceService.getCustomerBalance(customerId!),
+    enabled: !!customerId,
+  });
+};
+
+export const useGoodsReceipts = (params?: GoodsReceiptQueryParams) => {
+  return useQuery({
+    queryKey: ["goods-receipts", params],
+    queryFn: () => GoodsReceiptService.getGoodsReceipts(params),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useCustomerInvoices = (customerId?: string | null) => {
+  return useQuery({
+    queryKey: ["customer-invoices", customerId],
+    queryFn: () => CustomerInvoicesService.getCustomerInvoices(customerId!),
+    enabled: !!customerId,
+  });
+};
+
+export const useSupplierInvoices = (supplierId?: string | null) => {
+  return useQuery({
+    queryKey: ["supplier-invoices", supplierId],
+    queryFn: () => SupplierInvoicesService.getSupplierInvoices(supplierId!),
+    enabled: !!supplierId,
   });
 };

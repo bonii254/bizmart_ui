@@ -16,6 +16,12 @@ import {
   DailyTillSummaryResponse,
   MonthlyInventoryStatementQueryParams,
   MonthlyInventoryStatementResponse,
+  CustomerBalanceData, 
+  CustomerBalanceResponse,
+  GoodsReceiptQueryParams,
+  GoodsReceiptListResponse,
+  CustomerInvoicesResponse,
+  SupplierInvoicesResponse,
 } from '../types/reports2';
 
 const api = new APIClient();
@@ -114,4 +120,48 @@ export const getMonthlyInventoryStatement = async (
     '/api/reports/inventory-statement-monthly',
     params 
   );
+};
+
+export const CustomerBalanceService = {
+  getCustomerBalance: async (
+    customerId: string
+  ): Promise<CustomerBalanceData> => {
+    const response: CustomerBalanceResponse = await api.get(
+      `/api/accounts/customers/${customerId}/balance`
+    );
+    return response.data ?? response;
+  },
+};
+
+export const GoodsReceiptService = {
+  getGoodsReceipts: async (
+    params?: GoodsReceiptQueryParams
+  ): Promise<GoodsReceiptListResponse> => {
+    return await api.get(
+      '/api/browses/goods-receipts',
+      params
+    );
+  }
+};
+
+export const CustomerInvoicesService = {
+  getCustomerInvoices: async (
+    customerId: string
+  ): Promise<CustomerInvoicesResponse> => {
+    const response: CustomerInvoicesResponse = await api.get(
+      `/api/accounts/customers/${customerId}/invoices`
+    );
+    return response;
+  }
+};
+
+export const SupplierInvoicesService = {
+  getSupplierInvoices: async (
+    supplierId: string
+  ): Promise<SupplierInvoicesResponse> => {
+    const response: SupplierInvoicesResponse = await api.get(
+      `/api/accounts/suppliers/${supplierId}/invoices`
+    );
+    return response;
+  }
 };

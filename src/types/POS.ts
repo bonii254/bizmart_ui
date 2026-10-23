@@ -57,3 +57,34 @@ export interface SalesTransactionQueryParams {
 }
 
 export type GetSalesTransactionsResponse = ApiResponse<SalesTransaction[]>;
+
+export interface SalesReturnLineRequest {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  uomCode: string;
+}
+
+export interface CreateSalesReturnRequest {
+  sourceInvoiceId: string;
+  warehouseId: string;
+  operatorId: string;
+  refundBankId: string;
+  paymentMethodCode: string;
+  paymentReference: string;
+  reasonCode: string;
+  lines: SalesReturnLineRequest[];
+}
+
+export interface SalesReturnResultData {
+  documentId: string;
+  documentNumber: string;
+  total: number;
+  postedAt: string;
+}
+
+export interface SalesReturnResponse {
+  success: boolean;
+  message: string;
+  data: SalesReturnResultData;
+}

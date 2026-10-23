@@ -12,7 +12,6 @@ import {
   DatePicker,
   Select,
   Empty,
-  Statistic,
   Space,
 } from 'antd';
 import {
@@ -20,19 +19,20 @@ import {
   FileExcelOutlined,
   UserOutlined,
   FileTextOutlined,
-  PrinterOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import dayjs, { Dayjs } from 'dayjs';
 
 import { useCustomers } from '../../../Components/Hooks/useCustomers';
-import { useCustomerStatement } from '../../../Components/Hooks/useReport2';
 import { 
-    CustomerStatementItem, 
-    CustomerStatementQueryParams 
+  useCustomerStatement,
+  useCustomerBalance
+} from '../../../Components/Hooks/useReport2';
+
+import { 
+  CustomerStatementItem, 
+  CustomerStatementQueryParams 
 } from '../../../types/reports2';
 import { Customer } from '../../../types/customer';
 import CustomerStatementTable from './CustomerStatementTable';
@@ -54,6 +54,9 @@ const CustomerStatementReport: React.FC = () => {
 
   // Fetch customer list
   const { data: customerDataResponse, isLoading: isLoadingCustomers } = useCustomers();
+
+  // Fetch live balance for the selected customer
+  const { data: customerBalanceData, isLoading: isLoadingBalance } = useCustomerBalance(selectedCustomerId);
 
   // Normalize customer array safely
   const customersList = useMemo<Customer[]>(() => {
@@ -99,28 +102,6 @@ const CustomerStatementReport: React.FC = () => {
   const handleFilteredDataChange = useCallback((items: CustomerStatementItem[]) => {
     setFilteredStatementItems(items);
   }, []);
-
-  // Calculate summary KPI metrics
-  const kpiMetrics = useMemo(() => {
-    let totalDebit = 0;
-    let totalCredit = 0;
-
-    rawStatementItems.forEach((item) => {
-      totalDebit += item.debit || 0;
-      totalCredit += item.credit || 0;
-    });
-
-    const closingBalance =
-      rawStatementItems.length > 0
-        ? rawStatementItems[rawStatementItems.length - 1].running_balance
-        : 0;
-
-    return {
-      totalDebit,
-      totalCredit,
-      closingBalance,
-    };
-  }, [rawStatementItems]);
 
   // Export Filtered Statement to Excel
   const handleExportToExcel = () => {
@@ -287,7 +268,7 @@ const CustomerStatementReport: React.FC = () => {
           </Card>
         ) : (
           <>
-            {/* Customer Information Banner */}
+            {/* Customer Information & Live Balance Banner */}
             {selectedCustomer && (
               <Card
                 size="small"
@@ -295,7 +276,7 @@ const CustomerStatementReport: React.FC = () => {
                 bodyStyle={{ padding: '12px 16px', backgroundColor: '#fafafa' }}
               >
                 <Row gutter={[16, 12]} align="middle" justify="space-between">
-                  <Col xs={24} md={14}>
+                  <Col xs={24} md={12}>
                     <Space size="middle" align="center">
                       <UserOutlined style={{ fontSize: '24px', color: '#1677ff' }} />
                       <div>
@@ -310,13 +291,50 @@ const CustomerStatementReport: React.FC = () => {
                     </Space>
                   </Col>
 
-                  <Col xs={24} md={10} style={{ textAlign: 'right' }}>
-                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>
-                      Tax ID: <strong>{selectedCustomer.taxNumber || 'N/A'}</strong>
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Credit Limit: <strong>{fmtCurrency(selectedCustomer.creditLimit)}</strong>
-                    </Text>
+                  <Col xs={24} md={12} style={{ textAlign: 'right' }}>
+                    <Space size="large" wrap>
+                      <div>
+                        <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
+                          Tax ID: <strong>{selectedCustomer.taxNumber || 'N/A'}</strong>
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          Credit Limit: <strong>{fmtCurrency(selectedCustomer.creditLimit)}</strong>
+                        </Text>
+                      </div>
+
+                      {/* Live Outstanding Credit Debt Balance Badge */}
+                      <div
+                        style={{
+                          backgroundColor: '#fff1f0',
+                          border: '1px solid #ffccc7',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          display: 'inline-block',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <Space size={4}>
+                          <WalletOutlined style={{ color: '#ff4d4f' }} />
+                          <Text type="secondary" style={{ fontSize: '11px' }}>Current Debt Balance:</Text>
+                        </Space>
+                        <div>
+                          {isLoadingBalance ? (
+                            <Spin size="small" />
+                          ) : (
+                            <Text
+                              strong
+                              style={{
+                                fontSize: '14px',
+                                fontFamily: 'monospace',
+                                color: '#cf1322',
+                              }}
+                            >
+                              {fmtCurrency(customerBalanceData?.balance)}
+                            </Text>
+                          )}
+                        </div>
+                      </div>
+                    </Space>
                   </Col>
                 </Row>
               </Card>

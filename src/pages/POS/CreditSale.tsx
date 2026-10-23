@@ -388,12 +388,6 @@ export const CreditSale: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          {globalError && (
-            <Alert color="danger" className="alert-dismissible-consecutive fade show mb-3">
-              <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
-              {globalError}
-            </Alert>
-          )}
 
           <Form onSubmit={handleSubmitSale}>
             <Row>
