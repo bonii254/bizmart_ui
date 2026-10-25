@@ -12,7 +12,8 @@ import {
     GoodsReceiptService,
     CustomerInvoicesService,
     SupplierInvoicesService,
-    StockTakeBrowseService
+    StockTakeBrowseService,
+    StockTakeTransactionDetailService
  } from "../../services/reportservice2";
 import { 
     CashTransactionQueryParams,
@@ -26,6 +27,8 @@ import {
     CustomerBalanceData,
     GoodsReceiptQueryParams,
     StockTakeBrowseQueryParams,
+    StockTakeTransactionDetail, 
+    StockTakeTransactionDetailQueryParams
 } from "../../types/reports2";
 
 export const useCashTransactions = (params?: CashTransactionQueryParams) => {
@@ -158,3 +161,21 @@ export const useStockTakeBrowse = (
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export const useStockTakeTransactionsDetail = (
+  params?: StockTakeTransactionDetailQueryParams,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery<StockTakeTransactionDetail[]>({
+    queryKey: ["stock-take-transactions-detail", params],
+    queryFn: async () => {
+      const res = await StockTakeTransactionDetailService.getStockTakeTransactionsDetail(params);
+      const raw = res as any;
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray(raw.data)) return raw.data;
+      return [];
+    },
+    enabled: options?.enabled ?? true,
+    staleTime: 5 * 60 * 1000,
+  });
+};

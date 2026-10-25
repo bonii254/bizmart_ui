@@ -23,7 +23,9 @@ import {
   CustomerInvoicesResponse,
   SupplierInvoicesResponse,
   StockTakeBrowseQueryParams,
-  StockTakeBrowseResponse
+  StockTakeBrowseResponse, 
+  StockTakeTransactionDetailQueryParams,
+  StockTakeTransactionDetailResponse
 } from '../types/reports2';
 
 const api = new APIClient();
@@ -177,4 +179,12 @@ export const StockTakeBrowseService = {
       params
     );
   }
+};
+
+export const StockTakeTransactionDetailService = {
+  getStockTakeTransactionsDetail: async (
+    params?: StockTakeTransactionDetailQueryParams
+  ): Promise<StockTakeTransactionDetailResponse> => {
+    return await api.get("/api/browses/stock-take-transactions-detail", { params });
+  },
 };

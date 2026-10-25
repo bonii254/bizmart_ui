@@ -10,12 +10,14 @@ const { Text } = Typography;
 interface Props {
   data?: StockTakeTransaction[];
   loading?: boolean;
+  onRowClick?: (record: StockTakeTransaction) => void;
   onFilteredDataChange?: (filteredData: StockTakeTransaction[]) => void;
 }
 
 const StockTakeBrowseTable: React.FC<Props> = ({
   data = [],
   loading = false,
+  onRowClick,
   onFilteredDataChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,7 +37,6 @@ const StockTakeBrowseTable: React.FC<Props> = ({
     });
   }, [data, searchQuery]);
 
-  // Sync filtered dataset to parent component for Excel export
   useEffect(() => {
     if (onFilteredDataChange) {
       onFilteredDataChange(filteredData);
@@ -49,10 +50,16 @@ const StockTakeBrowseTable: React.FC<Props> = ({
       key: 'stock_take_number',
       width: 180,
       fixed: 'left',
-      render: (text) => (
-        <Text strong style={{ fontSize: '12px', color: '#1677ff', fontFamily: 'monospace' }}>
+      render: (text, record) => (
+        <a
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onRowClick) onRowClick(record);
+          }}
+          style={{ fontWeight: 600, color: '#1677ff', fontFamily: 'monospace' }}
+        >
           {text || 'N/A'}
-        </Text>
+        </a>
       ),
       sorter: (a, b) => (a.stock_take_number || '').localeCompare(b.stock_take_number || ''),
     },
@@ -98,7 +105,6 @@ const StockTakeBrowseTable: React.FC<Props> = ({
 
   return (
     <div>
-      {/* Search Bar Strip */}
       <Card size="small" className="shadow-sm border-0 mb-3" bodyStyle={{ padding: '10px 14px' }}>
         <Row gutter={[8, 8]} align="middle">
           <Col xs={24} sm={12} md={10}>
@@ -114,12 +120,17 @@ const StockTakeBrowseTable: React.FC<Props> = ({
         </Row>
       </Card>
 
-      {/* Main Table Component */}
       <Card size="small" className="shadow-sm border-0" bodyStyle={{ padding: 0 }} loading={loading}>
         <Table
           columns={columns}
           dataSource={filteredData}
           rowKey={(record) => record.stock_take_id}
+          onRow={(record) => ({
+            onClick: () => {
+              if (onRowClick) onRowClick(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
@@ -136,7 +147,6 @@ const StockTakeBrowseTable: React.FC<Props> = ({
           bordered
         />
 
-        {/* Dynamic Grand Totals Footer Bar */}
         {filteredData.length > 0 && (
           <div
             style={{
@@ -148,7 +158,7 @@ const StockTakeBrowseTable: React.FC<Props> = ({
             <Row gutter={[12, 8]} align="middle" justify="space-between">
               <Col xs={24} md={12}>
                 <Text strong style={{ fontSize: '13px', color: '#1f1f1f' }}>
-                  Total Stock-Take Records: <Tag color="blue">{filteredData.length}</Tag>
+                  Total Stock-Take Records: <Tag color="blue">{filteredData.length}</Tag> (Click any row to view item details)
                 </Text>
               </Col>
             </Row>

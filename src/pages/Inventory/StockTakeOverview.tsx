@@ -10,16 +10,18 @@ import {
   CardBody,
   CardHeader,
   Container,
-  Badge,
   Button,
   Modal,
   ModalHeader,
   ModalBody,
   ModalFooter,
 } from "reactstrap";
+import dayjs from "dayjs";
 
+import { useStockTakeBrowse } from "../../Components/Hooks/useReport2"; // Adjust path as needed
 import { useStockTake } from "../../Components/Hooks/useStocktake";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
+import { StockTakeTransaction, StockTakeBrowseQueryParams } from "../../types/reports2";
 import { StockTakeVarianceItem } from "../../types/stocktake";
 import { Warehouse } from "../../types/warehouse";
 
@@ -46,8 +48,41 @@ const StockTakeList: React.FC = () => {
   const { data: warehouseData } = useWarehouses();
   const warehouseList: Warehouse[] = useMemo(() => {
     if (Array.isArray(warehouseData)) return warehouseData;
-    return warehouseData || [];
+    const raw = warehouseData as any;
+    if (raw && Array.isArray(raw.data)) return raw.data;
+    if (raw && Array.isArray(raw.warehouses)) return raw.warehouses;
+    return [];
   }, [warehouseData]);
+
+  // Construct query parameters for browse hook
+  const queryParams = useMemo<StockTakeBrowseQueryParams>(() => {
+    return {
+      warehouseId: selectedWarehouseId || undefined,
+    };
+  }, [selectedWarehouseId]);
+
+  // Fetch stock-take browse transactions
+  const { data: stockTakeResponse, isLoading: isStockTakesLoading } = useStockTakeBrowse(queryParams);
+
+  const stockTakeList = useMemo<StockTakeTransaction[]>(() => {
+    if (!stockTakeResponse) return [];
+    if (Array.isArray(stockTakeResponse)) return stockTakeResponse;
+    const raw = stockTakeResponse as any;
+    if (Array.isArray(raw.data)) return raw.data;
+    return [];
+  }, [stockTakeResponse]);
+
+  // Filter stock take records client-side by search term
+  const filteredStockTakes = useMemo(() => {
+    if (!searchTerm) return stockTakeList;
+    const lower = searchTerm.toLowerCase();
+    return stockTakeList.filter(
+      (st) =>
+        st.stock_take_number?.toLowerCase().includes(lower) ||
+        st.warehouse_name?.toLowerCase().includes(lower) ||
+        st.operator_name?.toLowerCase().includes(lower)
+    );
+  }, [stockTakeList, searchTerm]);
 
   // Query stock take variance details for active modal ID
   const {
@@ -57,14 +92,9 @@ const StockTakeList: React.FC = () => {
 
   // Filtered variance lines inside detail modal
   const filteredVarianceItems = useMemo(() => {
-    if (!searchTerm) return varianceData;
-    const lower = searchTerm.toLowerCase();
-    return varianceData.filter(
-      (item: StockTakeVarianceItem) =>
-        item.itemCode?.toLowerCase().includes(lower) ||
-        item.itemDescription?.toLowerCase().includes(lower)
-    );
-  }, [varianceData, searchTerm]);
+    if (!varianceData) return [];
+    return varianceData;
+  }, [varianceData]);
 
   document.title = "Stock Take Audits | Inventory";
 
@@ -109,7 +139,7 @@ const StockTakeList: React.FC = () => {
                           <Input
                             type="text"
                             className="form-control form-control-sm fs-11 ps-4 py-1"
-                            placeholder="Search document ID..."
+                            placeholder="Search document # or operator..."
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                           />
@@ -146,10 +176,10 @@ const StockTakeList: React.FC = () => {
                             Warehouse
                           </th>
                           <th style={{ width: "20%" }} className="py-1.5">
-                            Status
+                            Operator
                           </th>
                           <th style={{ width: "20%" }} className="py-1.5">
-                            Date
+                            Posted Date
                           </th>
                           <th style={{ width: "15%" }} className="text-end pe-3 py-1.5">
                             Actions
@@ -157,12 +187,44 @@ const StockTakeList: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="fs-11">
-                        <tr>
-                          <td colSpan={5} className="text-center py-5 text-muted fs-11">
-                            <i className="ri-inbox-line display-5 d-block text-muted mb-2"></i>
-                            No stock take records found.
-                          </td>
-                        </tr>
+                        {isStockTakesLoading ? (
+                          <tr>
+                            <td colSpan={5} className="text-center py-5">
+                              <Spinner size="sm" color="primary" className="me-2" />
+                              <span className="text-muted fs-11">Loading stock take records...</span>
+                            </td>
+                          </tr>
+                        ) : filteredStockTakes.length > 0 ? (
+                          filteredStockTakes.map((st: StockTakeTransaction) => (
+                            <tr key={st.stock_take_id}>
+                              <td className="ps-3 py-1.5 fw-semibold text-primary font-monospace">
+                                {st.stock_take_number}
+                              </td>
+                              <td className="py-1.5">{st.warehouse_name || "N/A"}</td>
+                              <td className="py-1.5">{st.operator_name || "N/A"}</td>
+                              <td className="py-1.5 font-monospace">
+                                {st.posted_at ? dayjs(st.posted_at).format("DD/MM/YYYY HH:mm") : "N/A"}
+                              </td>
+                              <td className="text-end pe-3 py-1.5">
+                                <Button
+                                  color="soft-primary"
+                                  size="sm"
+                                  className="fs-10 px-2 py-0.5"
+                                  onClick={() => setActiveModalTakeId(st.stock_take_id)}
+                                >
+                                  View Variance
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="text-center py-5 text-muted fs-11">
+                              <i className="ri-inbox-line display-5 d-block text-muted mb-2"></i>
+                              No stock take records found.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </Table>
                   </div>

@@ -276,3 +276,37 @@ export interface StockTakeBrowseResponse {
   message: string;
   data: StockTakeTransaction[];
 }
+
+export interface StockTakeTransactionDetail {
+  stock_take_detail_id: string;
+  stock_take_id: string;
+  stock_take_number: string;
+  warehouse_id: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  operator_id: string;
+  operator_name: string;
+  item_id: string;
+  item_code: string;
+  stock_code_description: string;
+  category_id: string;
+  stock_uom: string;
+  expected_quantity: number;
+  counted_quantity: number;
+  posted_at: string;
+}
+
+export interface StockTakeTransactionDetailQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  stockTakeId?: string;
+  stocktakeNumber?: string;
+  warehouseId?: string;
+  operatorId?: string;
+}
+
+export interface StockTakeTransactionDetailResponse {
+  success: boolean;
+  message: string;
+  data: StockTakeTransactionDetail[];
+}
