@@ -22,6 +22,8 @@ import {
   GoodsReceiptListResponse,
   CustomerInvoicesResponse,
   SupplierInvoicesResponse,
+  StockTakeBrowseQueryParams,
+  StockTakeBrowseResponse
 } from '../types/reports2';
 
 const api = new APIClient();
@@ -163,5 +165,16 @@ export const SupplierInvoicesService = {
       `/api/accounts/suppliers/${supplierId}/invoices`
     );
     return response;
+  }
+};
+
+export const StockTakeBrowseService = {
+  getStockTakeBrowse: async (
+    params?: StockTakeBrowseQueryParams
+  ): Promise<StockTakeBrowseResponse> => {
+    return await api.get(
+      '/api/browses/stoktake-transactions',
+      params
+    );
   }
 };

@@ -3,7 +3,9 @@ import {
   Bank, 
   BankPayload, 
   UpdateBankRequest, 
-  ApiResponse 
+  ApiResponse,
+  BankBalanceResponse,
+  BankTransactionsResponse,
 } from "../types/bank";
 
 const api = new APIClient();
@@ -27,5 +29,13 @@ export const BankService = {
 
   deleteBank: async (id: string): Promise<ApiResponse<string>> => {
     return await api.create(`/api/banks/${id}/delete`, {});
-  }
+  },
+
+  getBankBalance: async (id: string): Promise<ApiResponse<BankBalanceResponse>> => {
+    return await api.get(`/api/accounts/banks/${id}/balance`);
+  },
+
+  getBankTransactions: async (id: string): Promise<ApiResponse<BankTransactionsResponse>> => {
+    return await api.get(`/api/accounts/banks/${id}/transactions`);
+  },
 };

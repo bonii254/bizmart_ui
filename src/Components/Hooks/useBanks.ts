@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BankService } from "../../services/bankService";
-import { Bank, BankPayload, UpdateBankRequest } from "../../types/bank";
+import { 
+  Bank, BankPayload, UpdateBankRequest, BankBalanceData, BankTransaction
+} from "../../types/bank";
 import { toast } from "react-toastify";
 
 export const useBanks = () => {
@@ -20,6 +22,32 @@ export const useBankDetails = (id: string | null) => {
       if (!id) return null;
       const res = await BankService.getBankById(id);
       return res.data ?? null;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useBankBalance = (id: string | null) => {
+  return useQuery<BankBalanceData | null>({
+    queryKey: ["bank-balance", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await BankService.getBankBalance(id);
+      const responseData = res.data as any;
+      return responseData?.data ?? responseData ?? null;
+    },
+    enabled: !!id,
+  });
+};
+
+export const useBankTransactions = (id: string | null) => {
+  return useQuery<BankTransaction[]>({
+    queryKey: ["bank-transactions", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const res = await BankService.getBankTransactions(id);
+      const responseData = res.data as any;
+      return responseData?.data ?? responseData ?? [];
     },
     enabled: !!id,
   });

@@ -19,6 +19,7 @@ import {
   FileExcelOutlined 
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import {useStockTakeBrowse} from "../../Components/Hooks/useReport2";
 
 const { Title, Text } = Typography;
 

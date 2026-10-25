@@ -112,6 +112,7 @@ const Navdata = () => {
       },
       subItems: [
         { id: "grn", label: "Goods Received Note", link: "/grn" },
+        { id: "grn-reversal", label: "GRN Reversal", link: "/grn/reversal" },
         { id: "suppliers", label: "Suppliers Directory", link: "/suppliers" },
         { id: "supplier-payment", 
           label: "Supplier Payments", 
@@ -134,6 +135,7 @@ const Navdata = () => {
       subItems: [
         { id: "cash-movement", label: "Cash Movements", link: "/cash-movement" },
         { id: "banks", label: "Bank Accounts", link: "/banks" },
+        { id: "bank-statement", label: "Bank Statement", link: "/banks/statement" },
       ],
     },
 
@@ -166,7 +168,7 @@ const Navdata = () => {
         {
           id: "stocktake-transactions",
           label: "Stock Take Transactions",
-          link: "/reports/stocktake-transactions",
+          link: "/reports/stocktake-browse",
           parentId: "reports",
         },
         {

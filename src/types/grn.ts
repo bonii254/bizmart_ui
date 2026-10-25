@@ -41,3 +41,30 @@ export interface SingleGoodsReceiptResponse {
   message: string;
   data: GoodsReceiptDetailData;
 }
+
+export interface GoodsReceiptReversalLineRequest {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  uomCode: string; 
+}
+
+export interface CreateGoodsReceiptReversalRequest {
+  sourceGoodsReceiptId: string; 
+  operatorId: string; 
+  reasonCode: string;
+  lines: GoodsReceiptReversalLineRequest[];
+}
+
+export interface GoodsReceiptReversalResultData {
+  documentId: string;
+  documentNumber: string;
+  total: number;
+  postedAt: string;
+}
+
+export interface GoodsReceiptReversalResponse {
+  success: boolean;
+  message: string;
+  data: GoodsReceiptReversalResultData;
+}

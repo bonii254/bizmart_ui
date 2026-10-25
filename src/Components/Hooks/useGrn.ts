@@ -3,7 +3,9 @@ import { GoodsReceiptService } from "../../services/grnService";
 import { 
   CreateGoodsReceiptPayload, 
   GoodsReceiptCreatedData, 
-  GoodsReceiptDetailData 
+  GoodsReceiptDetailData,
+  CreateGoodsReceiptReversalRequest,
+  GoodsReceiptReversalResultData
 } from "../../types/grn";
 import { toast } from "react-toastify";
 
@@ -34,5 +36,34 @@ export const useGoodsReceiptMutation = () => {
   return {
     createGoodsReceipt: createMutation.mutateAsync,
     isPosting: createMutation.isPending,
+  };
+};
+
+export const useGoodsReceiptReversalMutation = () => {
+  const queryClient = useQueryClient();
+
+  const reversalMutation = useMutation({
+    mutationFn: ({ 
+      data 
+    }: { 
+      id: string; 
+      data: CreateGoodsReceiptReversalRequest 
+    }): Promise<GoodsReceiptReversalResultData> => 
+      GoodsReceiptService.createGoodsReceiptReversal(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["goods-receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-statement"] });
+      queryClient.invalidateQueries({ queryKey: ["supplier-invoices"] });
+      toast.success(`Goods Receipt Reversal processed successfully.`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.Message || "Failed to process Goods Receipt Reversal");
+    },
+  });
+
+  return {
+    reverseGoodsReceipt: reversalMutation.mutateAsync,
+    isReversing: reversalMutation.isPending,
   };
 };

@@ -254,3 +254,25 @@ export interface SupplierInvoicesResponse {
   message: string;
   data: SupplierInvoice[];
 }
+
+export interface StockTakeBrowseQueryParams {
+  fromDate?: string;
+  toDate?: string;
+  warehouseId?: string;
+  operatorId?: string;
+}
+
+export interface StockTakeTransaction {
+  stock_take_id: string;
+  stock_take_number: string;
+  warehouse_name: string;
+  operator_id: string;
+  operator_name: string;
+  posted_at: string;
+}
+
+export interface StockTakeBrowseResponse {
+  success: boolean;
+  message: string;
+  data: StockTakeTransaction[];
+}

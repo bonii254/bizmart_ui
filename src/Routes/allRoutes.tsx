@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 
 
 import GoodsReceipt from "../pages/GRN/GoodReceivedNote";
+import GoodsReceiptReversal from "../pages/GRN/GoodsReceiptReversal"
 import CustomerPayment from "../pages/POS/CustomerPayment";
 import SalesReturn from "../pages/POS/SalesReturn";
 import StockBalanceOverview from "../pages/Inventory";
@@ -12,6 +13,7 @@ import CustomerManagement from "../pages/Customers/customerManagement";
 import SupplierManagement from "../pages/Suppliers/SupplierManagement";
 import SupplierPayment from "../pages/Suppliers/SupplierPayment";
 import BankManagement from "../pages/Bank/BankManagement";
+import BankStatementReport from "../pages/Bank/BankStatementReport";
 import PointOfSale from "../pages/POS/PointOfSale";
 import CreditSale from "../pages/POS/CreditSale";
 import SettingsHub from "../pages/settings/index";
@@ -34,6 +36,7 @@ import OperatorSalesSummaryReport from "../pages/Report/OperatorSalesSummary/Ope
 import SalesPaymentSummaryReport from "../pages/Report/SalesPaymentSummary/SalesPaymentSummaryReport"
 import DailyTillSummaryReport from "../pages/Report/DailyTillSummary/DailyTillSummaryReport"
 import MonthlyInventoryStatement from "../pages/Report/MonthlyInventoryStatement"
+import StockTakeBrowseReport from "../pages/Report/StockTake/StockTakeBrowseReport"
 
 import DashboardEcommerce from "../pages/DashboardEcommerce";
 
@@ -79,6 +82,7 @@ const authProtectedRoutes = [
   { path: "/index", component: <DashboardEcommerce /> },
 
   { path: "/grn", component: <GoodsReceipt/> },
+  { path: "/grn/reversal", component: <GoodsReceiptReversal /> },
   { path: "/pos", component: <PointOfSale/> },
   { path: "/pos/credit-sale", component: <CreditSale/> },
   { path: "/pos/customer-payment", component: <CustomerPayment /> },
@@ -90,6 +94,7 @@ const authProtectedRoutes = [
   { path: "/suppliers", component: <SupplierManagement/> },
   { path: "/suppliers/payment", component: <SupplierPayment /> },
   { path: "/banks", component: <BankManagement/> },
+  { path: "/banks/statement", component: <BankStatementReport /> },
   { path: "/cash-movement", component: <CashMovement /> },
   { path: "/reports/sales-transactions", component: <SalesTransactionsReport />},
   { path: "/settings", component: <SettingsHub /> },
@@ -97,6 +102,7 @@ const authProtectedRoutes = [
 
   { path: "/reports/stocktake-transactions", component: <StockTakeReport /> },
   { path: "/reports/inventory-transactions", component: <InventoryTransactionsReport /> },
+  { path: "/reports/stocktake-browse", component: <StockTakeBrowseReport /> },
   { path: "/reports/sales-per-item", component: <SalesPerItem />},
   { path: "/reports/sales-per-customer", component: <SalesPerCustomer /> },
   { path: "/reports/periodic-inventory-summary", component: <MonthlyPeriodicReport /> },

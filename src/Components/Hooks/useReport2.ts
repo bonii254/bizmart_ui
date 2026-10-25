@@ -12,6 +12,7 @@ import {
     GoodsReceiptService,
     CustomerInvoicesService,
     SupplierInvoicesService,
+    StockTakeBrowseService
  } from "../../services/reportservice2";
 import { 
     CashTransactionQueryParams,
@@ -24,6 +25,7 @@ import {
     MonthlyInventoryStatementQueryParams,
     CustomerBalanceData,
     GoodsReceiptQueryParams,
+    StockTakeBrowseQueryParams,
 } from "../../types/reports2";
 
 export const useCashTransactions = (params?: CashTransactionQueryParams) => {
@@ -144,3 +146,15 @@ export const useSupplierInvoices = (supplierId?: string | null) => {
     enabled: !!supplierId,
   });
 };
+
+export const useStockTakeBrowse = (
+  params?: StockTakeBrowseQueryParams,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: ["stock-take-browse", params],
+    queryFn: () => StockTakeBrowseService.getStockTakeBrowse(params),
+    enabled: options?.enabled ?? true,
+    staleTime: 5 * 60 * 1000,
+  });
+}

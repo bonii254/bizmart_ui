@@ -155,6 +155,7 @@ const InventoryTransactionsTable: React.FC<Props> = ({
       dataIndex: 'reference_number',
       key: 'reference_number',
       width: 130,
+      fixed: 'left',
       render: (text) => <Text strong style={{ fontSize: '12px' }}>{text || 'N/A'}</Text>,
       sorter: (a, b) => (a.reference_number || '').localeCompare(b.reference_number || ''),
     },
@@ -162,7 +163,7 @@ const InventoryTransactionsTable: React.FC<Props> = ({
       title: 'Type',
       dataIndex: 'transaction_type',
       key: 'transaction_type',
-      width: 130,
+      width: 170,
       render: (type) => renderTransactionTag(type),
     },
     {
@@ -199,7 +200,7 @@ const InventoryTransactionsTable: React.FC<Props> = ({
       title: 'Quantity',
       dataIndex: 'quantity',
       key: 'quantity',
-      width: 110,
+      width: 90,
       align: 'right',
       render: (val) => {
         const qty = val || 0;

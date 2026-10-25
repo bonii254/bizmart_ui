@@ -4,7 +4,9 @@ import {
   CreateGoodsReceiptResponse, 
   GoodsReceiptCreatedData,
   GoodsReceiptDetailData,
-  SingleGoodsReceiptResponse
+  SingleGoodsReceiptResponse,
+  CreateGoodsReceiptReversalRequest,
+  GoodsReceiptReversalResultData
 } from "../types/grn";
 
 const api = new APIClient();
@@ -27,5 +29,15 @@ export const GoodsReceiptService = {
       `/api/documents/goods-receipts/${id}`
     );
     return response.data;
+  },
+
+  createGoodsReceiptReversal: async (
+    payload: CreateGoodsReceiptReversalRequest
+  ): Promise<GoodsReceiptReversalResultData> => {
+    const response: GoodsReceiptReversalResultData = await api.create(
+       `/api/transactions/goods-receipt-reversals`,
+      payload
+    );
+    return response;
   }
 };
