@@ -29,14 +29,14 @@ import { useCompanies } from "../../Components/Hooks/useCompanies";
 import { useBanks } from "../../Components/Hooks/useBanks";
 import { usePriceCodes, useItemPrices } from "../../Components/Hooks/usePricing";
 import { Bank } from "../../types/bank";
-import { 
-  usePrinters, 
-  usePrintReceiptMutation 
+import {
+  usePrinters,
+  usePrintReceiptMutation,
 } from "../../Components/Hooks/useQZPrinter";
 import { formatCurrency } from "../../utils/qzConfig";
-import { 
-  CreateSalesReceiptPayload, 
-  PaymentMethodCode 
+import {
+  CreateSalesReceiptPayload,
+  PaymentMethodCode,
 } from "../../types/POS";
 import { CreateCreditSaleRequest } from "../../types/creditSale";
 import { StockItem } from "../../types/stockitem";
@@ -69,7 +69,7 @@ const PAYMENT_METHODS: { id: PaymentMethodCode; label: string }[] = [
 export const PointOfSale: React.FC = () => {
   const [saleMode, setSaleMode] = useState<SaleMode>("CASH");
 
-  // Mutations & Printers
+  // Mutations & Printers (always called at top level)
   const { processSale, isPosting: isCashPosting } = usePOSMutation();
   const { processCreditSale, isPosting: isCreditPosting } = useCreditSalesMutation();
   const { data: printersList = [], isLoading: isPrintersLoading } = usePrinters();
@@ -93,19 +93,32 @@ export const PointOfSale: React.FC = () => {
   const { data: stockItems = [], isLoading: isStockLoading } = useStockItems();
   const { data: priceCodes = [] } = usePriceCodes();
 
-  const { stockItems: warehouseStockItems = [], isLoading: isWarehouseStockLoading } = useItemWarehouseStock({
-    warehouseId: warehouseId || undefined,
-  });
+  const { stockItems: warehouseStockItems = [], isLoading: isWarehouseStockLoading } =
+    useItemWarehouseStock({
+      warehouseId: warehouseId || undefined,
+    });
 
   const { data: categoriesData, isLoading: isCategoriesLoading } = useCategories();
   const { data: customersData, isLoading: isCustomersLoading } = useCustomers();
 
-  const warehousesList = useMemo(() => Array.isArray(warehousesData) ? warehousesData : warehousesData ?? [], [warehousesData]);
-  const banksList = useMemo(() => Array.isArray(banksData) ? banksData : banksData || [], [banksData]);
-  const companiesList = useMemo(() => Array.isArray(companiesData) ? companiesData : companiesData || [], [companiesData]);
-  const customersList = useMemo(() => Array.isArray(customersData) ? customersData : customersData ?? [], [customersData]);
+  const warehousesList = useMemo(
+    () => (Array.isArray(warehousesData) ? warehousesData : warehousesData ?? []),
+    [warehousesData]
+  );
+  const banksList = useMemo(
+    () => (Array.isArray(banksData) ? banksData : banksData || []),
+    [banksData]
+  );
+  const companiesList = useMemo(
+    () => (Array.isArray(companiesData) ? companiesData : companiesData || []),
+    [companiesData]
+  );
+  const customersList = useMemo(
+    () => (Array.isArray(customersData) ? customersData : customersData ?? []),
+    [customersData]
+  );
 
-  // Customer & Pricing logic for Credit Sales (and shared)
+  // Customer & Pricing – now shared for BOTH Cash and Credit
   const selectedCustomer = useMemo(() => {
     return customersList.find((c: any) => String(c.customerId) === String(customerId));
   }, [customersList, customerId]);
@@ -114,12 +127,10 @@ export const PointOfSale: React.FC = () => {
     return priceCodes.find((p) => p.isDefault) || priceCodes[0];
   }, [priceCodes]);
 
+  // Always use customer price code (or default) for both modes
   const activePriceCode = useMemo(() => {
-    if (saleMode === "CREDIT") {
-      return selectedCustomer?.priceCode || defaultPriceCodeObj?.priceCodeValue || "";
-    }
-    return ""; // Cash mode uses standard POS item pricing
-  }, [saleMode, selectedCustomer, defaultPriceCodeObj]);
+    return selectedCustomer?.priceCode || defaultPriceCodeObj?.priceCodeValue || "";
+  }, [selectedCustomer, defaultPriceCodeObj]);
 
   const { data: itemPricesList = [] } = useItemPrices(activePriceCode);
 
@@ -133,7 +144,9 @@ export const PointOfSale: React.FC = () => {
 
   const categoriesList = useMemo(() => {
     if (!categoriesData) return ["All"];
-    const cats = Array.isArray(categoriesData) ? categoriesData : categoriesData.categories ?? [];
+    const cats = Array.isArray(categoriesData)
+      ? categoriesData
+      : categoriesData.categories ?? [];
     const validNames = cats
       .map((c: any) => (typeof c === "string" ? c : c.category_code ?? ""))
       .filter((name: string) => name?.trim() !== "");
@@ -180,20 +193,32 @@ export const PointOfSale: React.FC = () => {
 
     let matchedBank: Bank | undefined;
     if (paymentMethod === "CASH") {
-      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("CASH"));
+      matchedBank = banksList.find((b: Bank) =>
+        (b.bankName ?? "").toUpperCase().includes("CASH")
+      );
     } else if (paymentMethod === "MOBILE") {
-      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("MOBILE") || (b.bankName ?? "").toUpperCase().includes("MPESA"));
+      matchedBank = banksList.find(
+        (b: Bank) =>
+          (b.bankName ?? "").toUpperCase().includes("MOBILE") ||
+          (b.bankName ?? "").toUpperCase().includes("MPESA")
+      );
     } else if (paymentMethod === "CARD") {
-      matchedBank = banksList.find((b: Bank) => (b.bankName ?? "").toUpperCase().includes("CARD"));
+      matchedBank = banksList.find((b: Bank) =>
+        (b.bankName ?? "").toUpperCase().includes("CARD")
+      );
     }
     const targetBank = matchedBank || banksList[0];
     if (targetBank) setBankId(String(targetBank.bankId));
   }, [banksList, paymentMethod, saleMode]);
 
   useEffect(() => {
-    if (printersList.length > 0 && !selectedPrinter) { 
+    if (printersList.length > 0 && !selectedPrinter) {
       const savedPrinter = localStorage.getItem("sales_terminal_preferred_printer");
-      setSelectedPrinter(savedPrinter && printersList.includes(savedPrinter) ? savedPrinter : printersList[0]);
+      setSelectedPrinter(
+        savedPrinter && printersList.includes(savedPrinter)
+          ? savedPrinter
+          : printersList[0]
+      );
     }
   }, [printersList, selectedPrinter]);
 
@@ -234,22 +259,33 @@ export const PointOfSale: React.FC = () => {
   const tenderedValue = parseFloat(amountTendered) || 0;
   const changeAmount = useMemo(() => {
     if (saleMode === "CREDIT" || paymentMethod !== "CASH") return 0;
-    return tenderedValue >= cartTotals.grandTotal ? tenderedValue - cartTotals.grandTotal : 0;
+    return tenderedValue >= cartTotals.grandTotal
+      ? tenderedValue - cartTotals.grandTotal
+      : 0;
   }, [tenderedValue, cartTotals.grandTotal, paymentMethod, saleMode]);
 
-  const isInsufficientCash = saleMode === "CASH" && paymentMethod === "CASH" && tenderedValue > 0 && tenderedValue < cartTotals.grandTotal;
+  const isInsufficientCash =
+    saleMode === "CASH" &&
+    paymentMethod === "CASH" &&
+    tenderedValue > 0 &&
+    tenderedValue < cartTotals.grandTotal;
 
   // Credit Limit Calculations
   const customerCreditLimit = selectedCustomer?.creditLimit ?? 0;
-  const isExceedingCreditLimit = saleMode === "CREDIT" && cartTotals.grandTotal > customerCreditLimit;
+  const isExceedingCreditLimit =
+    saleMode === "CREDIT" && cartTotals.grandTotal > customerCreditLimit;
 
   const validWarehouseItemIds = useMemo(() => {
-    if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Set<string>();
-    return new Set(warehouseStockItems.map((ws: ItemWarehouseStock) => String(ws.itemId)));
+    if (!warehouseStockItems || !Array.isArray(warehouseStockItems))
+      return new Set<string>();
+    return new Set(
+      warehouseStockItems.map((ws: ItemWarehouseStock) => String(ws.itemId))
+    );
   }, [warehouseStockItems]);
 
   const stockOnHandMap = useMemo(() => {
-    if (!warehouseStockItems || !Array.isArray(warehouseStockItems)) return new Map<string, number>();
+    if (!warehouseStockItems || !Array.isArray(warehouseStockItems))
+      return new Map<string, number>();
     const map = new Map<string, number>();
     warehouseStockItems.forEach((ws: ItemWarehouseStock) => {
       map.set(String(ws.itemId), ws.quantityOnHand ?? 0);
@@ -268,15 +304,25 @@ export const PointOfSale: React.FC = () => {
       const itemName = stock.description ?? "";
       const itemCode = stock.itemCode ?? "";
       const itemCategory = stock.categoryName ?? "";
-      const matchesSearch = itemName.toLowerCase().includes(query) || itemCode.toLowerCase().includes(query);
-      const matchesCategory = selectedCategory === "All" || itemCategory === selectedCategory;
+      const matchesSearch =
+        itemName.toLowerCase().includes(query) ||
+        itemCode.toLowerCase().includes(query);
+      const matchesCategory =
+        selectedCategory === "All" || itemCategory === selectedCategory;
       return matchesSearch && matchesCategory && stock.isActive;
     });
-  }, [stockItems, catalogSearch, selectedCategory, warehouseId, validWarehouseItemIds]);
+  }, [
+    stockItems,
+    catalogSearch,
+    selectedCategory,
+    warehouseId,
+    validWarehouseItemIds,
+  ]);
 
+  // Shared pricing for both Cash and Credit
   const getItemEffectivePrice = (item: StockItem) => {
     const itemIdStr = String(item.itemId);
-    if (saleMode === "CREDIT" && itemPriceMap.has(itemIdStr)) {
+    if (itemPriceMap.has(itemIdStr)) {
       return itemPriceMap.get(itemIdStr)!;
     }
     return Number(item.sellingPrice ?? 0);
@@ -324,7 +370,8 @@ export const PointOfSale: React.FC = () => {
         if (item.itemId !== itemId) return item;
         const qty = field === "quantity" ? Math.max(1, value) : item.quantity;
         const price = field === "unitPrice" ? Math.max(0, value) : item.unitPrice;
-        const discount = field === "discount" ? Math.max(0, value) : item.discount ?? 0;
+        const discount =
+          field === "discount" ? Math.max(0, value) : item.discount ?? 0;
         const lineTotal = Number((qty * price - discount).toFixed(2));
 
         return { ...item, quantity: qty, unitPrice: price, discount, lineTotal };
@@ -372,10 +419,16 @@ export const PointOfSale: React.FC = () => {
           customerId,
           operatorId,
           paidAmount: cartTotals.grandTotal,
-          paymentMethodCode: "CASH",
+          paymentMethodCode: paymentMethod, // use selected method
           bankId,
-          paymentReference: paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
-          lines: cart.map((i) => ({ itemId: i.itemId, quantity: i.quantity, unitPrice: i.unitPrice, uomCode: i.uomCode })),
+          paymentReference:
+            paymentMethod === "CASH" ? "CASH" : paymentReference.trim(),
+          lines: cart.map((i) => ({
+            itemId: i.itemId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            uomCode: i.uomCode,
+          })),
         };
         saleResponse = await processSale(cashPayload);
       } else {
@@ -383,39 +436,65 @@ export const PointOfSale: React.FC = () => {
           warehouseId,
           customerId,
           operatorId,
-          lines: cart.map((i) => ({ itemId: i.itemId, quantity: i.quantity, unitPrice: i.unitPrice, uomCode: i.uomCode })),
+          lines: cart.map((i) => ({
+            itemId: i.itemId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            uomCode: i.uomCode,
+          })),
         };
         saleResponse = await processCreditSale(creditPayload);
       }
 
-      const activeWh = warehousesList.find((w: any) => String(w.warehouseId) === String(warehouseId));
-      
+      const activeWh = warehousesList.find(
+        (w: any) => String(w.warehouseId) === String(warehouseId)
+      );
+
       const receiptPayload = {
         companyName: companyName ?? "ENTERPRISES",
         storeName: activeWh?.warehouseName ?? "STORE",
-        receiptNo: saleResponse?.data?.documentNumber ?? saleResponse?.documentNumber ?? `REC-${Math.floor(100000 + Math.random() * 900000)}`,
+        receiptNo:
+          saleResponse?.data?.documentNumber ??
+          saleResponse?.documentNumber ??
+          `REC-${Math.floor(100000 + Math.random() * 900000)}`,
         date: new Date().toLocaleString(),
         cashier: displayname ?? "CASHIER",
         customerName: selectedCustomer?.customerName ?? "Customer",
-        items: cart.map((i) => ({ name: i.description, qty: i.quantity, unitPrice: i.unitPrice, discount: i.discount ?? 0, total: i.lineTotal })),
+        items: cart.map((i) => ({
+          name: i.description,
+          qty: i.quantity,
+          unitPrice: i.unitPrice,
+          discount: i.discount ?? 0,
+          total: i.lineTotal,
+        })),
         subtotal: cartTotals.subtotal,
         discountTotal: cartTotals.discountTotal,
         taxTotal: 0,
         grandTotal: cartTotals.grandTotal,
         paymentMethod: saleMode === "CASH" ? paymentMethod : "CREDIT",
-        amountTendered: saleMode === "CASH" && paymentMethod === "CASH" ? tenderedValue : cartTotals.grandTotal,
+        amountTendered:
+          saleMode === "CASH" && paymentMethod === "CASH"
+            ? tenderedValue
+            : cartTotals.grandTotal,
         changeAmount,
       };
 
       if (selectedPrinter) {
         try {
-          await printReceipt({ printerName: selectedPrinter, receiptData: receiptPayload });
+          await printReceipt({
+            printerName: selectedPrinter,
+            receiptData: receiptPayload,
+          });
         } catch (printErr) {
           console.error("Thermal print failure:", printErr);
         }
       }
 
-      toast.success(saleMode === "CASH" ? "Transaction completed successfully!" : "Credit sale completed successfully!");
+      toast.success(
+        saleMode === "CASH"
+          ? "Transaction completed successfully!"
+          : "Credit sale completed successfully!"
+      );
       handleClearCart();
     } catch (err: unknown) {
       handleBackendErrors(err, () => {}, setGlobalError);
@@ -425,62 +504,43 @@ export const PointOfSale: React.FC = () => {
   const isCatalogLoading = isStockLoading || isWarehouseStockLoading;
   const isPosting = isCashPosting || isCreditPosting;
 
-  document.title = saleMode === "CASH" ? "Point of Sale | Terminal" : "Credit Sale | Terminal";
+  document.title =
+    saleMode === "CASH" ? "Point of Sale | Terminal" : "Credit Sale | Terminal";
 
   return (
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
           {globalError && (
-            <Alert color="danger" className="alert-dismissible-consecutive fade show mb-3">
+            <Alert
+              color="danger"
+              className="alert-dismissible-consecutive fade show mb-3"
+            >
               <i className="ri-error-warning-line me-2 align-middle fs-16"></i>
               {globalError}
             </Alert>
           )}
 
-          {/* MODE SWITCHER HEADER */}
-          <div className="d-flex justify-content-between align-items-center mb-3 bg-white p-2 px-3 rounded shadow-sm">
-            <div className="d-flex align-items-center gap-2">
-              <span className="fs-13 fw-semibold text-muted">Terminal Mode:</span>
-              <div className="d-flex bg-light p-1 rounded border border-light-subtle">
-                <Button
-                  color={saleMode === "CASH" ? "primary" : "light"}
-                  size="sm"
-                  className={`px-3 py-1 fs-12 fw-semibold ${saleMode === "CASH" ? "text-white shadow-xs" : "text-dark"}`}
-                  style={{ backgroundColor: saleMode === "CASH" ? BRAND_PURPLE : "transparent", border: "none" }}
-                  onClick={() => setSaleMode("CASH")}
-                >
-                  Cash Sale
-                </Button>
-                <Button
-                  color={saleMode === "CREDIT" ? "primary" : "light"}
-                  size="sm"
-                  className={`px-3 py-1 fs-12 fw-semibold ${saleMode === "CREDIT" ? "text-white shadow-xs" : "text-dark"}`}
-                  style={{ backgroundColor: saleMode === "CREDIT" ? BRAND_PURPLE : "transparent", border: "none" }}
-                  onClick={() => setSaleMode("CREDIT")}
-                >
-                  Credit Sale
-                </Button>
-              </div>
-            </div>
-            <Badge color={saleMode === "CASH" ? "success" : "warning"} className="fs-12 px-2.5 py-1">
-              {saleMode === "CASH" ? "💰 Cash Terminal Active" : "📝 Credit Terminal Active"}
-            </Badge>
-          </div>
-
           <Form onSubmit={handleSubmitSale}>
             <Row>
               {/* Product Catalog Column */}
               <Col lg={7} xl={8}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 225px)", display: "flex", flexDirection: "column" }}>
+                <Card
+                  className="shadow-sm border-0 mb-3"
+                  style={{
+                    height: "calc(100vh - 160px)",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
                     <Row className="g-3 align-items-center justify-content-between">
                       <Col md={7} sm={12}>
                         <div className="d-flex align-items-center gap-2">
                           <h5 className="card-title mb-0 fs-15 fw-semibold text-dark text-nowrap">
-                            {saleMode === "CASH" ? "POS Terminal" : "Credit Catalog"}
+                            Product Catalog
                           </h5>
-                          
+
                           <div className="flex-grow-1" style={{ maxWidth: "200px" }}>
                             {isWarehousesLoading ? (
                               <Spinner size="sm" color="primary" />
@@ -491,10 +551,16 @@ export const PointOfSale: React.FC = () => {
                                 value={warehouseId}
                                 onChange={(e) => setWarehouseId(e.target.value)}
                               >
-                                <option value="" disabled>Select Warehouse</option>
+                                <option value="" disabled>
+                                  Select Warehouse
+                                </option>
                                 {warehousesList.map((wh: any) => {
                                   const id = String(wh.id ?? wh.warehouseId);
-                                  return <option key={id} value={id}>{wh.warehouseName}</option>;
+                                  return (
+                                    <option key={id} value={id}>
+                                      {wh.warehouseName}
+                                    </option>
+                                  );
                                 })}
                               </Input>
                             )}
@@ -508,12 +574,18 @@ export const PointOfSale: React.FC = () => {
                                 type="select"
                                 className="form-select form-select-sm fs-12 border-primary-subtle"
                                 value={selectedPrinter}
-                                onChange={(e) => handlePrinterChange(e.target.value)}
+                                onChange={(e) =>
+                                  handlePrinterChange(e.target.value)
+                                }
                               >
                                 {printersList.length === 0 ? (
                                   <option value="">No Printers</option>
                                 ) : (
-                                  printersList.map((p) => <option key={p} value={p}>🖨️ {p}</option>)
+                                  printersList.map((p) => (
+                                    <option key={p} value={p}>
+                                      🖨️ {p}
+                                    </option>
+                                  ))
                                 )}
                               </Input>
                             )}
@@ -532,7 +604,10 @@ export const PointOfSale: React.FC = () => {
                           />
                           <i className="ri-search-line search-icon position-absolute top-50 start-0 translate-middle-y ms-2 text-muted fs-13"></i>
                           {catalogSearch && (
-                            <i className="ri-close-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer" onClick={() => setCatalogSearch("")}></i>
+                            <i
+                              className="ri-close-fill position-absolute top-50 end-0 translate-middle-y me-2 text-muted fs-14 cursor-pointer"
+                              onClick={() => setCatalogSearch("")}
+                            ></i>
                           )}
                         </div>
                       </Col>
@@ -540,14 +615,24 @@ export const PointOfSale: React.FC = () => {
                       <Col xs={12} className="pt-1">
                         <div
                           className="d-flex gap-2 pb-1"
-                          onWheel={(e) => { if (e.deltaY !== 0) e.currentTarget.scrollLeft += e.deltaY; }}
-                          style={{ overflowX: "auto", overflowY: "hidden", whiteSpace: "nowrap", scrollbarWidth: "none" }}
+                          onWheel={(e) => {
+                            if (e.deltaY !== 0)
+                              e.currentTarget.scrollLeft += e.deltaY;
+                          }}
+                          style={{
+                            overflowX: "auto",
+                            overflowY: "hidden",
+                            whiteSpace: "nowrap",
+                            scrollbarWidth: "none",
+                          }}
                         >
                           {isCategoriesLoading ? (
                             <Spinner size="sm" color="primary" className="my-1" />
                           ) : (
                             [...categoriesList]
-                              .sort((a, b) => (a === "All" ? -1 : b === "All" ? 1 : a.localeCompare(b)))
+                              .sort((a, b) =>
+                                a === "All" ? -1 : b === "All" ? 1 : a.localeCompare(b)
+                              )
                               .map((cat: string, index: number) => {
                                 const isSelected = selectedCategory === cat;
                                 return (
@@ -556,9 +641,13 @@ export const PointOfSale: React.FC = () => {
                                     onClick={() => setSelectedCategory(cat)}
                                     className="px-3 py-1 rounded-pill fs-11 cursor-pointer text-nowrap user-select-none flex-shrink-0 transition-all"
                                     style={{
-                                      backgroundColor: isSelected ? BRAND_PURPLE : "#f3f6f9",
+                                      backgroundColor: isSelected
+                                        ? BRAND_PURPLE
+                                        : "#f3f6f9",
                                       color: isSelected ? "#ffffff" : "#495057",
-                                      border: isSelected ? `1px solid ${BRAND_PURPLE}` : "1px solid #e2e5e8",
+                                      border: isSelected
+                                        ? `1px solid ${BRAND_PURPLE}`
+                                        : "1px solid #e2e5e8",
                                       fontWeight: isSelected ? "600" : "500",
                                     }}
                                   >
@@ -572,11 +661,16 @@ export const PointOfSale: React.FC = () => {
                     </Row>
                   </CardHeader>
 
-                  <CardBody className="p-2 p-sm-3 overflow-y-auto flex-grow-1 bg-light-subtle" style={{ minHeight: 0 }}>
+                  <CardBody
+                    className="p-2 p-sm-3 overflow-y-auto flex-grow-1 bg-light-subtle"
+                    style={{ minHeight: 0 }}
+                  >
                     {isCatalogLoading ? (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5">
                         <Spinner size="sm" color="primary" className="mb-2" />
-                        <span className="text-muted fs-12 fw-medium">Loading inventory...</span>
+                        <span className="text-muted fs-12 fw-medium">
+                          Loading inventory...
+                        </span>
                       </div>
                     ) : filteredCatalogItems.length > 0 ? (
                       <Row className="g-2 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-3 row-cols-xl-4 row-cols-xxl-5">
@@ -593,35 +687,65 @@ export const PointOfSale: React.FC = () => {
                               <div
                                 onClick={() => handleTileTap(item)}
                                 className={`card h-100 border cursor-pointer user-select-none transition-all mb-0 rounded-2 position-relative ${
-                                  isSelected ? "border-primary shadow-sm" : "border-light-subtle shadow-none hover-shadow-sm"
+                                  isSelected
+                                    ? "border-primary shadow-sm"
+                                    : "border-light-subtle shadow-none hover-shadow-sm"
                                 }`}
-                                style={{ minHeight: "128px", backgroundColor: isSelected ? "rgba(4, 46, 109, 0.05)" : "#ffffff" }}
+                                style={{
+                                  minHeight: "128px",
+                                  backgroundColor: isSelected
+                                    ? "rgba(4, 46, 109, 0.05)"
+                                    : "#ffffff",
+                                }}
                               >
                                 <div className="card-body p-2 d-flex flex-column justify-content-between">
                                   <div className="d-flex align-items-center justify-content-between gap-1 mb-1">
-                                    <span className="badge bg-light text-muted border border-light-subtle font-monospace fs-10 px-1.5 py-0.5 fw-normal text-truncate" style={{ maxWidth: "60%" }}>
+                                    <span
+                                      className="badge bg-light text-muted border border-light-subtle font-monospace fs-10 px-1.5 py-0.5 fw-normal text-truncate"
+                                      style={{ maxWidth: "60%" }}
+                                    >
                                       {item.itemCode}
                                     </span>
                                     {isSelected && (
-                                      <Badge className="fs-10 px-2 py-0.5 rounded-pill d-flex align-items-center gap-1 fw-semibold shadow-xs ms-auto flex-shrink-0" style={{ backgroundColor: BRAND_PURPLE, color: "#ffffff" }}>
+                                      <Badge
+                                        className="fs-10 px-2 py-0.5 rounded-pill d-flex align-items-center gap-1 fw-semibold shadow-xs ms-auto flex-shrink-0"
+                                        style={{
+                                          backgroundColor: BRAND_PURPLE,
+                                          color: "#ffffff",
+                                        }}
+                                      >
                                         <i className="ri-shopping-cart-2-fill fs-10"></i>
                                         <span>{inCartQty}</span>
                                       </Badge>
                                     )}
                                   </div>
                                   <div className="my-auto py-1">
-                                    <h6 className="fs-12 fw-semibold text-dark mb-0 lh-sm" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                    <h6
+                                      className="fs-12 fw-semibold text-dark mb-0 lh-sm"
+                                      style={{
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                      }}
+                                    >
                                       {item.description}
                                     </h6>
                                   </div>
                                   <div className="pt-1.5 border-top border-light-subtle mt-auto">
                                     <div className="d-flex align-items-end justify-content-between gap-1">
                                       <div className="d-flex flex-column lh-1">
-                                        <span className="text-muted fs-10 fw-normal mb-1">{item.stockUom}</span>
+                                        <span className="text-muted fs-10 fw-normal mb-1">
+                                          {item.stockUom}
+                                        </span>
                                         {qoh <= 0 ? (
-                                          <span className="text-danger fs-10 fw-semibold mb-1">Out of Stock</span>
+                                          <span className="text-danger fs-10 fw-semibold mb-1">
+                                            Out of Stock
+                                          </span>
                                         ) : (
-                                          <span className="text-muted fs-10 fw-normal mb-1">Stock: {qoh}</span>
+                                          <span className="text-muted fs-10 fw-normal mb-1">
+                                            Stock: {qoh}
+                                          </span>
                                         )}
                                       </div>
                                       <div className="text-end flex-shrink-0">
@@ -640,7 +764,9 @@ export const PointOfSale: React.FC = () => {
                     ) : (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 py-5 text-center text-muted">
                         <i className="ri-inbox-line display-5 text-muted mb-2 opacity-50"></i>
-                        <h6 className="fs-13 fw-semibold text-dark mb-1">No products found</h6>
+                        <h6 className="fs-13 fw-semibold text-dark mb-1">
+                          No products found
+                        </h6>
                       </div>
                     )}
                   </CardBody>
@@ -649,25 +775,47 @@ export const PointOfSale: React.FC = () => {
 
               {/* Cart Summary & Order Processing Column */}
               <Col lg={5} xl={4}>
-                <Card className="shadow-sm border-0 mb-3" style={{ height: "calc(100vh - 225px)", display: "flex", flexDirection: "column" }}>
+                <Card
+                  className="shadow-sm border-0 mb-3"
+                  style={{
+                    height: "calc(100vh - 160px)",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
                   <CardHeader className="border-bottom py-3 px-3 bg-white">
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <h5 className="card-title mb-0 fs-15 fw-semibold text-dark">
-                        {saleMode === "CASH" ? "Current Order" : "Credit Order"}
+                        Current Order
                       </h5>
                       {cart.length > 0 && (
-                        <span className="text-danger fs-12 fw-medium cursor-pointer" onClick={handleClearCart}>
+                        <span
+                          className="text-danger fs-12 fw-medium cursor-pointer"
+                          onClick={handleClearCart}
+                        >
                           Clear All
                         </span>
                       )}
                     </div>
 
-                    {/* Customer Selection Dropdown */}
-                    <Dropdown isOpen={isCustomerDropdownOpen} toggle={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)} className="w-100">
-                      <DropdownToggle tag="div" className="d-flex justify-content-between align-items-center p-2 bg-light rounded cursor-pointer border border-light-subtle">
+                    {/* Customer Selection */}
+                    <Dropdown
+                      isOpen={isCustomerDropdownOpen}
+                      toggle={() =>
+                        setIsCustomerDropdownOpen(!isCustomerDropdownOpen)
+                      }
+                      className="w-100"
+                    >
+                      <DropdownToggle
+                        tag="div"
+                        className="d-flex justify-content-between align-items-center p-2 bg-light rounded cursor-pointer border border-light-subtle"
+                      >
                         <div className="d-flex align-items-center gap-2">
                           <i className="ri-user-3-line text-muted fs-14"></i>
-                          <span className="mb-0 fs-12 fw-medium text-dark text-truncate" style={{ maxWidth: "200px" }}>
+                          <span
+                            className="mb-0 fs-12 fw-medium text-dark text-truncate"
+                            style={{ maxWidth: "200px" }}
+                          >
                             {selectedCustomer?.customerName ?? "Select Customer"}
                           </span>
                         </div>
@@ -684,7 +832,9 @@ export const PointOfSale: React.FC = () => {
                         />
                         <div style={{ maxHeight: "180px", overflowY: "auto" }}>
                           {isCustomersLoading ? (
-                            <div className="text-center py-2"><Spinner size="sm" color="primary" /></div>
+                            <div className="text-center py-2">
+                              <Spinner size="sm" color="primary" />
+                            </div>
                           ) : (
                             filteredCustomers.map((cust: any) => {
                               const custId = String(cust.id ?? cust.customerId);
@@ -697,9 +847,12 @@ export const PointOfSale: React.FC = () => {
                                     setIsCustomerDropdownOpen(false);
                                   }}
                                 >
-                                  <span className="fw-medium text-dark d-block">{cust.customerName ?? cust.name}</span>
+                                  <span className="fw-medium text-dark d-block">
+                                    {cust.customerName ?? cust.name}
+                                  </span>
                                   <span className="text-muted fs-11">
-                                    {saleMode === "CREDIT" ? `Limit: ${formatCurrency(cust.creditLimit ?? 0)}` : (cust.phone ?? cust.phoneNumber)}
+                                    {cust.phone ?? cust.phoneNumber} · Limit:{" "}
+                                    {formatCurrency(cust.creditLimit ?? 0)}
                                   </span>
                                 </div>
                               );
@@ -709,22 +862,29 @@ export const PointOfSale: React.FC = () => {
                       </DropdownMenu>
                     </Dropdown>
 
-                    {/* Credit Limit Badge (Only visible in Credit Mode) */}
-                    {saleMode === "CREDIT" && selectedCustomer && (
+                    {/* Always show Price Code + Credit Limit */}
+                    {selectedCustomer && (
                       <div className="mt-2 p-2 bg-light rounded border border-light-subtle fs-11 d-flex justify-content-between align-items-center">
                         <div>
-                          <span className="text-muted d-block">Credit Limit:</span>
-                          <span className="fw-bold text-dark">{formatCurrency(customerCreditLimit)}</span>
+                          <span className="text-muted d-block">Credit Limit</span>
+                          <span className="fw-bold text-dark">
+                            {formatCurrency(customerCreditLimit)}
+                          </span>
                         </div>
                         <div className="text-end">
-                          <span className="text-muted d-block">Price Code:</span>
-                          <span className="fw-semibold text-primary">{activePriceCode || "Default"}</span>
+                          <span className="text-muted d-block">Price Code</span>
+                          <span className="fw-semibold text-primary">
+                            {activePriceCode || "Default"}
+                          </span>
                         </div>
                       </div>
                     )}
                   </CardHeader>
 
-                  <CardBody className="p-2 overflow-y-auto flex-grow-1" style={{ minHeight: 0 }}>
+                  <CardBody
+                    className="p-2 overflow-y-auto flex-grow-1"
+                    style={{ minHeight: 0 }}
+                  >
                     {cart.length === 0 ? (
                       <div className="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
                         <i className="ri-shopping-cart-2-line display-6 text-muted mb-1"></i>
@@ -732,23 +892,53 @@ export const PointOfSale: React.FC = () => {
                       </div>
                     ) : (
                       cart.map((line) => (
-                        <div key={line.itemId} className="p-2 mb-2 bg-light rounded border border-light-subtle position-relative">
+                        <div
+                          key={line.itemId}
+                          className="p-2 mb-2 bg-light rounded border border-light-subtle position-relative"
+                        >
                           <div className="d-flex align-items-center justify-content-between mb-1">
                             <div className="flex-grow-1 pe-2" style={{ minWidth: 0 }}>
-                              <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">{line.description}</h6>
-                              <span className="fs-11 text-muted">{formatCurrency(line.unitPrice)} / {line.uomCode}</span>
+                              <h6 className="fs-12 fw-semibold text-dark mb-0 text-truncate">
+                                {line.description}
+                              </h6>
+                              <span className="fs-11 text-muted">
+                                {formatCurrency(line.unitPrice)} / {line.uomCode}
+                              </span>
                             </div>
                             <div className="d-flex align-items-center gap-2">
                               <div className="d-flex align-items-center bg-white rounded border border-light-subtle p-1 shadow-none">
-                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5" onClick={() => handleQuantityOrPriceChange(line.itemId, "quantity", line.quantity - 1)}>
+                                <span
+                                  className="d-flex align-items-center justify-content-center rounded cursor-pointer text-muted px-1.5"
+                                  onClick={() =>
+                                    handleQuantityOrPriceChange(
+                                      line.itemId,
+                                      "quantity",
+                                      line.quantity - 1
+                                    )
+                                  }
+                                >
                                   <i className="ri-subtract-line fs-11"></i>
                                 </span>
-                                <span className="fs-12 fw-semibold px-2 text-dark">{line.quantity}</span>
-                                <span className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5" onClick={() => handleQuantityOrPriceChange(line.itemId, "quantity", line.quantity + 1)}>
+                                <span className="fs-12 fw-semibold px-2 text-dark">
+                                  {line.quantity}
+                                </span>
+                                <span
+                                  className="d-flex align-items-center justify-content-center rounded cursor-pointer text-primary px-1.5"
+                                  onClick={() =>
+                                    handleQuantityOrPriceChange(
+                                      line.itemId,
+                                      "quantity",
+                                      line.quantity + 1
+                                    )
+                                  }
+                                >
                                   <i className="ri-add-line fs-11"></i>
                                 </span>
                               </div>
-                              <span className="fs-12 fw-semibold text-dark font-monospace text-end" style={{ width: "70px" }}>
+                              <span
+                                className="fs-12 fw-semibold text-dark font-monospace text-end"
+                                style={{ width: "70px" }}
+                              >
                                 {formatCurrency(line.lineTotal)}
                               </span>
                               <i
@@ -763,8 +953,39 @@ export const PointOfSale: React.FC = () => {
                     )}
                   </CardBody>
 
+                  {/* Footer – Mode + Payment + Totals + Submit */}
                   <div className="p-3 bg-white border-top border-light-subtle flex-shrink-0">
-                    {/* Payment methods section ONLY shown in CASH mode */}
+                    {/* Sale Mode selector (next to payment methods) */}
+                    <div className="d-flex gap-2 mb-2">
+                      <div
+                        className="flex-grow-1 text-center py-1.5 rounded cursor-pointer border fw-semibold fs-11 transition-all"
+                        onClick={() => setSaleMode("CASH")}
+                        style={{
+                          backgroundColor:
+                            saleMode === "CASH" ? BRAND_PURPLE : "#fff",
+                          color: saleMode === "CASH" ? "#fff" : "#495057",
+                          borderColor:
+                            saleMode === "CASH" ? BRAND_PURPLE : "#dee2e6",
+                        }}
+                      >
+                        Cash Sale
+                      </div>
+                      <div
+                        className="flex-grow-1 text-center py-1.5 rounded cursor-pointer border fw-semibold fs-11 transition-all"
+                        onClick={() => setSaleMode("CREDIT")}
+                        style={{
+                          backgroundColor:
+                            saleMode === "CREDIT" ? BRAND_PURPLE : "#fff",
+                          color: saleMode === "CREDIT" ? "#fff" : "#495057",
+                          borderColor:
+                            saleMode === "CREDIT" ? BRAND_PURPLE : "#dee2e6",
+                        }}
+                      >
+                        Credit Sale
+                      </div>
+                    </div>
+
+                    {/* Payment methods – only for Cash mode */}
                     {saleMode === "CASH" && (
                       <>
                         <div className="d-flex gap-2 mb-2">
@@ -774,9 +995,18 @@ export const PointOfSale: React.FC = () => {
                               className="flex-grow-1 text-center py-1 rounded cursor-pointer border fw-medium fs-11 transition-all"
                               onClick={() => setPaymentMethod(pm.id)}
                               style={{
-                                backgroundColor: paymentMethod === pm.id ? BRAND_PURPLE_SUBTLE : "#fff",
-                                color: paymentMethod === pm.id ? BRAND_PURPLE : "#6c757d",
-                                borderColor: paymentMethod === pm.id ? BRAND_PURPLE : "#dee2e6",
+                                backgroundColor:
+                                  paymentMethod === pm.id
+                                    ? BRAND_PURPLE_SUBTLE
+                                    : "#fff",
+                                color:
+                                  paymentMethod === pm.id
+                                    ? BRAND_PURPLE
+                                    : "#6c757d",
+                                borderColor:
+                                  paymentMethod === pm.id
+                                    ? BRAND_PURPLE
+                                    : "#dee2e6",
                               }}
                             >
                               {pm.label}
@@ -787,8 +1017,14 @@ export const PointOfSale: React.FC = () => {
                         {paymentMethod === "CASH" && (
                           <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
                             <div className="d-flex justify-content-between align-items-center mb-1">
-                              <span className="fs-11 fw-medium text-muted">Amount Tendered</span>
-                              {isInsufficientCash && <span className="fs-11 text-danger fw-medium">Insufficient</span>}
+                              <span className="fs-11 fw-medium text-muted">
+                                Amount Tendered
+                              </span>
+                              {isInsufficientCash && (
+                                <span className="fs-11 text-danger fw-medium">
+                                  Insufficient
+                                </span>
+                              )}
                             </div>
                             <Input
                               type="number"
@@ -805,37 +1041,50 @@ export const PointOfSale: React.FC = () => {
                           <div className="mb-2 p-2 bg-light border border-light-subtle rounded">
                             <div className="d-flex justify-content-between align-items-center mb-1">
                               <span className="fs-11 fw-medium text-muted">
-                                {paymentMethod === "MOBILE" ? "M-Pesa / Mobile Ref Code" : "Card Reference Code"}
+                                {paymentMethod === "MOBILE"
+                                  ? "M-Pesa / Mobile Ref Code"
+                                  : "Card Reference Code"}
                               </span>
                             </div>
                             <Input
                               type="text"
-                              placeholder={paymentMethod === "MOBILE" ? "e.g. QHX123456" : "e.g. CARD-REF-1001"}
+                              placeholder={
+                                paymentMethod === "MOBILE"
+                                  ? "e.g. QHX123456"
+                                  : "e.g. CARD-REF-1001"
+                              }
                               bsSize="sm"
                               className="form-control form-control-sm bg-white border-light-subtle fs-12 fw-bold shadow-none"
                               value={paymentReference}
-                              onChange={(e) => setPaymentReference(e.target.value)}
+                              onChange={(e) =>
+                                setPaymentReference(e.target.value)
+                              }
                             />
                           </div>
                         )}
                       </>
                     )}
 
-                    {/* Credit Limit Alert Banner (Only visible in Credit Mode) */}
+                    {/* Credit Limit Alert */}
                     {saleMode === "CREDIT" && isExceedingCreditLimit && (
                       <Alert color="danger" className="py-1 px-2 mb-2 fs-11">
-                        <i className="ri-error-warning-line me-1"></i> Sale exceeds customer's credit limit!
+                        <i className="ri-error-warning-line me-1"></i>
+                        Sale exceeds customer's credit limit!
                       </Alert>
                     )}
 
                     <div className="d-flex justify-content-between align-items-end mb-2 px-1">
                       <div>
-                        {saleMode === "CASH" && paymentMethod === "CASH" && tenderedValue > 0 && (
-                          <div className="mb-0">
-                            <span className="fs-11 text-muted me-1">Change:</span>
-                            <span className="fs-12 fw-bold text-success font-monospace">{formatCurrency(changeAmount)}</span>
-                          </div>
-                        )}
+                        {saleMode === "CASH" &&
+                          paymentMethod === "CASH" &&
+                          tenderedValue > 0 && (
+                            <div className="mb-0">
+                              <span className="fs-11 text-muted me-1">Change:</span>
+                              <span className="fs-12 fw-bold text-success font-monospace">
+                                {formatCurrency(changeAmount)}
+                              </span>
+                            </div>
+                          )}
                         <span className="fs-12 fw-semibold text-muted">Total</span>
                       </div>
                       <h4 className="mb-0 fw-bold text-dark fs-18 font-monospace">
@@ -847,12 +1096,39 @@ export const PointOfSale: React.FC = () => {
                       type="submit"
                       className="w-100 border-0 rounded py-2 shadow-sm d-flex justify-content-between align-items-center px-3"
                       style={{
-                        backgroundColor: (isPosting || isPrinting || cart.length === 0 || (saleMode === "CASH" && (isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()))) || (saleMode === "CREDIT" && isExceedingCreditLimit)) ? "#a3b4cc" : BRAND_PURPLE,
+                        backgroundColor:
+                          isPosting ||
+                          isPrinting ||
+                          cart.length === 0 ||
+                          (saleMode === "CASH" &&
+                            (isInsufficientCash ||
+                              ((paymentMethod === "MOBILE" ||
+                                paymentMethod === "CARD") &&
+                                !paymentReference.trim()))) ||
+                          (saleMode === "CREDIT" && isExceedingCreditLimit)
+                            ? "#a3b4cc"
+                            : BRAND_PURPLE,
                       }}
-                      disabled={isPosting || isPrinting || cart.length === 0 || (saleMode === "CASH" && (isInsufficientCash || ((paymentMethod === "MOBILE" || paymentMethod === "CARD") && !paymentReference.trim()))) || (saleMode === "CREDIT" && isExceedingCreditLimit)}
+                      disabled={
+                        isPosting ||
+                        isPrinting ||
+                        cart.length === 0 ||
+                        (saleMode === "CASH" &&
+                          (isInsufficientCash ||
+                            ((paymentMethod === "MOBILE" ||
+                              paymentMethod === "CARD") &&
+                              !paymentReference.trim()))) ||
+                        (saleMode === "CREDIT" && isExceedingCreditLimit)
+                      }
                     >
                       <span className="fs-13 fw-semibold text-white">
-                        {isPosting ? "Posting Order..." : isPrinting ? "Printing..." : saleMode === "CASH" ? "Charge & Print" : "Process Credit Sale"}
+                        {isPosting
+                          ? "Posting Order..."
+                          : isPrinting
+                          ? "Printing..."
+                          : saleMode === "CASH"
+                          ? "Charge & Print"
+                          : "Process Credit Sale"}
                       </span>
                       {!(isPosting || isPrinting) && (
                         <i className="ri-printer-line fs-16 text-white opacity-75"></i>

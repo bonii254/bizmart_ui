@@ -203,7 +203,6 @@ const NewStockTake: React.FC = () => {
       await createStockTakeRecord(payload);
       navigate("/inventory/stock-take");
     } catch (err) {
-      // Handled by notification handler in hook
     }
   };
 

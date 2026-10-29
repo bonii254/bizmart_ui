@@ -18,7 +18,7 @@ import {
 } from "reactstrap";
 import dayjs from "dayjs";
 
-import { useStockTakeBrowse } from "../../Components/Hooks/useReport2"; // Adjust path as needed
+import { useStockTakeBrowse } from "../../Components/Hooks/useReport2";
 import { useStockTake } from "../../Components/Hooks/useStocktake";
 import { useWarehouses } from "../../Components/Hooks/useWarehouse";
 import { StockTakeTransaction, StockTakeBrowseQueryParams } from "../../types/reports2";
