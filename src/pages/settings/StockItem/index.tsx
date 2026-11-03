@@ -196,18 +196,21 @@ const StockItemManagement: React.FC = () => {
         };
 
         if (isEditMode && currentStockItemId) {
-          const patchedData: UpdateStockItemRequest = {};
+          const patchedData: UpdateStockItemRequest = {
+            itemCode: payload.itemCode, // Ensure itemCode is always sent to the backend
+          };
+          
           (Object.keys(payload) as Array<keyof StockItemPayload>).forEach((key) => {
-            if (payload[key] !== formik.initialValues[key]) {
+            if (key !== "itemCode" && payload[key] !== formik.initialValues[key]) {
               patchedData[key] = payload[key] as any;
             }
           });
 
           const changedKeys = Object.keys(patchedData) as Array<keyof UpdateStockItemRequest>;
 
-          // Check if ONLY sellingPrice was modified
+          // Check if ONLY sellingPrice was modified alongside itemCode
           const isOnlySellingPriceChanged =
-            changedKeys.length === 1 && changedKeys[0] === "sellingPrice";
+            changedKeys.length === 2 && changedKeys.includes("sellingPrice") && changedKeys.includes("itemCode");
 
           if (isOnlySellingPriceChanged) {
             // Invokes patchPriceCode from useStockItemMutation
